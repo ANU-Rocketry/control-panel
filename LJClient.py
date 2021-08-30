@@ -1,4 +1,4 @@
-from LJCommands import Command, CommandString
+from lib.LJCommands import Command, CommandString
 import asyncio
 from enum import Enum
 from struct import pack

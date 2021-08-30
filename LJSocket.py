@@ -1,8 +1,8 @@
 import asyncio
 from collections import deque
-from LJCommands import *
+from lib.LJCommands import *
 # Importing from fake labjack so we can test the software
-from LabJackFake import LabJack
+from lib.LabJackFake import LabJack
 from struct import *
 import json
 import sys
