@@ -16,8 +16,8 @@ The data in a valid TCP request is JSON following the schema:
 
 ```json
 {
-"command":Command as a string,
-"time": Seconds since EPOC
+"command":"['HEADER', PARAMETER]",
+"time": 123456789.123 "time in seconds since EPOC"
 }
 ```
 
@@ -35,7 +35,7 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 | GETANALOGSTATES | [labjack_name, [pin1, pin2, ...]] | ['GETANALOGSTATES', [7, 9]] |
 | BEGINSEQUENCE | None | 'BEGINSEQUENCE' |
 | ABORTSEQUENCE | None | 'ABORTSEQUENCE' |
-| SETSEQUENCE | [command1, command2, ...] | \[['OPEN', ['eth', 13]], ['SLEEP', 1300]] |
+| SETSEQUENCE | [command1, command2, ...] | \['SETSEQUENCE', [['OPEN', ['eth', 13]], ['SLEEP', 1300]]] |
 
 A sequence is a list of multiple commands. These commands can only consist of `OPEN`, `CLOSE` and `SLEEP` commands.
 
