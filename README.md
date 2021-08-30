@@ -12,14 +12,22 @@ This TCP request is structured as follows:
 
 ## JSON
 
-The data in a valid TCP request is JSON following the schema:
-
+The data in a valid TCP request (from client to server) is JSON following the schema:
 ```json
 {
 "command":"['HEADER', PARAMETER]",
 "time": 123456789.123 "time in seconds since EPOC"
 }
 ```
+
+The data in a valid TCP response (from server to client) is JSON following the schema:
+```json
+{
+"response":"Error ___ || Success ____",
+"time": 123456789.123 "time in seconds since EPOC"
+}
+```
+
 
 ## Command
 
