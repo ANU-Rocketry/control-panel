@@ -1,7 +1,6 @@
 import json
 import csv
 from enum import Enum
-from typing import Sequence
 import ast
 
 
