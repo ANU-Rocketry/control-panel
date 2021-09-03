@@ -1,9 +1,12 @@
 from asyncio.tasks import wait
 import websockets
 import asyncio
+import time
+import json
 from lib.LJCommands import *
 # Importing from fake labjack so we can test the software
 from lib.LabJackFake import LabJack
+
 
 class LJSocketWebSockets:
 
@@ -11,7 +14,12 @@ class LJSocketWebSockets:
         self.labjacks = kwargs
         self.ip = ip
         self.port = port
-    
+        self.state = {
+            'arming_switch': False,
+            'digital_pins': {},
+            'analog_pins': {}
+        }
+
     async def event_handler(self, websocket, path):
         consumer_task = asyncio.ensure_future(
             self.consumer_handler(websocket, path))
@@ -39,17 +47,28 @@ class LJSocketWebSockets:
         asyncio.get_event_loop().run_forever()
 
     async def producer(self):
-        await asyncio.sleep(5)
-        return "hey"
+        await asyncio.sleep(1/20)
+        return json.dumps({
+            'state': self.state,
+            'time': time.time()
+        })
 
-    async def consumer(self,message):
-        print (message)
-        
+    def execute(self, command: Command):
+        if command.header == CommandString.ARMINGSWITCH:
+            self.state['arming_switch'] = not self.state['arming_switch']
+            print(self.state['arming_switch'])
+        else:
+            print(command)
+
+    async def consumer(self, data):
+        jData = json.loads(data)
+        recieved_command = Command(CommandString(
+            jData['header']), parameter=jData['parameter'])
+        self.execute(recieved_command)
+
 
 if __name__ == '__main__':
     ip = "127.0.0.1"
     port = 8888
     socket = LJSocketWebSockets(ip, port, lox=LabJack(1), eth=LabJack(2))
     socket.start_server()
-    
-    
