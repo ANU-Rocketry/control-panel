@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-# WS client example
-
 import asyncio
 import websockets
 import json

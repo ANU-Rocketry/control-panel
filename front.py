@@ -39,6 +39,9 @@ armingLbl = Label(master=armingFrm,
                   fg="red",
                   font=("Helvetica", 16))
 
+pingLbl = Label(master=armingFrm,
+    text = )
+
 armingLbl.pack()
 
 
@@ -225,7 +228,7 @@ async def updateGUI():
         window.update()
         await asyncio.sleep(1/60)
 
-appLoop.create_task(updateGUI())
+appLoop.create_Ttask(updateGUI())
 window.update_idletasks()
 window.update()
 appLoop.run_forever()
