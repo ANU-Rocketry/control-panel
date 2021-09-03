@@ -4,16 +4,35 @@
 
 import asyncio
 import websockets
+from lib.LJCommands import *
+# Importing from fake labjack so we can test the software
+from lib.LabJackFake import LabJack
 
-async def hello():
-    uri = "ws://127.0.0.1:8888"
-    async with websockets.connect(uri) as websocket:
-        name = input("What's your name? ")
+class LJClientWebSockets:
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
 
-        await websocket.send(name)
-        print(f"> {name}")
-        
-        greeting = await websocket.recv()
-        print(f"< {greeting}")
+    async def send(self, message):
+        await self.websocket.send(message)
 
-asyncio.get_event_loop().run_until_complete(hello())
+    async def listen(self):
+        while True:
+            print( await self.websocket.recv())
+
+    async def connect(self):
+        uri = "ws://" + self.host + ":" + str(self.port)
+        self.websocket = await websockets.connect(uri)
+
+    def start_client(self):
+        asyncio.get_event_loop().run_until_complete(self.connect())
+        tasks = [
+            asyncio.ensure_future(self.listen()),
+        ]
+        asyncio.get_event_loop().run_until_complete(asyncio.wait(tasks))
+
+if __name__ == '__main__':
+    ip = "127.0.0.1"
+    port = 8888
+    socket = LJClientWebSockets(ip, port)
+    socket.start_client()
