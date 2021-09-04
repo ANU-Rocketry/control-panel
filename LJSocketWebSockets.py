@@ -72,8 +72,10 @@ class LJSocketWebSockets:
                         "PONG": jData["time"]
                     }
                 ))
+                print("PING")
             elif jData["command"]["header"] == CommandString.ARMINGSWITCH.value:
                 self.execute(Command(CommandString.ARMINGSWITCH))
+                print("ARMINGSWITCH")
 
 
 if __name__ == '__main__':
