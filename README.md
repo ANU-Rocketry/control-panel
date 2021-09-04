@@ -89,6 +89,12 @@ A sequence is a list of multiple commands. These commands can only consist of `O
 
 These commands can be represented and authorised by the `LJCommands.py/Command` object. They can also be represented as strings in the JSON TCP requests.
 
+# Error Handling
+
+Errors are categorised according to their importance by a system of numbering:
+  - 1000-level digits are overall importance
+  - 100-level digits partition errors accoridng to subtype
+
 ### Command Errors
 
 | error code | description |
