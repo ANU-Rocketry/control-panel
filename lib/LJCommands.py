@@ -23,7 +23,6 @@ class CommandString(str, Enum):
     ARMINGSWITCH = 'ARMINGSWITCH',
     MANUALSWITCH = 'MANUALSWITCH',
     DATALOG = "DATALOG",
-    PING = 'PING'
 
 """
 Paras: take in a command string and a data value is the JSON
@@ -120,11 +119,28 @@ class Command():
                 raise Exception(
                     f"#2204 SLEEP command does not have an integer")
 
-        elif self.header == CommandString.ARMINGSWITCH or self.header == CommandString.MANUALSWITCH:
+        elif self.header in [CommandString.ARMINGSWITCH, CommandString.MANUALSWITCH, CommandString.DATALOG]:
             if not (type(self.parameter) == bool):
                 print(self.parameter)
                 raise Exception(
                     f"#2205 switch {self.header} is not of bool type")
+
+        elif self.header in [CommandString.BEGINSEQUENCE, CommandString.ABORTSEQUENCE]:
+            if self.parameter is not None:
+                print(self.parameter)
+                raise Exception(f"#2206 begin/end sequence takes no parameters")
+
+        elif self.header == CommandString.SETSEQUENCE:
+            if type(self.parameter) != list:
+                print(self.parameter)
+                raise Exception(f"#2207 sequence is not a valid list of command JSON's or Command objects")
+            for i, commandlike in enumerate(self.parameter):
+                # if the JSON/dict is invalid we'll get an exception
+                if type(commandlike) == str:
+                    commandlike = json.loads(commandlike)
+                if type(commandlike) == dict:
+                    commandlike = Command(header=CommandString[commandlike['header']], parameter=commandlike[''])
+                self.parameter[i] = commandlike
 
     # Converts a command to a string that is parsable by LJSocket and for readability
     def __str__(self) -> str:

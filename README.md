@@ -85,8 +85,6 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 | MANUALSWITCH | on_bool |
 | DATALOG | on_bool |
 | SETSEQUENCE | [command1, command2, ...] |
-| DATALOG | on_bool |
-| PING | (parameter is unimportant) |
 
 A sequence is a list of multiple commands. These commands can only consist of `OPEN`, `CLOSE` and `SLEEP` commands.
 
@@ -96,7 +94,7 @@ These commands can be represented and authorised by the `LJCommands.py/Command` 
 
 Errors are categorised according to their importance by a system of numbering:
   - 1000-level digits are overall importance
-  - 100-level digits partition errors accoridng to subtype
+  - 100-level digits partition errors according to subtype
 
 ### Command Errors
 
@@ -113,6 +111,8 @@ Errors are categorised according to their importance by a system of numbering:
 | 2203 | Pin is not an allowed numnber in digital or analog state read |
 | 2204 | SLEEP is not of integer type |
 | 2205 | ARMINGSWITCH or MANUALSWITCH is not of bool type |
+| 2206 | Begin/end sequence takes no parameters |
+| 2207 | Invalid sequence (not a list of JSON strings, dictionaries or Command objects) |
 
 # Project Overview
 
