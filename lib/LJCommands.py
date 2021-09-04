@@ -4,6 +4,7 @@ from enum import Enum
 import ast
 import time
 
+# Could be wrong
 ALLOWED_CHANNEL_NUMS = [14,12,10,8,19,17,16,18,9,11,13,15]
 
 class CommandString(str, Enum):
@@ -54,10 +55,6 @@ class Command():
 
         if (not csv_file and not parameter):
             raise Exception("#2002 parameter and csv file is not provided")
-        
-        if (not csv_file and parameter):
-            if not (type(parameter) == dict):
-                raise Exception("#2003 parameter is not a dictionary")
 
         # If a csv is provided and no parameter create from csv
         if csv_file and not parameter:
@@ -70,13 +67,13 @@ class Command():
             with open(csv_file, 'r') as in_file:
                 data = csv.reader(in_file, delimiter=',')
                 for line in data:
-                    param_dict = {}
                     if not (line[0] == CommandString.OPEN 
                             or line[0] == CommandString.CLOSE
                             or line[0] == CommandString.SLEEP):
                         raise Exception(f"#2102 invalid first column command for sequence '{line[0]}'")
                     
                     if line[0] != CommandString.SLEEP:
+                        param_dict = {}
                         if not (type(line[1]) == StandString):
                             raise Exception(f"#2103 invalid second column command for sequence '{line[1]}'")
                         
@@ -85,14 +82,15 @@ class Command():
 
                         param_dict["name"] = line[1]
                         param_dict["pin"] = line[2]
+                        commands.append(
+                            Command(CommandString(line[0]), parameter=param_dict))
                     else:
                         if not (type(line[1]) == int):
                             raise Exception(f"#2105 sleep duration is not an integer '{line[1]}'")
+                        param = line[1]
+                        commands.append(
+                            Command(CommandString(line[0]), parameter=param))
 
-                        param_dict["miliseconds"] = line[1]
-
-                    commands.append(
-                        Command(CommandString(line[0]), parameter=param_dict))
                 self.parameter = commands
             
         # Checks that parameter types are valid
@@ -113,8 +111,12 @@ class Command():
                     raise Exception(f"#2203 pin '{pin}' is not an allowed pin numnber in digital or analog state read")
 
         elif self.header == CommandString.SLEEP:
-            if not type(self.parameter["milisecond"]) == int:
+            if not type(self.parameter) == int:
                 raise Exception(f"#2204 SLEEP command does not have an integer")
+        
+        elif self.header == CommandString.ARMINGSWITCH or self.header  == CommandString.MANUALSWITCH:
+            if not (type(self.parameter) == bool):
+                raise Exception(f"#2205 switch {self.header} is not of bool type")
 
     # Converts a command to a string that is parsable by LJSocket and for readability
     def __str__(self) -> str:
@@ -122,9 +124,6 @@ class Command():
 
     def toDict(self) -> dict:
         return {
-            "command": {
-                "header": self.header,
-                "data": self.parameter
-            },
-            "time": round(time.time()*1000)
+            "header": self.header,
+            "data": self.parameter
         }
