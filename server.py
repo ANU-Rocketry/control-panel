@@ -182,6 +182,8 @@ class LJWebSocketsServer:
 
     def LJ_execute(self, command: Command):
         print(command.header, command.parameter)
+        if type(command) == dict:
+            command = Command(command['header'], parameter=command['data'])
         # TODO: arming switch shouldn't be a toggle, it should take a bool
         if command.header == CommandString.OPEN:
             LJ = command.parameter["name"]
@@ -196,7 +198,7 @@ class LJWebSocketsServer:
             print("aborted")
         else:
             raise Exception(
-                "#3104 execute() function was sent unknown command string: " + str(command))
+                "#3104 execute() function was sent unknown command string: " + json.dumps(command.toDict()))
 
     async def execute_sequence(self):
         if self.state["sequence_running"]:
@@ -204,7 +206,6 @@ class LJWebSocketsServer:
 
         self.state["sequence_running"] = True
 
-        # not sure if this async stuff works... like will it run the whole thing in a loop? What about the sleeps
         while len(self.state["current_sequence"]) != 0 and self.state["sequence_running"]:
             command = self.state["current_sequence"].pop(0)
             if command.header == CommandString.SLEEP:
