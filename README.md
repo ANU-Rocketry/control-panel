@@ -75,12 +75,14 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 | header | parameter |
 | - | - |
 | OPEN | {"name":labjack_name, "pin":pin} |
-| CLOSE | [labjack_name, pin] |
-| SLEEP | milliseconds |
-| GETDIGITALSTATES | [labjack_name, [pin1, pin2, ...]] |
-| GETANALOGSTATES | [labjack_name, [pin1, pin2, ...]] |
-| BEGINSEQUENCE | None |
-| ABORTSEQUENCE | None |
+| CLOSE | {"name":labjack_name, "pin":pin} |
+| SLEEP | {"milliseconds": time in ms} |
+| GETDIGITALSTATES | {"name":labjack_name, "pins":[pin1, pin2, ...]} |
+| GETANALOGSTATES | {"name":labjack_name, "pins":[pin1, pin2, ...]}|
+| BEGINSEQUENCE | (parameter is unimportant) |
+| ABORTSEQUENCE | (parameter is unimportant) |
+| ARMINGSWITCH | on_bool |
+| MANUALSWITCH | on_bool |
 | SETSEQUENCE | [command1, command2, ...] |
 
 A sequence is a list of multiple commands. These commands can only consist of `OPEN`, `CLOSE` and `SLEEP` commands.
