@@ -1,6 +1,7 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { FormHelperText, List, ListItem, Paper } from '@material-ui/core';
+import { SectionTitle } from '..';
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -22,9 +23,7 @@ export default function SequencePanel() {
 
   return (
     <Paper className={classes.root}>
-        <Paper className={classes.tittleBar}>
-            Sequence
-        </Paper>
+        <SectionTitle>Sequences</SectionTitle>
         <div className={classes.box}>   
             <List>
                 <ListItem>

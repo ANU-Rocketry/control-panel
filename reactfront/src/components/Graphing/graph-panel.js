@@ -1,6 +1,7 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { FormHelperText, List, ListItem, Paper } from '@material-ui/core';
+import { SectionTitle } from '..';
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -11,9 +12,6 @@ const useStyles = makeStyles((theme) => ({
   },
   box: {
     display: "flex",
-  },
-  titleBar: {
-    width: "100%",
   }
 }));
 
@@ -22,9 +20,7 @@ export default function GraphPanel() {
 
   return (
     <Paper className={classes.root}>
-        <Paper className={classes.tittleBar}>
-            Graphs
-        </Paper>
+        <SectionTitle>Graphs</SectionTitle>
     </Paper>
   );
 }

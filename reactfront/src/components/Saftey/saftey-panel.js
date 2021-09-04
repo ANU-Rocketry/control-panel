@@ -2,6 +2,7 @@ import React from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import SafteyCard from './saftey-card';
 import { FormHelperText, Paper } from '@material-ui/core';
+import { SectionTitle } from '..';
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -23,9 +24,7 @@ export default function SafteyPanel() {
 
   return (
     <Paper className={classes.root}>
-        <Paper className={classes.tittleBar}>
-            Saftey
-        </Paper>
+        <SectionTitle>Saftey</SectionTitle>
         <div className={classes.box}>   
             <SafteyCard/>
             <SafteyCard/>
