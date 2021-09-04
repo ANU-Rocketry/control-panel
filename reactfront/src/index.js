@@ -43,10 +43,13 @@ class App extends React.Component {
       }
     }
   }
-  emit(header, parameter = null) {
+  emit(commandHeader, parameter = null) {
     if (this.socket.readyState !== WebSocket.OPEN) return;
     this.socket.send(JSON.stringify({
-      command: { header, parameter },
+      command: {
+        header: commandHeader,
+        data: parameter
+      },
       time: new Date().getTime()
     }));
   }
@@ -54,7 +57,7 @@ class App extends React.Component {
   render() {
     return (
       <div>
-        <TopBar/>
+        <TopBar />
         <div class='panels-root'>
           <div className='panel-row-1'>
             <SafetyPanel state={this.state} emit={this.emit} />

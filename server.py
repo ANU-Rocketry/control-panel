@@ -76,14 +76,14 @@ class LJWebSocketsServer:
             data = json.loads(message)
             if 'command' in data.keys():
                 await self.handle_command(ws, data['command']['header'],
-                                          data['command'].get('parameter', None), data['time'])
+                                          data['command'].get('data', None), data['time'])
 
     """
     Implementing logic for command executions...
     """
     async def handle_command(self, ws, header, data, time):
         if header != CommandString.PING.value:
-            print(header)
+            print(header, data)
 
         if header == CommandString.PING.value:
             await self.emit(ws, 'PING', time)
@@ -92,6 +92,11 @@ class LJWebSocketsServer:
         elif header == CommandString.OPEN.value:
             self.execute(Command(
                 CommandString.OPEN,
+                parameter=data
+            ))
+        elif header == CommandString.CLOSE.value:
+            self.execute(Command(
+                CommandString.CLOSE,
                 parameter=data
             ))
 
@@ -115,7 +120,10 @@ class LJWebSocketsServer:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
             self.labjacks[LJ].open_relay(pin)
-            print(LJ, pin)
+        elif command.header == CommandString.CLOSE:
+            LJ = command.parameter["name"]
+            pin = command.parameter["pin"]
+            self.labjacks[LJ].close_relay(pin)
         else:
             print(command)
 
