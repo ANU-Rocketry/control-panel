@@ -6,7 +6,7 @@ import Typography from '@material-ui/core/Typography';
 
 function SafetyCard(props) {
   var toggle = ""
-  if (props.isButton == "true") {
+  if (props.isButton === "true") {
     toggle = <button onClick={() => props.setSwitchValue("bum")}>ABORT</button>
   } else {
     toggle = <ToggleSwitch value={props.switchValue} setValue={props.setSwitchValue} />
@@ -27,7 +27,6 @@ function SafetyCard(props) {
 }
 
 export default function SafetyPanel({ state, emit }) {
-
   // TODO: backend should have a boolean param for arming switch instead of toggling
   const armingSwitchActive = state.data === null ? false : state.data.arming_switch
   const toggleArmingSwitch = x => emit('ARMINGSWITCH', x)

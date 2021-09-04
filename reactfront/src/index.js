@@ -61,7 +61,7 @@ class App extends React.Component {
     return (
       <div>
         <TopBar />
-        <div class='panels-root'>
+        <div className='panels-root'>
           <div className='panel-row-1'>
             <SafetyPanel state={this.state} emit={this.emit} />
             <Panel title="Sequence" />

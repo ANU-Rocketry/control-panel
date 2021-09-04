@@ -78,19 +78,19 @@ class Command():
                             raise Exception(
                                 f"#2103 invalid second column command for sequence '{line[1]}'")
 
-                        if not (line[2] in ALLOWED_CHANNEL_NUMS):
+                        if not (int(line[2]) in ALLOWED_CHANNEL_NUMS):
                             raise Exception(
                                 f"#2104 with OPEN or CLOSE, PIN is not within allowed channel numbers '{line[2]}'")
 
                         param_dict["name"] = line[1]
-                        param_dict["pin"] = line[2]
+                        param_dict["pin"] = int(line[2])
                         commands.append(
                             Command(CommandString(line[0]), parameter=param_dict))
                     else:
-                        if not (type(line[1]) == int):
+                        if not (type(int(line[1])) == int):
                             raise Exception(
                                 f"#2105 sleep duration is not an integer '{line[1]}'")
-                        param = line[1]
+                        param = int(line[1])
                         commands.append(
                             Command(CommandString(line[0]), parameter=param))
 
