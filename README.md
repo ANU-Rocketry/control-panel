@@ -13,41 +13,87 @@ This TCP request is structured as follows:
 ## JSON
 
 The data in a valid TCP request (from client to server) is JSON following the schema:
+
 ```json
 {
-"command":"['HEADER', PARAMETER]",
-"time": 123456789.123 "time in seconds since EPOC"
+"command":
+  {
+    "header": <Header String>,
+    "data": <Command Parameter>
+  },
+"time": <Time in milliseconds since EPOC>
 }
 ```
+The data in a state 'emit' from the server is JSON following the schema:
 
-The data in a valid TCP response (from server to client) is JSON following the schema:
 ```json
 {
-"response":"Error ___ || Success ____",
-"time": 123456789.123 "time in seconds since EPOC"
+"type": "STATE",
+"data":
+  {
+    "arming_switch" : Bool,
+    "manual_switch" : Bool,
+    "current_sequence" : null or list of commands,
+    "sequence_running": Bool,
+    "lox":
+      {
+        "digital":{
+          Pin(int):Bool
+        },
+        "analog":{
+          Pin(int):Float
+        }
+      },
+     "eth":
+      {
+        "digital":{
+          Pin(int):Bool
+        },
+        "analog":{
+          Pin(int):Float
+        }
+      }
+  },
+"time": <Time in milliseconds since EPOC>
 }
 ```
+The data in an error response follows the following schema:
 
+```json
+{
+"type": "ERROR",
+"data": Error message,
+"time": <Time in milliseconds since EPOC>
+}
+```
 
 ## Command
 
 A command consists of a `header` and a `parameter`. Valid commands can be seen below:
 
 
-| header | parameter | example |
-| - | - | - |
-| OPEN | [labjack_name, pin] | ['OPEN', ['eth', 13]] |
-| CLOSE | [labjack_name, pin] | ['CLOSE', ['eth', 13]] |
-| SLEEP | milliseconds | ['SLEEP', 1300] |
-| GETDIGITALSTATES | [labjack_name, [pin1, pin2, ...]] | ['GETDIGITALSTATES', [1, 3]] |
-| GETANALOGSTATES | [labjack_name, [pin1, pin2, ...]] | ['GETANALOGSTATES', [7, 9]] |
-| BEGINSEQUENCE | None | 'BEGINSEQUENCE' |
-| ABORTSEQUENCE | None | 'ABORTSEQUENCE' |
-| SETSEQUENCE | [command1, command2, ...] | \['SETSEQUENCE', [['OPEN', ['eth', 13]], ['SLEEP', 1300]]] |
+| header | parameter |
+| - | - |
+| OPEN | {"name":labjack_name, "pin":pin} |
+| CLOSE | [labjack_name, pin] |
+| SLEEP | milliseconds |
+| GETDIGITALSTATES | [labjack_name, [pin1, pin2, ...]] |
+| GETANALOGSTATES | [labjack_name, [pin1, pin2, ...]] |
+| BEGINSEQUENCE | None |
+| ABORTSEQUENCE | None |
+| SETSEQUENCE | [command1, command2, ...] |
 
 A sequence is a list of multiple commands. These commands can only consist of `OPEN`, `CLOSE` and `SLEEP` commands.
 
 These commands can be represented and authorised by the `LJCommands.py/Command` object. They can also be represented as strings in the JSON TCP requests.
+
+### Command Errors
+
+| error code | description |
+| - | - |
+| 2001 | command header is not valid |
+| 2002 | parameter and csv file is not provided |
+| 2003 | csv provided and no parameter without SETSEQUENCE header |
 
 # Project Overview
 
