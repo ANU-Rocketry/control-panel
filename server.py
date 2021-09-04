@@ -3,6 +3,7 @@ import websockets
 import asyncio
 import time
 import json
+from datalog import Datalog
 from lib.LJCommands import *
 # Importing from fake labjack so we can test the software
 from lib.LabJackFake import LabJack
@@ -23,11 +24,11 @@ class LJWebSocketsServer:
             "data_logging": False
         }
         self.abort_sequence = None
+        self.datalog = None
 
         with open(config, "r") as in_file:
             data = json.loads(in_file.read())
             self.config = data
-            print(self.config)
             # ADD ABORT SEQUENCE PARSER HERE
 
         self.labjacks = {}
@@ -44,6 +45,7 @@ class LJWebSocketsServer:
 
         self.ip = ip
         self.port = port
+        print(f"Hosting server on {ip}:{port}")
 
     async def event_handler(self, websocket, path):
         """
@@ -64,6 +66,8 @@ class LJWebSocketsServer:
     async def sync_state(self):
         while True:
             await asyncio.sleep(1/STATE_GRAB)
+            if self.state["data_logging"] and self.datalog:
+                self.log_data(self.state, type="STATE")
             for key in self.config:
                 if key == "ABORT_SEQUENCE":
                     continue
@@ -71,8 +75,17 @@ class LJWebSocketsServer:
                     self.config[key]["digital"], self.config[key]["analog"])
                 self.state[key] = pin_data
 
+    def log_data(self, data, type="MISC"):
+        if self.datalog:
+            self.datalog.log_data(data, type)
+        else:
+            raise Exception(
+                "#1001 No datalog object exists and a request has been made to datalog")
+
     async def consumer_handler(self, ws, path):
         async for message in ws:
+            if self.state['data_logging'] and self.datalog:
+                self.log_data(message, type="COMMAND")
             data = json.loads(message)
             if 'command' in data.keys():
                 await self.handle_command(ws, data['command']['header'],
@@ -84,7 +97,6 @@ class LJWebSocketsServer:
     async def handle_command(self, ws, header, data, time):
         if header != CommandString.PING.value:
             print(header, data)
-
         if header == CommandString.PING.value:
             await self.emit(ws, 'PING', time)
         elif header == CommandString.ARMINGSWITCH.value:
