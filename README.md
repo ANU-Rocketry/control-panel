@@ -4,15 +4,11 @@ Full stack suite to allow custom control of LabJacks, over TCP for rocket testin
 
 # Data Schema
 
-Data is transferred between socket and client over TCP.
-
-This TCP request is structured as follows:
-
-`<32 bit integer describing size of data><JSON formated in utf-8>`
+Data is transferred between the server and client over websockets.
 
 ## JSON
 
-The data in a valid TCP request (from client to server) is JSON following the schema:
+The data in a valid request (from client to server) is JSON following the schema:
 
 ```json
 {
