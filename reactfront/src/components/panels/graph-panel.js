@@ -15,20 +15,20 @@ export default function SafetyPanel({ state, emit }) {
   })
   return (
     <Panel title="Graphs">
-      <LineChart
-        width={600}
-        height={400}
-        data={data}
-      >
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="time" />
-        <YAxis />
-        <Legend />
-        <Line type="monotone" dataKey="LOX_N2_Pressure" stroke="#ff0000"></Line>
-        <Line type="monotone" dataKey="LOX_Tank_Pressure" stroke="#000000"></Line>
-        <Line type="monotone" dataKey="ETH_N2_Pressure" stroke="#0099ff"></Line>
-        <Line type="monotone" dataKey="ETH_Tank_Pressure" stroke="#66ff99"></Line>
-      </LineChart>
+      <ResponsiveContainer width="100%" height="90%">
+        <LineChart
+          data={data}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="time" />
+          <YAxis />
+          <Legend />
+          <Line type="monotone" dataKey="LOX_N2_Pressure" stroke="#ff0000"></Line>
+          <Line type="monotone" dataKey="LOX_Tank_Pressure" stroke="#000000"></Line>
+          <Line type="monotone" dataKey="ETH_N2_Pressure" stroke="#0099ff"></Line>
+          <Line type="monotone" dataKey="ETH_Tank_Pressure" stroke="#66ff99"></Line>
+        </LineChart>
+      </ResponsiveContainer>
     </Panel>
   )
 }

@@ -3,7 +3,6 @@ import { Paper, Typography, Toolbar, AppBar } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import { withStyles } from '@material-ui/core/styles';
 import Switch from '@material-ui/core/Switch';
-import Grid from '@material-ui/core/Grid';
 
 export function SectionTitle({ children }) {
     return (
@@ -48,8 +47,8 @@ export function Panel({ children, title }) {
   return (
     <Paper className='panel'>
         <SectionTitle>{title}</SectionTitle>
-        <div>
-            {children}
+        <div style={{width:"100%", height:"100%"}}>
+          {children}
         </div>
     </Paper>
   );
