@@ -91,14 +91,10 @@ export const CustomSwitch = withStyles((theme) => ({
 
 export function ToggleSwitch({ value, setValue }) {
   return (
-    <Typography component="div">
-      <Grid component="label" container alignItems="center" spacing={1}>
-        <Grid item>Off</Grid>
-        <Grid item>
-          <CustomSwitch checked={value} onChange={() => setValue(!value)} />
-        </Grid>
-        <Grid item>On</Grid>
-      </Grid>
-    </Typography>
+    <label className='toggle-switch'>
+      <span className={value ? 'inactive' : 'active'}>Off</span>
+      <CustomSwitch checked={value} onChange={() => setValue(!value)} />
+      <span className={value ? 'active' : 'inactive'}>On</span>
+    </label>
   );
 }
