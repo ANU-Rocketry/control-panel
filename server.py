@@ -31,6 +31,9 @@ class LJWebSocketsServer:
         with open(config, "r") as in_file:
             data = json.loads(in_file.read())
             self.config = data
+            command = Command(CommandString.SETSEQUENCE,
+                              csv_file=self.config["ABORT_SEQUENCE"])
+            self.abort_sequence = command.parameter
 
         self.labjacks = {}
 
