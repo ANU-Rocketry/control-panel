@@ -96,60 +96,52 @@ class LJWebSocketsServer:
     Implementing logic for command executions...
     """
     async def handle_command(self, ws, header, data, time):
-        if not self.state["aborting"]:   
-            if header == CommandString.OPEN:
-                self.execute(
-                    Command(
-                        CommandString.OPEN,
-                        parameter=data
-                    )
+        if self.state["aborting"]: 
+            return
+
+        if header == CommandString.OPEN:
+            self.LJ_execute(
+                Command(
+                    CommandString.OPEN,
+                    parameter=data
                 )
-            elif header == CommandString.CLOSE:
-                self.execute(
-                    Command(
-                        CommandString.OPEN,
-                        parameter=data
-                    )
+            )
+        elif header == CommandString.CLOSE:
+            self.LJ_execute(
+                Command(
+                    CommandString.OPEN,
+                    parameter=data
                 )
-            elif header == CommandString.GETDIGITALSTATES:
-                self.execute(
-                    Command(
-                        CommandString.GETDIGITALSTATES,
-                        parameter=data
-                    )
+            )
+        elif header == CommandString.GETDIGITALSTATES:
+            self.LJ_execute(
+                Command(
+                    CommandString.GETDIGITALSTATES,
+                    parameter=data
                 )
-            elif header == CommandString.GETANALOGSTATES:
-                self.execute(
-                    Command(
-                        CommandString.GETANALOGSTATES,
-                        parameter=data
-                    )
-                )          
-            elif header == CommandString.BEGINSEQUENCE:
-                self.execute_sequence()
-            elif header == CommandString.ABORTSEQUENCE:
-                self.state["aborting"] = True
-                if self.state["sequence_running"]:
-                    self.state["current_sequence"] = self.abort_sequence
-                else:
-                    self.state["current_sequence"] = self.abort_sequence
-                    self.execute_sequence()      
-            elif header == CommandString.ARMINGSWITCH:
-                self.execute(
-                    Command(
-                        CommandString.ARMINGSWITCH,
-                        parameter=data
-                    )
-                )       
-            elif header == CommandString.MANUALSWITCH:
-                self.execute(
-                    Command(
-                        CommandString.MANUALSWITCH,
-                        parameter=data
-                    )
+            )
+        elif header == CommandString.GETANALOGSTATES:
+            self.LJ_execute(
+                Command(
+                    CommandString.GETANALOGSTATES,
+                    parameter=data
                 )
-            elif header == CommandString.SETSEQUENCE:
-                print("needs work")
+            )          
+        elif header == CommandString.BEGINSEQUENCE:
+            self.execute_sequence()
+        elif header == CommandString.ABORTSEQUENCE:
+            self.state["aborting"] = True
+            if self.state["sequence_running"]:
+                self.state["current_sequence"] = self.abort_sequence
+            else:
+                self.state["current_sequence"] = self.abort_sequence
+                self.execute_sequence()      
+        elif header == CommandString.ARMINGSWITCH:
+            self.state["arming_switch"] = data  
+        elif header == CommandString.MANUALSWITCH:
+            self.state["manual_switch"] = data
+        elif header == CommandString.SETSEQUENCE:
+            self.state["current_sequence"] = data
 
     async def producer_handler(self, ws, path):
         while True:
@@ -162,13 +154,9 @@ class LJWebSocketsServer:
         asyncio.get_event_loop().create_task(self.sync_state())
         asyncio.get_event_loop().run_forever()
 
-    def execute(self, command: Command):
+    def LJ_execute(self, command: Command):
         # TODO: arming switch shouldn't be a toggle, it should take a bool
-        print(command)
-        if command.header == CommandString.ARMINGSWITCH:
-            self.state['arming_switch'] = not self.state['arming_switch']
-            print(self.state['arming_switch'])
-        elif command.header == CommandString.OPEN:
+        if command.header == CommandString.OPEN:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
             self.labjacks[LJ].open_relay(pin)
@@ -190,9 +178,9 @@ class LJWebSocketsServer:
             for pin in command.parameter["pins"]:
                 self.state[LJ]["analog"][pin] = True
         elif command.header == CommandString.ARMINGSWITCH:
-            self.state["arming_switch"] = command.parameter
+            raise Exception("Arming switch called in execute()")
         elif command.header == CommandString.MANUALSWITCH:
-            self.state["manual_switch"] = command.parameter
+            raise Exception("Manual switch called in execute()")
         elif command.header == CommandString.BEGINSEQUENCE:
             raise Exception("#3101 BEGINSEQUENCE command within non async execute() function")
         elif command.header == CommandString.ABORTSEQUENCE:
@@ -213,9 +201,9 @@ class LJWebSocketsServer:
         # not sure if this async stuff works... like will it run the whole thing in a loop? What about the sleeps
         while (self.state["sequence_running"]):
             next_command = self.state["current_sequence"].pop(0)
-            self.execute(next_command)
+            self.LJ_execute(next_command)
 
-            # await asyncio.sleep
+            # await asyncio.sleep needs to be implemented
 
     async def emit(self, ws, msg_type, data):
         # if msg_type == "STATE", data is the state, etc.
