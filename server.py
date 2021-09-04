@@ -147,9 +147,9 @@ class LJWebSocketsServer:
         elif command.header == CommandString.ABORTSEQUENCE:
             raise Exception("#3102 ABORTSEQUENCE command within non async execute() function")
         elif command.header == CommandString.SLEEP:
-            raise Exception("#3103 SLEEP command found outside of sequence")
+            raise Exception("#3103 SLEEP command found outside of sequence in particular in execute() function")
         else:
-            print(command)
+            raise Exception("#3104 execute() function was sent unknown command string")
 
     async def execute_sequence(self):
         if self.state["sequence_running"]:
