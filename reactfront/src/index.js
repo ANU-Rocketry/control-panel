@@ -1,10 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
+import Topbar from "./components/top-bar"
+import MainBody from './components/main-body';
 
 const WS_ADDRESS = "ws://localhost:8888";
 
 class App extends React.Component {
+
   constructor(props) {
     super(props);
     this.connect()
@@ -46,7 +49,8 @@ class App extends React.Component {
       time: new Date().getTime()
     }));
   }
-  render() {
+
+  render(){
     const toggleArmingSwitch = () => {
       // TODO: backend should have a boolean param for arming switch instead of
       // a toggle
@@ -61,18 +65,15 @@ class App extends React.Component {
     const armingSwitchActive = this.state.data === null ? false : this.state.data.arming_switch;
     return (
       <div>
-        <header>
-          <p>LabJack example</p>
-        </header>
-        <div>
-          <input type='checkbox' checked={armingSwitchActive} disabled={this.state.data === null} onChange={toggleArmingSwitch} />
-          Arming switch
-        </div>
+        <Topbar/>
+        <MainBody/>
+        <input type='checkbox' checked={armingSwitchActive} disabled={this.state.data === null} onChange={toggleArmingSwitch} />
         <div>Current data: {JSON.stringify(this.state.data)}</div>
         <div>Ping: {this.state.ping}</div>
       </div>
-    );
+    )
   }
+
 }
 
 ReactDOM.render(
