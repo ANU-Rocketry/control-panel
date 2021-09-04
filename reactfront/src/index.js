@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import { TopBar, Panel } from "./components/index"
 import SafetyPanel from './components/panels/safety-panel';
+import GraphPanel from './components/panels/graph-panel'
 
 const WS_ADDRESS = "ws://localhost:8888";
 
@@ -68,7 +69,7 @@ class App extends React.Component {
           </div>
           <div className='panel-row-2'>
             <Panel title="Control" />
-            <Panel title="Graphs" />
+            <GraphPanel state={this.state} emit={this.emit} />
           </div>
         </div>
         <div>Current data: {JSON.stringify(this.state.data)}</div>
