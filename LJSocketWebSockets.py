@@ -1,5 +1,4 @@
 from asyncio.tasks import wait
-from tkinter.constants import COMMAND
 import websockets
 import asyncio
 import time

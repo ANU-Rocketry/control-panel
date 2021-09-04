@@ -3,6 +3,7 @@
 import asyncio
 import websockets
 import json
+import time
 from lib.LJCommands import *
 # Importing from fake labjack so we can test the software
 from lib.LabJackFake import LabJack
@@ -17,7 +18,11 @@ class LJClientWebSockets:
         self.last_update = 0
 
     async def sendCommand(self, command: Command):
-        await self.websocket.send(json.dumps(command.toDict()))
+        data = {
+            "command": command.toDict(),
+            "time": time.time()
+        }
+        await self.websocket.send(json.dumps(data))
 
     async def listen(self):
         while True:
