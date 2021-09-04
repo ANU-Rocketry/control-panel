@@ -87,6 +87,14 @@ A sequence is a list of multiple commands. These commands can only consist of `O
 
 These commands can be represented and authorised by the `LJCommands.py/Command` object. They can also be represented as strings in the JSON TCP requests.
 
+### Command Errors
+
+| error code | description |
+| - | - |
+| 2001 | command header is not valid |
+| 2002 | parameter and csv file is not provided |
+| 2003 | csv provided and no parameter without SETSEQUENCE header |
+
 # Project Overview
 
 The `LabJack.py` file contains a simple library used to communicate with the LabJacks themselves. The `LabJackFake.py` file provides a fake interface such that we can build the rest of the software without the LabJacks.
