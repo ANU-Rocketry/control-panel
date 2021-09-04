@@ -21,15 +21,25 @@ function SafetyCard(props) {
 }
 
 export default function SafetyPanel({ state, emit }) {
+
   // TODO: backend should have a boolean param for arming switch instead of toggling
   const armingSwitchActive = state.data === null ? false : state.data.arming_switch
   const toggleArmingSwitch = x => emit('ARMINGSWITCH', x)
+
+  const lox8Active = state.data === null ? false : state.data["LOX"]["digital"]["8"]
+  const toggleLox8 = x => emit('OPEN', 8)
+
   return (
     <Panel title="Safety">
       <SafetyCard title="Arming Switch"
         label="Switch Controlling The Arming"
         switchValue={armingSwitchActive}
         setSwitchValue={toggleArmingSwitch}/>
+
+      <SafetyCard title="LOX Pin 8"
+        label="Switch pin 8"
+        switchValue={lox8Active}
+        setSwitchValue={toggleLox8}/>
     </Panel>
   )
 }
