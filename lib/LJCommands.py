@@ -25,7 +25,6 @@ class CommandString(str, Enum):
     DATALOG = "DATALOG",
     PING = 'PING'
 
-
 """
 Paras: take in a command string and a data value is the JSON
 """
