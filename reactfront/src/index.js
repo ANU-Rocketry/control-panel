@@ -2,16 +2,26 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 
+const WS_ADDRESS = "ws://3f96-150-203-2-194.ngrok.io:80";
+
 class App extends React.Component {
   constructor(props) {
     super(props);
-    this.socket = new WebSocket("ws://3f96-150-203-2-194.ngrok.io:80")
-    this.socket.onopen = e => console.log('websocket connection established')
+    this.connect()
     this.state = { data: null };
   }
-  componentDidMount() {
+  connect() {
+    this.socket = new WebSocket(WS_ADDRESS)
+    this.socket.onopen = e => console.log('websocket connection established')
+    this.socket.onclose = e => {
+      this.connect()
+    }
     this.socket.onmessage = e => {
       const data = JSON.parse(e.data);
+      if (data.PONG) {
+        console.log(new Date().getTime() - data.PONG)
+        return;
+      }
       const ping = Math.round(new Date().getTime() - 1000 * data.time);
       this.setState({ data, ping });
     }
@@ -21,8 +31,11 @@ class App extends React.Component {
       // TODO: backend should have a boolean param for arming switch instead of
       // a toggle
       this.socket.send(JSON.stringify({
-        header: 'ARMINGSWITCH',
-        parameter: null
+        command: {
+          header: 'ARMINGSWITCH',
+          parameter: null
+        },
+        time: new Date().getTime()
       }))
     }
     const armingSwitchActive = this.state.data === null ? false : this.state.data.state.arming_switch;
@@ -36,7 +49,9 @@ class App extends React.Component {
           Arming switch
         </div>
         <div>Current data: {JSON.stringify(this.state.data)}</div>
-        <div>Current ping: {this.state.ping}</div>
+        <div>Inaccurate ping: {this.state.ping}</div>
+        <div>Print exact ping to console: <button onClick={ ()=>   this.socket.send(JSON.stringify({command:{header:'PING'},time:new Date().getTime()}))
+}>yo</button></div>
       </div>
     );
   }
