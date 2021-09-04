@@ -1,4 +1,5 @@
 from asyncio.tasks import wait
+from tkinter.constants import COMMAND
 import websockets
 import asyncio
 import time
@@ -14,6 +15,7 @@ class LJSocketWebSockets:
         self.labjacks = kwargs
         self.ip = ip
         self.port = port
+        self.websocket = None
         self.state = {
             'arming_switch': False,
             'digital_pins': {},
@@ -21,6 +23,7 @@ class LJSocketWebSockets:
         }
 
     async def event_handler(self, websocket, path):
+        self.websocket = websocket
         consumer_task = asyncio.ensure_future(
             self.consumer_handler(websocket, path))
         producer_task = asyncio.ensure_future(
@@ -62,9 +65,15 @@ class LJSocketWebSockets:
 
     async def consumer(self, data):
         jData = json.loads(data)
-        recieved_command = Command(CommandString(
-            jData['header']), parameter=jData['parameter'])
-        self.execute(recieved_command)
+        if 'command' in jData.keys():
+            if jData["command"]["header"] == CommandString.PING.value:
+                await self.websocket.send(json.dumps(
+                    {
+                        "PONG": jData["time"]
+                    }
+                ))
+            elif jData["command"]["header"] == CommandString.ARMINGSWITCH.value:
+                self.execute(Command(CommandString.ARMINGSWITCH))
 
 
 if __name__ == '__main__':

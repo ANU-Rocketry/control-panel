@@ -7,7 +7,7 @@ from LJClientWebSockets import LJClientWebSockets
 window = Tk()
 
 appLoop = asyncio.new_event_loop()
-socketClient = LJClientWebSockets('127.0.0.1', 8888, appLoop)
+socketClient = LJClientWebSockets('3f96-150-203-2-194.ngrok.io', 80, appLoop)
 socketClient.start_client()
 
 # Buttons
