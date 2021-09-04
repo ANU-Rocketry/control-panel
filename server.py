@@ -177,6 +177,8 @@ class LJWebSocketsServer:
 
     def LJ_execute(self, command: Command):
         print(command.header, command.parameter)
+        if type(command) == dict:
+            command = Command(command['header'], parameter=command['data'])
         # TODO: arming switch shouldn't be a toggle, it should take a bool
         if command.header == CommandString.OPEN:
             LJ = command.parameter["name"]
@@ -189,8 +191,9 @@ class LJWebSocketsServer:
             self.labjacks[LJ].close_relay(pin)
         elif command.header == CommandString.ABORTSEQUENCE:
             print("aborted")
-        raise Exception(
-            "#3104 execute() function was sent unknown command string: " + json.dumps(command.toDict()))
+        else:
+            raise Exception(
+                "#3104 execute() function was sent unknown command string: " + json.dumps(command.toDict()))
 
     async def execute_sequence(self):
         if self.state["sequence_running"]:
