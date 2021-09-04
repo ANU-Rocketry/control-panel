@@ -79,11 +79,11 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 | SLEEP | {"milliseconds": time in ms} |
 | GETDIGITALSTATES | {"name":labjack_name, "pins":[pin1, pin2, ...]} |
 | GETANALOGSTATES | {"name":labjack_name, "pins":[pin1, pin2, ...]}|
-| BEGINSEQUENCE | {"on":on_bool}] |
-| ABORTSEQUENCE | {"on":on_bool} |
-| ARMINGSWITCH | {"on":on_bool}] |
-| MANUALSWITCH | {"on":on_bool} |
-| SETSEQUENCE | {"commands":[command1, command2, ...]} |
+| BEGINSEQUENCE | (parameter is unimportant) |
+| ABORTSEQUENCE | (parameter is unimportant) |
+| ARMINGSWITCH | on_bool |
+| MANUALSWITCH | on_bool |
+| SETSEQUENCE | [command1, command2, ...] |
 
 A sequence is a list of multiple commands. These commands can only consist of `OPEN`, `CLOSE` and `SLEEP` commands.
 
