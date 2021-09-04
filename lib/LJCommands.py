@@ -4,6 +4,7 @@ from enum import Enum
 import ast
 import time
 
+ALLOWED_CHANNEL_NUMS = [14,12,10,8,19,17,16,18,9,11,13,15]
 
 class CommandString(str, Enum):
     """
@@ -17,10 +18,17 @@ class CommandString(str, Enum):
     SETSEQUENCE = 'SETSEQUENCE',
     BEGINSEQUENCE = 'BEGINSEQUENCE',
     ABORTSEQUENCE = 'ABORTSEQUENCE',
-    ARMINGSWITCH = 'ARMINGSWITCH'
-    MANUALSWITCH = 'MANUALSWITCH'
-    PING = "PING"
+    ARMINGSWITCH = 'ARMINGSWITCH',
+    MANUALSWITCH = 'MANUALSWITCH',
+    PING = 'PINg'
 
+"""
+Paras: take in a command string and a data value is the JSON
+"""
+
+class StandString(str, Enum):
+    LOX = 'LOX',
+    ETH = 'ETH'
 
 class Command():
     """
@@ -35,26 +43,71 @@ class Command():
             parameter ([type], optional): The parameter of the command, the type is dependent on the header. Defaults to None.
             csv_file ([type], optional): A csv to produce a sequence command from. Defaults to None.
         """
+
+        """
+        Make sure command string is perfectly formed with the parameters...
+        Run abort sequence and error packet to the client.
+        """
+        
         self.parameter = parameter
         self.header = header
 
+        if (type(header) != CommandString):
+            raise Exception("#2001 command header is not valid")
+
+        if (not csv_file and not parameter):
+            raise Exception("#2002 parameter and csv file is not provided")
+        
         # If a csv is provided and no parameter create from csv
         if csv_file and not parameter:
-            assert header == CommandString.SETSEQUENCE
+            try:
+                assert header == CommandString.SETSEQUENCE
+            except:
+                raise Exception("#2003 csv provided and no parameter without SETSEQUENCE header")
+            
             commands = []
             with open(csv_file, 'r') as in_file:
                 data = csv.reader(in_file, delimiter=',')
-                for cString, param in data:
-                    commands.append(
-                        Command(CommandString(cString), parameter=int(param)))
-                self.parameter = commands
+                for line in data:
+                    param_dict = {}
+                    try:
+                        assert (line[0] == CommandString.OPEN 
+                            or line[0] == CommandString.CLOSE
+                            or line[0] == CommandString.SLEEP)
+                        
+                        cString = line[0]
+                    except:
+                        raise Exception("#2004 invalid first column command for sequence '" + line[0] + "'")
+                    
+                    if line[0] != CommandString.SLEEP:
+                        try:
+                            assert(type(line[1]) == StandString)
+                        except:
+                            raise Exception("#2005 invalid second column command for sequence '" + line[1] + "'")
+                        
+                        try:
+                            assert(line[2] in ALLOWED_CHANNEL_NUMS)
+                        except:
+                            raise Exception("#2006 with OPEN or CLOSE, PIN is not within allowed channel numbers '" + line[2] + "'")
 
-        # Check the header is a CommandString and isn't null
-        assert type(self.header) == CommandString and self.header
+                        param_dict["name"] = line[1]
+                        param_dict["pin"] = line[2]
+                    else:
+                        try:
+                            assert(type(line[1]) == int)
+                        except:
+                            raise Exception("#2007 sleep duration is not an integer '" + line[1] + "'")
+
+                        param_dict["miliseconds"] = line[1]
+
+                    commands.append(
+                        Command(CommandString(line[0]), parameter=param_dict))
+                self.parameter = commands
+            
 
         # Checks that parameter types are valid
         if self.header in [CommandString.OPEN, CommandString.CLOSE]:
-            assert (type(self.parameter) == list
+            assert (type(self.parameter) == dict
                     and type(self.parameter[0]) == str
                     and type(self.parameter[1]) == int
                     and self.parameter != None)
