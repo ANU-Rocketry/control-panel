@@ -198,7 +198,6 @@ class LJWebSocketsServer:
 
         self.state["sequence_running"] = True
 
-        # not sure if this async stuff works... like will it run the whole thing in a loop? What about the sleeps
         while len(self.state["current_sequence"]) != 0 and self.state["sequence_running"]:
             command = self.state["current_sequence"].pop(0)
             if command.header == CommandString.SLEEP:
