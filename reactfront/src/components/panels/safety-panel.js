@@ -27,7 +27,7 @@ export default function SafetyPanel({ state, emit }) {
   const toggleArmingSwitch = x => emit('ARMINGSWITCH', x)
 
   const lox8Active = state.data === null ? false : state.data["LOX"]["digital"]["8"]
-  const toggleLox8 = x => emit('OPEN', 8)
+  const toggleLox8 = x => emit('OPEN', {"name":"LOX", "pin":8})
 
   return (
     <Panel title="Safety">
