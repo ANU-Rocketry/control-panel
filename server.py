@@ -41,7 +41,8 @@ class LJWebSocketsServer:
             data = json.loads(message)
             if 'command' in data.keys():
                 await self.handle_command(ws, data['command']['header'],
-                    data['command'].get('data', None), data['time'])
+                    data['command'].get('parameter', None), data['time'])
+
     """
     Implementing logic for command executions...
     """
@@ -51,7 +52,7 @@ class LJWebSocketsServer:
         if header == CommandString.PING.value:
             await self.emit(ws, 'PING', time)
         elif header == CommandString.ARMINGSWITCH.value:
-            self.execute(Command(CommandString.ARMINGSWITCH))
+            self.execute(Command(CommandString.ARMINGSWITCH, parameter=data))
 
     async def producer_handler(self, ws, path):
         while True:
