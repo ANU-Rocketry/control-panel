@@ -5,13 +5,15 @@ import './index.css';
 class App extends React.Component {
   constructor(props) {
     super(props);
-    this.socket = new WebSocket("ws://2.tcp.ngrok.io:13604")
+    this.socket = new WebSocket("ws://3f96-150-203-2-194.ngrok.io:80")
     this.socket.onopen = e => console.log('websocket connection established')
     this.state = { data: null };
   }
   componentDidMount() {
     this.socket.onmessage = e => {
-      this.setState({ data: e.data });
+      const data = JSON.parse(e.data);
+      this.setState({ data });
+      console.log(new Date().getTime() - 1000 * data.time)
     }
   }
   render() {
@@ -23,7 +25,7 @@ class App extends React.Component {
         parameter: null
       }))
     }
-    const armingSwitchActive = this.state.state && this.state.state.state.arming_switch;
+    const armingSwitchActive = this.state.data && this.state.data.state.arming_switch;
     return (
       <div>
         <header>
@@ -33,7 +35,7 @@ class App extends React.Component {
           <input type='checkbox' checked={armingSwitchActive} disabled={this.state.data === null} onChange={toggleArmingSwitch} />
           Arming switch
         </div>
-        <div>Current data: {this.state.data}</div>
+        <div>Current data: {JSON.stringify(this.state.data)}</div>
       </div>
     );
   }
