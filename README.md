@@ -96,6 +96,7 @@ These commands can be represented and authorised by the `LJCommands.py/Command` 
 | 2001 | command header is not valid |
 | 2002 | parameter and csv file is not provided |
 | 2003 | csv provided and no parameter without SETSEQUENCE header |
+| 2101 | |
 
 # Project Overview
 
