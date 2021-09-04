@@ -4,6 +4,8 @@ from enum import Enum
 import ast
 import time
 
+# Could be wrong
+ALLOWED_CHANNEL_NUMS = [14,12,10,8,19,17,16,18,9,11,13,15]
 
 class CommandString(str, Enum):
     """
@@ -17,10 +19,18 @@ class CommandString(str, Enum):
     SETSEQUENCE = 'SETSEQUENCE',
     BEGINSEQUENCE = 'BEGINSEQUENCE',
     ABORTSEQUENCE = 'ABORTSEQUENCE',
-    ARMINGSWITCH = 'ARMINGSWITCH'
-    MANUALSWITCH = 'MANUALSWITCH'
-    PING = "PING"
+    ARMINGSWITCH = 'ARMINGSWITCH',
+    MANUALSWITCH = 'MANUALSWITCH',
+    DATALOG = "DATALOG",
+    PING = 'PING'
 
+"""
+Paras: take in a command string and a data value is the JSON
+"""
+
+class StandString(str, Enum):
+    LOX = 'LOX',
+    ETH = 'ETH'
 
 class Command():
     """
@@ -30,60 +40,88 @@ class Command():
     def __init__(self, header: CommandString, parameter=None, csv_file=None):
         """ The constructor for a command object. Ensures a valid command is provided.
 
+        Outdated...
         Args:
             header (CommandString, optional): A command string defining the header of the command. Defaults to None.
             parameter ([type], optional): The parameter of the command, the type is dependent on the header. Defaults to None.
             csv_file ([type], optional): A csv to produce a sequence command from. Defaults to None.
         """
+        
         self.parameter = parameter
         self.header = header
 
+        if (type(header) != CommandString):
+            raise Exception("#2001 command header is not valid")
+
         # If a csv is provided and no parameter create from csv
         if csv_file and not parameter:
-            assert header == CommandString.SETSEQUENCE
+            try:
+                assert header == CommandString.SETSEQUENCE
+            except:
+                raise Exception("#2101 csv provided and no parameter without SETSEQUENCE header")
+            
             commands = []
             with open(csv_file, 'r') as in_file:
                 data = csv.reader(in_file, delimiter=',')
-                for cString, param in data:
-                    commands.append(
-                        Command(CommandString(cString), parameter=int(param)))
+                for line in data:
+                    if not (line[0] == CommandString.OPEN 
+                            or line[0] == CommandString.CLOSE
+                            or line[0] == CommandString.SLEEP):
+                        raise Exception(f"#2102 invalid first column command for sequence '{line[0]}'")
+                    
+                    if line[0] != CommandString.SLEEP:
+                        param_dict = {}
+                        if not (type(line[1]) == StandString):
+                            raise Exception(f"#2103 invalid second column command for sequence '{line[1]}'")
+                        
+                        if not (line[2] in ALLOWED_CHANNEL_NUMS):
+                            raise Exception(f"#2104 with OPEN or CLOSE, PIN is not within allowed channel numbers '{line[2]}'")
+
+                        param_dict["name"] = line[1]
+                        param_dict["pin"] = line[2]
+                        commands.append(
+                            Command(CommandString(line[0]), parameter=param_dict))
+                    else:
+                        if not (type(line[1]) == int):
+                            raise Exception(f"#2105 sleep duration is not an integer '{line[1]}'")
+                        param = line[1]
+                        commands.append(
+                            Command(CommandString(line[0]), parameter=param))
+
                 self.parameter = commands
-
-        # Check the header is a CommandString and isn't null
-        assert type(self.header) == CommandString and self.header
-
+            
         # Checks that parameter types are valid
         if self.header in [CommandString.OPEN, CommandString.CLOSE]:
-            assert (type(self.parameter) == list
-                    and type(self.parameter[0]) == str
-                    and type(self.parameter[1]) == int
-                    and self.parameter != None)
+            if not (type(self.parameter) == dict
+                and (type(self.parameter["name"]) == StandString)
+                and (type(self.parameter["pin"]) in ALLOWED_CHANNEL_NUMS)):
+                    raise Exception(f"#2201 for single OPEN or CLOSE command, param dictionary is malformed '{parameter}'")
 
         elif self.header in [CommandString.GETDIGITALSTATES, CommandString.GETANALOGSTATES]:
-            assert (type(self.parameter) == list
-                    and type(self.parameter[0]) == str
-                    and type(self.parameter[1]) == list
-                    and [type(i) == int for i in self.parameter[1]])
-
-        elif self.header == CommandString.SETSEQUENCE:
-            assert type(self.parameter) == list
-            for command in self.parameter:
-                assert type(command) == Command
-                assert command.header in [
-                    CommandString.SLEEP, CommandString.OPEN, CommandString.CLOSE]
+            if not (type(self.parameter) == dict
+                    and type(self.parameter["name"]) == StandString
+                    and type(self.parameter["pins"] == list)):
+                    raise Exception(f"#2202 digital or analogue state request is malformed")
+            
+            for pin in self.parameter["pins"]:
+                if not (pin in ALLOWED_CHANNEL_NUMS):
+                    raise Exception(f"#2203 pin '{pin}' is not an allowed pin numnber in digital or analog state read")
 
         elif self.header == CommandString.SLEEP:
-            assert type(self.parameter == int)
+            if not type(self.parameter) == int:
+                raise Exception(f"#2204 SLEEP command does not have an integer")
+        
+        elif self.header == CommandString.ARMINGSWITCH or self.header  == CommandString.MANUALSWITCH:
+            if not (type(self.parameter) == bool):
+                print(self.parameter)
+                raise Exception(f"#2205 switch {self.header} is not of bool type")
 
     # Converts a command to a string that is parsable by LJSocket and for readability
     def __str__(self) -> str:
-        if self.header == CommandString.SETSEQUENCE:
-            param = list(map(str, self.parameter))
-            return str([self.header.value, param])
         return str([self.header.value, self.parameter])
 
     def toDict(self) -> dict:
         return {
-            'header': self.header.name,
-            'parameter': self.parameter
+            "header": self.header,
+            "data": self.parameter
         }

@@ -1,60 +1,72 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
+import Topbar from "./components/top-bar"
+import MainBody from './components/main-body';
 
-const WS_ADDRESS = "ws://3f96-150-203-2-194.ngrok.io:80";
+const WS_ADDRESS = "ws://localhost:8888";
 
 class App extends React.Component {
+
   constructor(props) {
     super(props);
     this.connect()
     this.state = { data: null };
   }
+  componentDidMount() {
+    this.interval = setInterval(() => this.emit('PING'), 1000);
+    this.mounted = true;
+  }
+  componentWillUnmount() {
+    this.mounted = false;
+    clearInterval(this.interval);
+  }
   connect() {
     this.socket = new WebSocket(WS_ADDRESS)
     this.socket.onopen = e => console.log('websocket connection established')
     this.socket.onclose = e => {
-      this.connect()
+      setTimeout(() => this.connect(), 5000)
     }
     this.socket.onmessage = e => {
+      if (!this.mounted) return;
       const data = JSON.parse(e.data);
-      if (data.PONG) {
-        console.log(new Date().getTime() - data.PONG)
-        return;
+      switch (data.type) {
+        case 'STATE':
+          this.setState({ data: data.data })
+          break
+        case 'PING':
+          this.setState({ ping: new Date().getTime() - data.data })
+          break
+        default:
+          console.error(data)
       }
-      const ping = Math.round(new Date().getTime() - 1000 * data.time);
-      this.setState({ data, ping });
     }
   }
-  render() {
-    const toggleArmingSwitch = () => {
-      // TODO: backend should have a boolean param for arming switch instead of
-      // a toggle
-      this.socket.send(JSON.stringify({
-        command: {
-          header: 'ARMINGSWITCH',
-          parameter: null
-        },
-        time: new Date().getTime()
-      }))
-    }
-    const armingSwitchActive = this.state.data === null ? false : this.state.data.state.arming_switch;
+  emit(header, parameter = null) {
+    if (this.socket.readyState !== WebSocket.OPEN) return;
+    this.socket.send(JSON.stringify({
+      command: { header, parameter },
+      time: new Date().getTime()
+    }));
+  }
+
+  render(){
+    // TODO: backend should have a boolean param for arming switch instead of toggling
+    const toggleArmingSwitch = () => this.emit('ARMINGSWITCH', true)
+    const armingSwitchActive = this.state.data === null ? false : this.state.data.arming_switch;
+
     return (
       <div>
-        <header>
-          <p>LabJack example</p>
-        </header>
-        <div>
-          <input type='checkbox' checked={armingSwitchActive} disabled={this.state.data === null} onChange={toggleArmingSwitch} />
-          Arming switch
-        </div>
+        <Topbar/>
+        <MainBody/>
+        <input type='checkbox' checked={armingSwitchActive} disabled={this.state.data === null} onChange={toggleArmingSwitch} />
         <div>Current data: {JSON.stringify(this.state.data)}</div>
-        <div>Inaccurate ping: {this.state.ping}</div>
-        <div>Print exact ping to console: <button onClick={ ()=>   this.socket.send(JSON.stringify({command:{header:'PING'},time:new Date().getTime()}))
-}>yo</button></div>
+        <div>Ping: {this.state.ping}</div>
       </div>
-    );
+    )
+    
   }
+
 }
 
 ReactDOM.render(

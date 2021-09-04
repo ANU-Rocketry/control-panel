@@ -9,7 +9,7 @@ from LJClientWebSockets import LJClientWebSockets
 window = Tk()
 
 appLoop = asyncio.new_event_loop()
-socketClient = LJClientWebSockets('localhost', 8888, appLoop)
+socketClient = LJClientWebSockets('127.0.0.1', 8888, appLoop)
 socketClient.start_client()
 
 # Buttons
