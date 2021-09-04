@@ -1,8 +1,8 @@
 import json
 import csv
 from enum import Enum
-from typing import Sequence
 import ast
+import time
 
 
 class CommandString(str, Enum):
@@ -17,6 +17,8 @@ class CommandString(str, Enum):
     SETSEQUENCE = 'SETSEQUENCE',
     BEGINSEQUENCE = 'BEGINSEQUENCE',
     ABORTSEQUENCE = 'ABORTSEQUENCE',
+    ARMINGSWITCH = 'ARMINGSWITCH'
+    MANUALSWITCH = 'MANUALSWITCH'
     PING = "PING"
 
 
@@ -79,3 +81,9 @@ class Command():
             param = list(map(str, self.parameter))
             return str([self.header.value, param])
         return str([self.header.value, self.parameter])
+
+    def toDict(self) -> dict:
+        return {
+            'header': self.header.name,
+            'parameter': self.parameter
+        }

@@ -1,13 +1,14 @@
 import asyncio
+from asyncio.exceptions import IncompleteReadError
 from collections import deque
 from lib.LJCommands import *
 # Importing from fake labjack so we can test the software
 from lib.LabJackFake import LabJack
 from struct import *
 import json
-import sys
 import time
-import re
+
+import websockets
 
 
 class LJSocket:
@@ -53,9 +54,11 @@ class LJSocket:
         """
         # Loop, looking for new incoming data
         while True:
+            print("hjere")
             """ When new data commands in it comes in the format (32bitInt:data),
             the 32 bit integer is unsigned and tells us the size of the data. """
-            message_size = int.from_bytes(await reader.readexactly(calcsize('I')), byteorder='little')
+            r = await reader.readexactly(calcsize('I'))
+            message_size = int.from_bytes(r, byteorder='little')
             try:
                 # read in the amount of data we now know we need from the TCP connection
                 data = json.loads((await reader.readexactly(message_size)).decode('utf-8'))
@@ -69,7 +72,7 @@ class LJSocket:
             # If the data is not valid or a problem occurs this will throw but not kill the thread.
             except Exception as e:
                 print(e)
-                response = str({"response": "Error has occured. Check server log.",
+                response = str({"response": f"Error has occured. Check server log.",
                                "time": time.time()}).encode('utf-8')
 
             # Create a binary string to respond with
