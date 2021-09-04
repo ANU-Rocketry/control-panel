@@ -12,7 +12,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-export default function MainBody() {
+export default function MainBody(props) {
   const classes = useStyles();
 
   return (

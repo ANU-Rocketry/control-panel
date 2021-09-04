@@ -41,23 +41,13 @@ const AntSwitch = withStyles((theme) => ({
   checked: {},
 }))(Switch);
 
-export default function ArmingSwitch() {
-  const [state, setState] = React.useState({
-    checkedA: true,
-    checkedB: true,
-    checkedC: true,
-  });
-
-  const handleChange = (event) => {
-    setState({ ...state, [event.target.name]: event.target.checked });
-  };
-
+export default function ArmingSwitch(props) {
   return (
     <Typography component="div">
         <Grid component="label" container alignItems="center" spacing={1}>
           <Grid item>Off</Grid>
           <Grid item>
-            <AntSwitch checked={state.checkedC} onChange={handleChange} name="checkedC" />
+            <AntSwitch checked={props.armed} onChange={props.switchChanged} />
           </Grid>
           <Grid item>On</Grid>
         </Grid>

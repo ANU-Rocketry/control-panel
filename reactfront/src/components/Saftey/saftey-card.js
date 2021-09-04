@@ -22,23 +22,19 @@ const useStyles = makeStyles({
   },
 });
 
-export default function SafteyCard() {
+export default function SafteyCard(props) {
   const classes = useStyles();
-  const bull = <span className={classes.bullet}>•</span>;
 
   return (
     <Card className={classes.root}>
       <CardContent>
         <Typography variant="h5" component="h2">
-          Saftey Switch
+          {props.title}
         </Typography>
         <Typography className={classes.pos} color="textSecondary">
-          Disarms the test end
+          {props.label}
         </Typography>
-        <ArmingSwitch/>
-        {/* <Typography variant="body2" component="p">
-          This switch will cause the test user interface to disconect please think be fore switching
-        </Typography> */}
+        <ArmingSwitch armed={props.switchState} switchChanged={props.switchFunction}/>
       </CardContent>
     </Card>
   );

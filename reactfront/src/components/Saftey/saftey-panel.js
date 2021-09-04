@@ -19,16 +19,14 @@ const useStyles = makeStyles((theme) => ({
   }
 }));
 
-export default function SafteyPanel() {
+export default function SafteyPanel(props) {
   const classes = useStyles();
 
   return (
     <Paper className={classes.root}>
         <SectionTitle>Saftey</SectionTitle>
         <div className={classes.box}>   
-            <SafteyCard/>
-            <SafteyCard/>
-            <SafteyCard/>
+            <SafteyCard title="Arming Switch" label="Switch Controlling The Arming" switchState={props.switch} switchFunction={props.change}/>
         </div>     
     </Paper>
   );

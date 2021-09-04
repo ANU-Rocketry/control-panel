@@ -63,6 +63,7 @@ class App extends React.Component {
       }))
     }
     const armingSwitchActive = this.state.data === null ? false : this.state.data.arming_switch;
+
     return (
       <div>
         <Topbar/>
@@ -72,6 +73,7 @@ class App extends React.Component {
         <div>Ping: {this.state.ping}</div>
       </div>
     )
+    
   }
 
 }
