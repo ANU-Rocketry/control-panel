@@ -12,8 +12,8 @@ class App extends React.Component {
   componentDidMount() {
     this.socket.onmessage = e => {
       const data = JSON.parse(e.data);
-      this.setState({ data });
-      console.log(new Date().getTime() - 1000 * data.time)
+      const ping = Math.round(new Date().getTime() - 1000 * data.time);
+      this.setState({ data, ping });
     }
   }
   render() {
@@ -25,7 +25,7 @@ class App extends React.Component {
         parameter: null
       }))
     }
-    const armingSwitchActive = this.state.data && this.state.data.state.arming_switch;
+    const armingSwitchActive = this.state.data === null ? false : this.state.data.state.arming_switch;
     return (
       <div>
         <header>
@@ -36,6 +36,7 @@ class App extends React.Component {
           Arming switch
         </div>
         <div>Current data: {JSON.stringify(this.state.data)}</div>
+        <div>Current ping: {this.state.ping}</div>
       </div>
     );
   }
