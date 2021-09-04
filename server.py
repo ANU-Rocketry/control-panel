@@ -22,7 +22,8 @@ class LJWebSocketsServer:
             "manual_switch": False,
             "current_sequence": [],
             "sequence_running": False,
-            "data_logging": False
+            "data_logging": False,
+            "aborting": False
         }
         self.abort_sequence = None
         self.datalog = None
@@ -96,6 +97,8 @@ class LJWebSocketsServer:
     Implementing logic for command executions...
     """
     async def handle_command(self, ws, header, data, time):
+        if self.state["aborting"]: return
+
         if header != CommandString.PING.value:
             print(header, data)
         if header == CommandString.PING.value:
@@ -114,6 +117,59 @@ class LJWebSocketsServer:
                 CommandString.CLOSE,
                 parameter=data
             ))
+        if header == CommandString.OPEN:
+            self.execute(
+                Command(
+                    CommandString.OPEN,
+                    parameter=data
+                )
+            )
+        elif header == CommandString.CLOSE:
+            self.execute(
+                Command(
+                    CommandString.OPEN,
+                    parameter=data
+                )
+            )
+        elif header == CommandString.GETDIGITALSTATES:
+            self.execute(
+                Command(
+                    CommandString.GETDIGITALSTATES,
+                    parameter=data
+                )
+            )
+        elif header == CommandString.GETANALOGSTATES:
+            self.execute(
+                Command(
+                    CommandString.GETANALOGSTATES,
+                    parameter=data
+                )
+            )
+        elif header == CommandString.BEGINSEQUENCE:
+            self.execute_sequence()
+        elif header == CommandString.ABORTSEQUENCE:
+            self.state["aborting"] = True
+            if self.state["sequence_running"]:
+                self.state["current_sequence"] = self.abort_sequence
+            else:
+                self.state["current_sequence"] = self.abort_sequence
+                self.execute_sequence()
+        elif header == CommandString.ARMINGSWITCH:
+            self.execute(
+                Command(
+                    CommandString.ARMINGSWITCH,
+                    parameter=data
+                )
+            )
+        elif header == CommandString.MANUALSWITCH:
+            self.execute(
+                Command(
+                    CommandString.MANUALSWITCH,
+                    parameter=data
+                )
+            )
+        elif header == CommandString.SETSEQUENCE:
+            print("needs work")
 
     async def producer_handler(self, ws, path):
         while True:
@@ -172,8 +228,17 @@ class LJWebSocketsServer:
             raise Exception(
                 "#3102 ABORTSEQUENCE command within non async execute() function")
         elif command.header == CommandString.SLEEP:
+
+
+<< << << < HEAD
             raise Exception(
                 "#3103 SLEEP command found outside of sequence in particular in execute() function")
+== == == =
+            raise Exception(
+                "#3103 SLEEP command found outside of sequence in particular in execute() function")
+        elif command.header == CommandString.SETSEQUENCE:
+            raise Exception("Set sequence called in execute()")
+>>>>>>> ed9fa7ce7c64ad818b48924420332e72a0f755de
         else:
             raise Exception(
                 "#3104 execute() function was sent unknown command string")
