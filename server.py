@@ -76,14 +76,14 @@ class LJWebSocketsServer:
             data = json.loads(message)
             if 'command' in data.keys():
                 await self.handle_command(ws, data['command']['header'],
-                                          data['command'].get('parameter', None), data['time'])
+                                          data['command'].get('data', None), data['time'])
 
     """
     Implementing logic for command executions...
     """
     async def handle_command(self, ws, header, data, time):
         if header != CommandString.PING.value:
-            print(header)
+            print(header, data)
 
         if header == CommandString.PING.value:
             await self.emit(ws, 'PING', time)
@@ -92,6 +92,11 @@ class LJWebSocketsServer:
         elif header == CommandString.OPEN.value:
             self.execute(Command(
                 CommandString.OPEN,
+                parameter=data
+            ))
+        elif header == CommandString.CLOSE.value:
+            self.execute(Command(
+                CommandString.CLOSE,
                 parameter=data
             ))
 
@@ -115,11 +120,15 @@ class LJWebSocketsServer:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
             self.labjacks[LJ].open_relay(pin)
+<<<<<<< HEAD
             print(LJ, pin)
+=======
+>>>>>>> 3dd3dd64fa53273755faadd160ed6973d95a7522
         elif command.header == CommandString.CLOSE:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
             self.labjacks[LJ].close_relay(pin)
+<<<<<<< HEAD
         elif command.header == CommandString.SLEEP:
             raise Exception("#3100 SLEEP command found outside of sequence")
         elif command.header == CommandString.ABORTSEQUENCE:
@@ -131,6 +140,8 @@ class LJWebSocketsServer:
         #         out_voltage = 
         #         results = []
 
+=======
+>>>>>>> 3dd3dd64fa53273755faadd160ed6973d95a7522
         else:
             print(command)
 

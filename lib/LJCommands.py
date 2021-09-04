@@ -100,7 +100,7 @@ class Command():
         if self.header in [CommandString.OPEN, CommandString.CLOSE]:
             if not (type(self.parameter) == dict
                     and (self.parameter["name"] in STANDSTRINGS)
-                    and (type(self.parameter["pin"]) in ALLOWED_CHANNEL_NUMS)):
+                    and (self.parameter["pin"] in ALLOWED_CHANNEL_NUMS)):
                 raise Exception(
                     f"#2201 for single OPEN or CLOSE command, param dictionary is malformed '{parameter}'")
 
