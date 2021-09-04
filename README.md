@@ -13,20 +13,53 @@ This TCP request is structured as follows:
 ## JSON
 
 The data in a valid TCP request (from client to server) is JSON following the schema:
-```json
-{
-"command":"['HEADER', PARAMETER]",
-"time": 123456789.123 "time in seconds since EPOC"
-}
-```
 
-The data in a valid TCP response (from server to client) is JSON following the schema:
-```json
 {
-"response":"Error ___ || Success ____",
-"time": 123456789.123 "time in seconds since EPOC"
+"command":
+  {
+    "header": <Header String>,
+    "data": <Command Parameter>
+  },
+"time": <Time in milliseconds since EPOC>
 }
-```
+The data in a state 'emit' from the server is JSON following the schema:
+
+{
+"type": "STATE",
+"data":
+  {
+    "arming_switch" : Bool,
+    "manual_switch" : Bool,
+    "current_sequence" : null or list of commands,
+    "sequence_running": Bool,
+    "lox":
+      {
+        "digital":{
+          Pin(int):Bool
+        },
+        "analog":{
+          Pin(int):Float
+        }
+      },
+     "eth":
+      {
+        "digital":{
+          Pin(int):Bool
+        },
+        "analog":{
+          Pin(int):Float
+        }
+      }
+  },
+"time": <Time in milliseconds since EPOC>
+}
+The data in an error response follows the following schema:
+
+{
+"type": "ERROR",
+"data": Error message,
+"time": <Time in milliseconds since EPOC>
+}
 
 
 ## Command
