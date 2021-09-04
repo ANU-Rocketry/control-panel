@@ -22,7 +22,7 @@ const useStyles = makeStyles({
   },
 });
 
-export default function SafteyCard(props) {
+export default function SafetyCard(props) {
   const classes = useStyles();
 
   return (

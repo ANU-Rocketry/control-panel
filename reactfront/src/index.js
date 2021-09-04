@@ -1,8 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import Topbar from "./components/top-bar"
-import MainBody from './components/main-body';
+import { TopBar } from "./components/index"
+import SafetyPanel from './components/Safety/safety-panel';
+import SequencePanel from './components/Sequence/sequence-panel';
+import ControlPanel from './components/Controls/control-panel';
+import GraphPanel from './components/Graphing/graph-panel';
 
 const WS_ADDRESS = "ws://localhost:8888";
 
@@ -12,6 +15,7 @@ class App extends React.Component {
     super(props);
     this.connect()
     this.state = { data: null };
+    this.emit = this.emit.bind(this)
   }
   componentDidMount() {
     this.interval = setInterval(() => this.emit('PING'), 1000);
@@ -50,23 +54,25 @@ class App extends React.Component {
     }));
   }
 
-  render(){
-    // TODO: backend should have a boolean param for arming switch instead of toggling
-    const toggleArmingSwitch = () => this.emit('ARMINGSWITCH', true)
-    const armingSwitchActive = this.state.data === null ? false : this.state.data.arming_switch;
-
+  render() {
     return (
       <div>
-        <Topbar/>
-        <MainBody/>
-        <input type='checkbox' checked={armingSwitchActive} disabled={this.state.data === null} onChange={toggleArmingSwitch} />
+        <TopBar/>
+        <div>
+          <div className='panel-row-1'>
+            <SafetyPanel state={this.state} emit={this.emit} />
+            <SequencePanel/>
+          </div>
+          <div className='panel-row-2'>
+            <ControlPanel/>
+            <GraphPanel/>
+          </div>
+        </div>
         <div>Current data: {JSON.stringify(this.state.data)}</div>
         <div>Ping: {this.state.ping}</div>
       </div>
     )
-    
   }
-
 }
 
 ReactDOM.render(
