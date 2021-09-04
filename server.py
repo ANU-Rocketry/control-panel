@@ -116,8 +116,36 @@ class LJWebSocketsServer:
             pin = command.parameter["pin"]
             self.labjacks[LJ].open_relay(pin)
             print(LJ, pin)
+        elif command.header == CommandString.CLOSE:
+            LJ = command.parameter["name"]
+            pin = command.parameter["pin"]
+            self.labjacks[LJ].close_relay(pin)
+        elif command.header == CommandString.SLEEP:
+            raise Exception("#3100 SLEEP command found outside of sequence")
+        elif command.header == CommandString.ABORTSEQUENCE:
+            print("aborted")
+        
+        # elif command.header == CommandString.GETDIGITALSTATES:
+        #     LJ = command.parameter["name"]
+        #     for pin in command.parameter["pins"]:
+        #         out_voltage = 
+        #         results = []
+
         else:
             print(command)
+
+    async def execute_sequence(self):
+        if self.state["sequence_running"]:
+            raise Exception("#3001 sequence is already running")
+        
+        self.state["sequence_running"] = True
+
+        # not sure if this async stuff works... like will it run the whole thing in a loop? What about the sleeps
+        while (self.state["sequence_running"]):
+            next_command = self.state["current_sequence"].pop(0)
+            self.execute(next_command)
+
+            # await asyncio.sleep
 
     async def emit(self, ws, msg_type, data):
         # if msg_type == "STATE", data is the state, etc.
