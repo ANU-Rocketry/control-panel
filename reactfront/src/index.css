@@ -57,3 +57,18 @@ h5 {
   justify-content: space-around;
   align-items: center;
 }
+
+.active, .inactive {
+  font-weight: bold;
+}
+.inactive {
+  color: grey;
+}
+
+.toggle-switch {
+  display: flex;
+  user-select: none;
+}
+.toggle-switch > span {
+  margin-right: 8px;
+}
