@@ -10,6 +10,7 @@ from lib.LabJackFake import LabJack
 
 STATE_GRAB = 20  # Get state from labjacks 20 times per second
 STATE_EMIT = 20  # Emit the sate to the front end 20 times per second
+LOG_PATH = "./logs"
 
 
 class LJWebSocketsServer:
@@ -101,6 +102,8 @@ class LJWebSocketsServer:
             await self.emit(ws, 'PING', time)
         elif header == CommandString.ARMINGSWITCH.value:
             self.execute(Command(CommandString.ARMINGSWITCH, parameter=data))
+        elif header == CommandString.DATALOG:
+            self.execute(Command(CommandString.DATALOG, parameter=data))
         elif header == CommandString.OPEN.value:
             self.execute(Command(
                 CommandString.OPEN,
@@ -129,6 +132,14 @@ class LJWebSocketsServer:
         if command.header == CommandString.ARMINGSWITCH:
             self.state['arming_switch'] = not self.state['arming_switch']
             print(self.state['arming_switch'])
+        elif command.header == CommandString.DATALOG:
+            if command.parameter:
+                if not self.state["data_logging"]:
+                    self.state["data_logging"] = True
+                self.datalog = Datalog(LOG_PATH)
+            else:
+                self.datalog = None
+                self.state["data_logging"] = False
         elif command.header == CommandString.OPEN:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
@@ -155,18 +166,22 @@ class LJWebSocketsServer:
         elif command.header == CommandString.MANUALSWITCH:
             self.state["manual_switch"] = command.parameter
         elif command.header == CommandString.BEGINSEQUENCE:
-            raise Exception("#3101 BEGINSEQUENCE command within non async execute() function")
+            raise Exception(
+                "#3101 BEGINSEQUENCE command within non async execute() function")
         elif command.header == CommandString.ABORTSEQUENCE:
-            raise Exception("#3102 ABORTSEQUENCE command within non async execute() function")
+            raise Exception(
+                "#3102 ABORTSEQUENCE command within non async execute() function")
         elif command.header == CommandString.SLEEP:
-            raise Exception("#3103 SLEEP command found outside of sequence in particular in execute() function")
+            raise Exception(
+                "#3103 SLEEP command found outside of sequence in particular in execute() function")
         else:
-            raise Exception("#3104 execute() function was sent unknown command string")
+            raise Exception(
+                "#3104 execute() function was sent unknown command string")
 
     async def execute_sequence(self):
         if self.state["sequence_running"]:
             raise Exception("#3001 sequence is already running")
-        
+
         self.state["sequence_running"] = True
 
         # not sure if this async stuff works... like will it run the whole thing in a loop? What about the sleeps
