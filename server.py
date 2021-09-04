@@ -31,7 +31,6 @@ class LJWebSocketsServer:
         with open(config, "r") as in_file:
             data = json.loads(in_file.read())
             self.config = data
-            # ADD ABORT SEQUENCE PARSER HERE
 
         self.labjacks = {}
 
@@ -47,6 +46,8 @@ class LJWebSocketsServer:
 
         self.ip = ip
         self.port = port
+        if not self.abort_sequence:
+            raise Exception("#5001 No abort sequence supplied. Quitting.")
         print(f"Hosting server on {ip}:{port}")
 
     async def event_handler(self, websocket, path):
@@ -110,7 +111,7 @@ class LJWebSocketsServer:
         elif header == CommandString.CLOSE:
             self.LJ_execute(
                 Command(
-                    CommandString.OPEN,
+                    CommandString.CLOSE,
                     parameter=data
                 )
             )
@@ -132,11 +133,9 @@ class LJWebSocketsServer:
             self.execute_sequence()
         elif header == CommandString.ABORTSEQUENCE:
             self.state["aborting"] = True
-            if self.state["sequence_running"]:
-                self.state["current_sequence"] = self.abort_sequence
-            else:
-                self.state["current_sequence"] = self.abort_sequence
-                self.execute_sequence()
+            self.state["current_sequence"] = self.abort_sequence
+            if not self.state["sequence_running"]:
+                await self.execute_sequence()
         elif header == CommandString.ARMINGSWITCH:
             self.state["arming_switch"] = data
         elif header == CommandString.MANUALSWITCH:
@@ -206,11 +205,17 @@ class LJWebSocketsServer:
         self.state["sequence_running"] = True
 
         # not sure if this async stuff works... like will it run the whole thing in a loop? What about the sleeps
-        while (self.state["sequence_running"]):
+        while len(self.state["current_sequence"]) != 0 and self.state["sequence_running"]:
             next_command = self.state["current_sequence"].pop(0)
-            self.LJ_execute(next_command)
+            command = Command(
+                next_command["header"], paramter=next_command["data"])
+            if command.header == CommandString.SLEEP:
+                await asyncio.sleep(command.parameter)
+            else:
+                self.LJ_execute(next_command)
 
-            # await asyncio.sleep needs to be implemented
+        self.state["sequence_running"] = False
+        self.state["aborting"] = False
 
     async def emit(self, ws, msg_type, data):
         # if msg_type == "STATE", data is the state, etc.
