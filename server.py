@@ -190,7 +190,7 @@ class LJWebSocketsServer:
         elif command.header == CommandString.ABORTSEQUENCE:
             print("aborted")
         raise Exception(
-            "#3104 execute() function was sent unknown command string: " + command.toDict())
+            "#3104 execute() function was sent unknown command string: " + json.dumps(command.toDict()))
 
     async def execute_sequence(self):
         if self.state["sequence_running"]:
