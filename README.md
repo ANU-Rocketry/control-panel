@@ -93,10 +93,17 @@ These commands can be represented and authorised by the `LJCommands.py/Command` 
 
 | error code | description |
 | - | - |
-| 2001 | command header is not valid |
-| 2002 | parameter and csv file is not provided |
-| 2003 | csv provided and no parameter without SETSEQUENCE header |
-| 2101 | |
+| 2001 | Command header is not valid |
+| 2101 | Csv provided and no parameter without SETSEQUENCE header |
+| 2102 | Invalid first column command for sequence |
+| 2103 | Invalid second column command for sequence |
+| 2104 | With OPEN or CLOSE, PIN is not within allowed channel numbers |
+| 2105 | Sleep duration is not an integer |
+| 2201 | For single OPEN or CLOSE command, param dictionary is malformed |
+| 2202 | Digital or analogue state request is malformed |
+| 2203 | Pin is not an allowed numnber in digital or analog state read |
+| 2204 | SLEEP is not of integer type |
+| 2205 | ARMINGSWITCH or MANUALSWITCH is not of bool type |
 
 # Project Overview
 
