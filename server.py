@@ -111,7 +111,7 @@ class LJWebSocketsServer:
             self.state["aborting"] = True
             self.state["current_sequence"] = [*self.abort_sequence]
             if not self.state["sequence_running"]:
-                await self.execute_sequence()
+                self.execute_sequence()
         elif header == CommandString.GETDIGITALSTATES:
             self.LJ_execute(
                 Command(
@@ -200,21 +200,23 @@ class LJWebSocketsServer:
             raise Exception(
                 "#3104 execute() function was sent unknown command string: " + json.dumps(command.toDict()))
 
-    async def execute_sequence(self):
-        if self.state["sequence_running"]:
-            raise Exception("#3001 sequence is already running")
+    def execute_sequence(self):
+        async def temp():
+            if self.state["sequence_running"]:
+                raise Exception("#3001 sequence is already running")
 
-        self.state["sequence_running"] = True
+            self.state["sequence_running"] = True
 
-        while len(self.state["current_sequence"]) != 0 and self.state["sequence_running"]:
-            command = self.state["current_sequence"].pop(0)
-            if command.header == CommandString.SLEEP:
-                await asyncio.sleep(command.parameter / 1000)
-            else:
-                self.LJ_execute(command)
+            while len(self.state["current_sequence"]) != 0 and self.state["sequence_running"]:
+                command = self.state["current_sequence"].pop(0)
+                if command.header == CommandString.SLEEP:
+                    await asyncio.sleep(command.parameter / 1000)
+                else:
+                    self.LJ_execute(command)
 
-        self.state["sequence_running"] = False
-        self.state["aborting"] = False
+            self.state["sequence_running"] = False
+            self.state["aborting"] = False
+        asyncio.get_event_loop().create_task(temp())
 
     async def emit(self, ws, msg_type, data):
         # if msg_type == "STATE", data is the state, etc.
