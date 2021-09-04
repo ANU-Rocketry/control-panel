@@ -113,6 +113,7 @@ class LJWebSocketsServer:
 
     def execute(self, command: Command):
         # TODO: arming switch shouldn't be a toggle, it should take a bool
+        print(command)
         if command.header == CommandString.ARMINGSWITCH:
             self.state['arming_switch'] = not self.state['arming_switch']
             print(self.state['arming_switch'])
@@ -129,10 +130,10 @@ class LJWebSocketsServer:
             raise Exception("#3100 SLEEP command found outside of sequence")
         elif command.header == CommandString.ABORTSEQUENCE:
             print("aborted")
-        # elif command.header == CommandString.GETDIGITALSTATES:
-        #     LJ = command.parameter["name"]
-        #     for pin in command.parameter["pins"]:
-        #         self.state[LJ] 
+        elif command.header == CommandString.GETDIGITALSTATES:
+            LJ = command.parameter["name"]
+            for pin in command.parameter["pins"]:
+                self.state[LJ] 
         else:
             print(command)
 
