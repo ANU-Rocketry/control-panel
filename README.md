@@ -72,16 +72,16 @@ The data in an error response follows the following schema:
 A command consists of a `header` and a `parameter`. Valid commands can be seen below:
 
 
-| header | parameter | example |
-| - | - | - |
-| OPEN | [labjack_name, pin] | ['OPEN', ['eth', 13]] |
-| CLOSE | [labjack_name, pin] | ['CLOSE', ['eth', 13]] |
-| SLEEP | milliseconds | ['SLEEP', 1300] |
-| GETDIGITALSTATES | [labjack_name, [pin1, pin2, ...]] | ['GETDIGITALSTATES', [1, 3]] |
-| GETANALOGSTATES | [labjack_name, [pin1, pin2, ...]] | ['GETANALOGSTATES', [7, 9]] |
-| BEGINSEQUENCE | None | 'BEGINSEQUENCE' |
-| ABORTSEQUENCE | None | 'ABORTSEQUENCE' |
-| SETSEQUENCE | [command1, command2, ...] | \['SETSEQUENCE', [['OPEN', ['eth', 13]], ['SLEEP', 1300]]] |
+| header | parameter |
+| - | - |
+| OPEN | {"name":labjack_name, "pin":pin} |
+| CLOSE | [labjack_name, pin] |
+| SLEEP | milliseconds |
+| GETDIGITALSTATES | [labjack_name, [pin1, pin2, ...]] |
+| GETANALOGSTATES | [labjack_name, [pin1, pin2, ...]] |
+| BEGINSEQUENCE | None |
+| ABORTSEQUENCE | None |
+| SETSEQUENCE | [command1, command2, ...] |
 
 A sequence is a list of multiple commands. These commands can only consist of `OPEN`, `CLOSE` and `SLEEP` commands.
 
