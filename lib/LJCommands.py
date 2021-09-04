@@ -20,7 +20,8 @@ class CommandString(str, Enum):
     ABORTSEQUENCE = 'ABORTSEQUENCE',
     ARMINGSWITCH = 'ARMINGSWITCH',
     MANUALSWITCH = 'MANUALSWITCH',
-    PING = 'PINg'
+    DATALOG = "DATALOG",
+    PING = 'PING'
 
 """
 Paras: take in a command string and a data value is the JSON
@@ -70,33 +71,23 @@ class Command():
                 data = csv.reader(in_file, delimiter=',')
                 for line in data:
                     param_dict = {}
-                    try:
-                        assert (line[0] == CommandString.OPEN 
+                    if not (line[0] == CommandString.OPEN 
                             or line[0] == CommandString.CLOSE
-                            or line[0] == CommandString.SLEEP)
-                        
-                        cString = line[0]
-                    except:
-                        raise Exception("#2004 invalid first column command for sequence '" + line[0] + "'")
+                            or line[0] == CommandString.SLEEP):
+                        raise Exception(f"#2004 invalid first column command for sequence '{line[0]}'")
                     
                     if line[0] != CommandString.SLEEP:
-                        try:
-                            assert(type(line[1]) == StandString)
-                        except:
-                            raise Exception("#2005 invalid second column command for sequence '" + line[1] + "'")
+                        if not (type(line[1]) == StandString):
+                            raise Exception(f"#2005 invalid second column command for sequence '{line[1]}'")
                         
-                        try:
-                            assert(line[2] in ALLOWED_CHANNEL_NUMS)
-                        except:
-                            raise Exception("#2006 with OPEN or CLOSE, PIN is not within allowed channel numbers '" + line[2] + "'")
+                        if not (line[2] in ALLOWED_CHANNEL_NUMS):
+                            raise Exception(f"#2006 with OPEN or CLOSE, PIN is not within allowed channel numbers '{line[2]}'")
 
                         param_dict["name"] = line[1]
                         param_dict["pin"] = line[2]
                     else:
-                        try:
-                            assert(type(line[1]) == int)
-                        except:
-                            raise Exception("#2007 sleep duration is not an integer '" + line[1] + "'")
+                        if not (type(line[1]) == int):
+                            raise Exception(f"#2007 sleep duration is not an integer '{line[1]}'")
 
                         param_dict["miliseconds"] = line[1]
 
@@ -107,26 +98,24 @@ class Command():
 
         # Checks that parameter types are valid
         if self.header in [CommandString.OPEN, CommandString.CLOSE]:
-            assert (type(self.parameter) == dict
-                    and type(self.parameter[0]) == str
-                    and type(self.parameter[1]) == int
-                    and self.parameter != None)
+            if not (type(self.parameter) == dict
+                and (type(self.parameter["name"]) == StandString)
+                and (type(self.parameter["pin"]) in ALLOWED_CHANNEL_NUMS)):
+                    raise Exception(f"#2008 for single OPEN or CLOSE command, param dictionary is malformed '{parameter}'")
 
         elif self.header in [CommandString.GETDIGITALSTATES, CommandString.GETANALOGSTATES]:
-            assert (type(self.parameter) == list
-                    and type(self.parameter[0]) == str
-                    and type(self.parameter[1]) == list
-                    and [type(i) == int for i in self.parameter[1]])
-
-        elif self.header == CommandString.SETSEQUENCE:
-            assert type(self.parameter) == list
-            for command in self.parameter:
-                assert type(command) == Command
-                assert command.header in [
-                    CommandString.SLEEP, CommandString.OPEN, CommandString.CLOSE]
+            if not (type(self.parameter) == dict
+                    and type(self.parameter["name"]) == StandString
+                    and type(self.parameter["pins"] == list)):
+                    raise Exception(f"#2009 digital or analogue state request is malformed")
+            
+            for pin in self.parameter["pins"]:
+                if not (pin in ALLOWED_CHANNEL_NUMS):
+                    raise Exception(f"#2010 pin '{pin}' is not an allowed pin numnber in digital or analog state read")
 
         elif self.header == CommandString.SLEEP:
-            assert type(self.parameter == int)
+            if not type(self.parameter["milisecond"]) == int:
+                raise Exception(f"#2011 SLEEP command does not have an integer")
 
     # Converts a command to a string that is parsable by LJSocket and for readability
     def __str__(self) -> str:
