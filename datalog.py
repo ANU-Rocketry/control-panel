@@ -13,7 +13,7 @@ class Datalog():
 
     def log_data(self, data, code="MISC"):
         data = ((time.time-self.begin_time)
-                + ";" + code + ";" + (data.replace('\n', '')))
+                + ";" + code + ";" + (str(data).replace('\n', '')))
         self.file_stream.write()
         self.file_stream.flush()
 

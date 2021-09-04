@@ -24,6 +24,7 @@ class CommandString(str, Enum):
     MANUALSWITCH = 'MANUALSWITCH',
     DATALOG = "DATALOG",
 
+
 """
 Paras: take in a command string and a data value is the JSON
 """
@@ -73,6 +74,7 @@ class Command():
                     if line[0] != CommandString.SLEEP:
                         param_dict = {}
                         if not (line[1] in STANDSTRINGS):
+                            print(line)
                             raise Exception(
                                 f"#2103 invalid second column command for sequence '{line[1]}'")
 
@@ -128,18 +130,21 @@ class Command():
         elif self.header in [CommandString.BEGINSEQUENCE, CommandString.ABORTSEQUENCE]:
             if self.parameter is not None:
                 print(self.parameter)
-                raise Exception(f"#2206 begin/end sequence takes no parameters")
+                raise Exception(
+                    f"#2206 begin/end sequence takes no parameters")
 
         elif self.header == CommandString.SETSEQUENCE:
             if type(self.parameter) != list:
                 print(self.parameter)
-                raise Exception(f"#2207 sequence is not a valid list of command JSON's or Command objects")
+                raise Exception(
+                    f"#2207 sequence is not a valid list of command JSON's or Command objects")
             for i, commandlike in enumerate(self.parameter):
                 # if the JSON/dict is invalid we'll get an exception
                 if type(commandlike) == str:
                     commandlike = json.loads(commandlike)
                 if type(commandlike) == dict:
-                    commandlike = Command(header=CommandString[commandlike['header']], parameter=commandlike[''])
+                    commandlike = Command(
+                        header=CommandString[commandlike['header']], parameter=commandlike[''])
                 self.parameter[i] = commandlike
 
     # Converts a command to a string that is parsable by LJSocket and for readability

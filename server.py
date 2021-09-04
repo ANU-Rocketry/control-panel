@@ -96,6 +96,8 @@ class LJWebSocketsServer:
             if 'command' in data.keys():
                 await self.handle_command(ws, data['command']['header'],
                                           data['command'].get('data', None), data['time'])
+            else:
+                raise Exception("#2069 Invalid Command Given: " + message)
 
     """
     Implementing logic for command executions...
@@ -134,6 +136,12 @@ class LJWebSocketsServer:
             )
         elif header == CommandString.BEGINSEQUENCE:
             self.execute_sequence()
+        elif header == CommandString.GETDIGITALSTATES:
+            await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
+                digital=data["pins"]))
+        elif header == CommandString.GETANALOGSTATES:
+            await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
+                analog=data["pins"]))
         elif header == CommandString.ABORTSEQUENCE:
             self.state["aborting"] = True
             self.state["current_sequence"] = self.abort_sequence
@@ -154,7 +162,8 @@ class LJWebSocketsServer:
     def serialise_state(self):
         state = {**self.state}
         # convert command objects to dictionaries
-        state['current_sequence'] = [x.toDict() for x in state['current_sequence']]
+        state['current_sequence'] = [x.toDict()
+                                     for x in state['current_sequence']]
         return json.dumps(state)
 
     def start_server(self):
@@ -176,34 +185,8 @@ class LJWebSocketsServer:
             self.labjacks[LJ].close_relay(pin)
         elif command.header == CommandString.ABORTSEQUENCE:
             print("aborted")
-        elif command.header == CommandString.GETDIGITALSTATES:
-            # TODO maybe a problem with the LJ naming convention of lower or upper
-            LJ = command.parameter["name"]
-            for pin in command.parameter["pins"]:
-                self.state[LJ]["digital"][pin] = True
-        elif command.header == CommandString.GETANALOGSTATES:
-            # TODO maybe a problem with the LJ naming convention of lower or upper
-            LJ = command.parameter["name"]
-            for pin in command.parameter["pins"]:
-                self.state[LJ]["analog"][pin] = True
-        elif command.header == CommandString.ARMINGSWITCH:
-            raise Exception("Arming switch called in execute()")
-        elif command.header == CommandString.MANUALSWITCH:
-            raise Exception("Manual switch called in execute()")
-        elif command.header == CommandString.BEGINSEQUENCE:
-            raise Exception(
-                "#3101 BEGINSEQUENCE command within non async execute() function")
-        elif command.header == CommandString.ABORTSEQUENCE:
-            raise Exception(
-                "#3102 ABORTSEQUENCE command within non async execute() function")
-        elif command.header == CommandString.SLEEP:
-            raise Exception(
-                "#3103 SLEEP command found outside of sequence in particular in execute() function")
-        elif command.header == CommandString.SETSEQUENCE:
-            raise Exception("Set sequence called in execute()")
-        else:
-            raise Exception(
-                "#3104 execute() function was sent unknown command string")
+        raise Exception(
+            "#3104 execute() function was sent unknown command string: " + command.toDict())
 
     async def execute_sequence(self):
         if self.state["sequence_running"]:
