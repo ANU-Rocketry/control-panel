@@ -14,7 +14,7 @@ function SafetyCard(props) {
         <Typography color="textSecondary">
           {props.label}
         </Typography>
-        <ToggleSwitch value={props.switchValue} setValue={props.setSwitchValue}/>
+        <ToggleSwitch value={props.switchValue} setValue={props.setSwitchValue} />
       </CardContent>
     </Card>
   );
@@ -27,7 +27,7 @@ export default function SafetyPanel({ state, emit }) {
   const toggleArmingSwitch = x => emit('ARMINGSWITCH', x)
 
   const lox8Active = state.data === null ? false : state.data["LOX"]["digital"]["8"]
-  const toggleLox8 = x => emit('OPEN', {"name":"LOX", "pin":8})
+  const toggleLox8 = x => state.data["LOX"]["digital"]["8"] ? emit('CLOSE', { name: "LOX", pin: 8 }) : emit('OPEN', { name: "LOX", pin: 8 })
 
   return (
     <Panel title="Safety">
@@ -35,12 +35,12 @@ export default function SafetyPanel({ state, emit }) {
         <SafetyCard title="Arming Switch"
           label="Switch Controlling The Arming"
           switchValue={armingSwitchActive}
-          setSwitchValue={toggleArmingSwitch}/>
+          setSwitchValue={toggleArmingSwitch} />
 
         <SafetyCard title="LOX Pin 8"
           label="Switch pin 8"
           switchValue={lox8Active}
-          setSwitchValue={toggleLox8}/>
+          setSwitchValue={toggleLox8} />
       </div>
     </Panel>
   )
