@@ -7,11 +7,11 @@ import Grid from '@material-ui/core/Grid';
 
 export function SectionTitle({ children }) {
     return (
-        <Paper style={{width:"100%"}}>
-            <Typography>
+        <div style={{width:"100%", padding: "6px"}}>
+            <h5>
                 {children}
-            </Typography>
-        </Paper>
+            </h5>
+        </div>
     );
 }
 
@@ -35,9 +35,9 @@ export function TopBar() {
     <div className={classes.root}>
       <AppBar position="static">
         <Toolbar>
-          <Typography variant="h6" className={classes.title}>
+          <h6 variant="h6" className={classes.title}>
             Test End Control Software
-          </Typography>
+          </h6>
         </Toolbar>
       </AppBar>
     </div>

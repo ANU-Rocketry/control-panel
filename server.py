@@ -125,6 +125,7 @@ class LJWebSocketsServer:
 
     def execute(self, command: Command):
         # TODO: arming switch shouldn't be a toggle, it should take a bool
+        print(command)
         if command.header == CommandString.ARMINGSWITCH:
             self.state['arming_switch'] = not self.state['arming_switch']
             print(self.state['arming_switch'])
@@ -132,12 +133,48 @@ class LJWebSocketsServer:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
             self.labjacks[LJ].open_relay(pin)
+            print(LJ, pin)
         elif command.header == CommandString.CLOSE:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
             self.labjacks[LJ].close_relay(pin)
+        elif command.header == CommandString.ABORTSEQUENCE:
+            print("aborted")
+        elif command.header == CommandString.GETDIGITALSTATES:
+            # TODO maybe a problem with the LJ naming convention of lower or upper
+            LJ = command.parameter["name"]
+            for pin in command.parameter["pins"]:
+                self.state[LJ]["digital"][pin] = True
+        elif command.header == CommandString.GETANALOGSTATES:
+            # TODO maybe a problem with the LJ naming convention of lower or upper
+            LJ = command.parameter["name"]
+            for pin in command.parameter["pins"]:
+                self.state[LJ]["analog"][pin] = True
+        elif command.header == CommandString.ARMINGSWITCH:
+            self.state["arming_switch"] = command.parameter
+        elif command.header == CommandString.MANUALSWITCH:
+            self.state["manual_switch"] = command.parameter
+        elif command.header == CommandString.BEGINSEQUENCE:
+            raise Exception("#3101 BEGINSEQUENCE command within non async execute() function")
+        elif command.header == CommandString.ABORTSEQUENCE:
+            raise Exception("#3102 ABORTSEQUENCE command within non async execute() function")
+        elif command.header == CommandString.SLEEP:
+            raise Exception("#3103 SLEEP command found outside of sequence in particular in execute() function")
         else:
-            print(command)
+            raise Exception("#3104 execute() function was sent unknown command string")
+
+    async def execute_sequence(self):
+        if self.state["sequence_running"]:
+            raise Exception("#3001 sequence is already running")
+        
+        self.state["sequence_running"] = True
+
+        # not sure if this async stuff works... like will it run the whole thing in a loop? What about the sleeps
+        while (self.state["sequence_running"]):
+            next_command = self.state["current_sequence"].pop(0)
+            self.execute(next_command)
+
+            # await asyncio.sleep
 
     async def emit(self, ws, msg_type, data):
         # if msg_type == "STATE", data is the state, etc.

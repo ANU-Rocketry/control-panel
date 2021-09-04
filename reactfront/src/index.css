@@ -23,6 +23,7 @@ html, body, #root, #root > div {
 .panel {
   width: 50%;
   padding: 0px 5px;
+  margin: 12px;
   height: 100%;
 }
 
@@ -40,6 +41,14 @@ h1,h2,h3,h4,h5,h6 {
   font-family: sans-serif;
   font-weight: 500;
   margin: 6px 0px;
+}
+
+h6 {
+  font-size: 32px;
+}
+
+h5 {
+  font-size: 24px;
 }
 
 .flex {

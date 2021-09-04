@@ -84,6 +84,8 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 | ARMINGSWITCH | on_bool |
 | MANUALSWITCH | on_bool |
 | SETSEQUENCE | [command1, command2, ...] |
+| DATALOG | on_bool |
+| PING | (parameter is unimportant) |
 
 A sequence is a list of multiple commands. These commands can only consist of `OPEN`, `CLOSE` and `SLEEP` commands.
 
