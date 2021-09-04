@@ -31,15 +31,17 @@ export default function SafetyPanel({ state, emit }) {
 
   return (
     <Panel title="Safety">
-      <SafetyCard title="Arming Switch"
-        label="Switch Controlling The Arming"
-        switchValue={armingSwitchActive}
-        setSwitchValue={toggleArmingSwitch}/>
+      <div className="flex">
+        <SafetyCard title="Arming Switch"
+          label="Switch Controlling The Arming"
+          switchValue={armingSwitchActive}
+          setSwitchValue={toggleArmingSwitch}/>
 
-      <SafetyCard title="LOX Pin 8"
-        label="Switch pin 8"
-        switchValue={lox8Active}
-        setSwitchValue={toggleLox8}/>
+        <SafetyCard title="LOX Pin 8"
+          label="Switch pin 8"
+          switchValue={lox8Active}
+          setSwitchValue={toggleLox8}/>
+      </div>
     </Panel>
   )
 }
