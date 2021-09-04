@@ -14,6 +14,7 @@ This TCP request is structured as follows:
 
 The data in a valid TCP request (from client to server) is JSON following the schema:
 
+```json
 {
 "command":
   {
@@ -22,8 +23,10 @@ The data in a valid TCP request (from client to server) is JSON following the sc
   },
 "time": <Time in milliseconds since EPOC>
 }
+```
 The data in a state 'emit' from the server is JSON following the schema:
 
+```json
 {
 "type": "STATE",
 "data":
@@ -53,14 +56,16 @@ The data in a state 'emit' from the server is JSON following the schema:
   },
 "time": <Time in milliseconds since EPOC>
 }
+```
 The data in an error response follows the following schema:
 
+```json
 {
 "type": "ERROR",
 "data": Error message,
 "time": <Time in milliseconds since EPOC>
 }
-
+```
 
 ## Command
 
