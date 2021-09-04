@@ -14,7 +14,6 @@ class LJWebSocketsServer:
         self.labjacks = kwargs
         self.ip = ip
         self.port = port
-        self.websocket = None
         self.state = {
             'arming_switch': False,
             'digital_pins': {},
@@ -22,7 +21,10 @@ class LJWebSocketsServer:
         }
 
     async def event_handler(self, websocket, path):
-        self.websocket = websocket
+        """
+        Going to have to go through the Labjack object and produce the state...
+        This will be a separate asynchronous task on a concurrent timer
+        """
         consumer_task = asyncio.ensure_future(
             self.consumer_handler(websocket, path))
         producer_task = asyncio.ensure_future(
@@ -40,7 +42,9 @@ class LJWebSocketsServer:
             if 'command' in data.keys():
                 await self.handle_command(ws, data['command']['header'],
                     data['command'].get('data', None), data['time'])
-
+    """
+    Implementing logic for command executions...
+    """
     async def handle_command(self, ws, header, data, time):
         if header != CommandString.PING.value: print(header)
 
