@@ -30,10 +30,7 @@ class CommandString(str, Enum):
 Paras: take in a command string and a data value is the JSON
 """
 
-
-class StandString(str, Enum):
-    LOX = 'LOX',
-    ETH = 'ETH'
+STANDSTRINGS = ['LOX', 'ETH']
 
 
 class Command():
@@ -77,7 +74,7 @@ class Command():
 
                     if line[0] != CommandString.SLEEP:
                         param_dict = {}
-                        if not (type(line[1]) == StandString):
+                        if not (line[1] in STANDSTRINGS):
                             raise Exception(
                                 f"#2103 invalid second column command for sequence '{line[1]}'")
 
@@ -102,14 +99,14 @@ class Command():
         # Checks that parameter types are valid
         if self.header in [CommandString.OPEN, CommandString.CLOSE]:
             if not (type(self.parameter) == dict
-                    and (type(self.parameter["name"]) == StandString or self.parameter["name"] in ["LOX", "ETH"])
+                    and (self.parameter["name"] in STANDSTRINGS)
                     and (type(self.parameter["pin"]) in ALLOWED_CHANNEL_NUMS)):
                 raise Exception(
                     f"#2201 for single OPEN or CLOSE command, param dictionary is malformed '{parameter}'")
 
         elif self.header in [CommandString.GETDIGITALSTATES, CommandString.GETANALOGSTATES]:
             if not (type(self.parameter) == dict
-                    and type(self.parameter["name"]) == StandString
+                    and self.parameter["name"] in STANDSTRINGS
                     and type(self.parameter["pins"] == list)):
                 raise Exception(
                     f"#2202 digital or analogue state request is malformed")
