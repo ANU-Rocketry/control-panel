@@ -51,17 +51,8 @@ class App extends React.Component {
   }
 
   render(){
-    const toggleArmingSwitch = () => {
-      // TODO: backend should have a boolean param for arming switch instead of
-      // a toggle
-      this.socket.send(JSON.stringify({
-        command: {
-          header: 'ARMINGSWITCH',
-          parameter: null
-        },
-        time: new Date().getTime()
-      }))
-    }
+    // TODO: backend should have a boolean param for arming switch instead of toggling
+    const toggleArmingSwitch = () => this.emit('ARMINGSWITCH', true)
     const armingSwitchActive = this.state.data === null ? false : this.state.data.arming_switch;
 
     return (

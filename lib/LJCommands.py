@@ -53,9 +53,6 @@ class Command():
         if (type(header) != CommandString):
             raise Exception("#2001 command header is not valid")
 
-        if (not csv_file and not parameter):
-            raise Exception("#2002 parameter and csv file is not provided")
-
         # If a csv is provided and no parameter create from csv
         if csv_file and not parameter:
             try:
@@ -116,6 +113,7 @@ class Command():
         
         elif self.header == CommandString.ARMINGSWITCH or self.header  == CommandString.MANUALSWITCH:
             if not (type(self.parameter) == bool):
+                print(self.parameter)
                 raise Exception(f"#2205 switch {self.header} is not of bool type")
 
     # Converts a command to a string that is parsable by LJSocket and for readability
