@@ -20,6 +20,7 @@ class LJWebSocketsServer:
             "manual_switch": False,
             "current_sequence": [],
             "sequence_running": False,
+            "data_logging": False
         }
         self.abort_sequence = None
 
@@ -88,6 +89,11 @@ class LJWebSocketsServer:
             await self.emit(ws, 'PING', time)
         elif header == CommandString.ARMINGSWITCH.value:
             self.execute(Command(CommandString.ARMINGSWITCH, parameter=data))
+        elif header == CommandString.OPEN.value:
+            self.execute(Command(
+                CommandString.OPEN,
+                parameter=data
+            ))
 
     async def producer_handler(self, ws, path):
         while True:
@@ -105,6 +111,11 @@ class LJWebSocketsServer:
         if command.header == CommandString.ARMINGSWITCH:
             self.state['arming_switch'] = not self.state['arming_switch']
             print(self.state['arming_switch'])
+        elif command.header == CommandString.OPEN:
+            LJ = command.parameter["name"]
+            pin = command.parameter["pin"]
+            self.labjacks[LJ].open_relay(pin)
+            print(LJ, pin)
         else:
             print(command)
 
