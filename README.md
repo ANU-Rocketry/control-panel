@@ -83,6 +83,7 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 | ABORTSEQUENCE | (parameter is unimportant) |
 | ARMINGSWITCH | on_bool |
 | MANUALSWITCH | on_bool |
+| DATALOG | on_bool |
 | SETSEQUENCE | [command1, command2, ...] |
 | DATALOG | on_bool |
 | PING | (parameter is unimportant) |

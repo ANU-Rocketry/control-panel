@@ -11,7 +11,7 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.connect()
-    this.state = { data: null };
+    this.state = { data: null, history: [] };
     this.emit = this.emit.bind(this)
   }
   componentDidMount() {
@@ -33,7 +33,10 @@ class App extends React.Component {
       const data = JSON.parse(e.data);
       switch (data.type) {
         case 'STATE':
-          this.setState({ data: data.data })
+          const history = [...this.state.history]
+          if (history.length > 200) history.pop()
+          history.unshift(data.data)
+          this.setState({ data: data.data, history })
           break
         case 'PING':
           this.setState({ ping: new Date().getTime() - data.data })
