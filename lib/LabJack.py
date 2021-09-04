@@ -2,12 +2,12 @@ import u3
 
 
 class LabJack:
-    def __init__(self, serialNumber: int):
+    def __init__(self, serial_number: int):
         # Constructor opens a USB connection to a LabJack
-        self.serialNumber = serialNumber
-        self.device = u3.U3(firstFound=False, serial=self.serialNumber)
+        self.serial_number = serial_number
+        self.device = u3.U3(first_found=False, serial=self.serial_number)
 
-    def isConnected(self):
+    def is_connected(self):
         """Checks if the current labjack is connected
 
         Returns:
@@ -21,25 +21,25 @@ class LabJack:
         except:
             return False
 
-    def openRelay(self, pinNumber: int):
+    def open_relay(self, pin_number: int):
         """Opens a relay
 
         Args:
             pinNumber (int)
         """
         # Attempts to open a relay given a pin number on the LabJack
-        self.device.setDOState(pinNumber, state=0)
+        self.device.setDOState(pin_number, state=0)
 
-    def closeRelay(self, pinNumber: int):
+    def close_relay(self, pin_number: int):
         """Closes a given relay
 
         Args:
             pinNumber (int)
         """
         # Attempts to close a relay given a pin number on the LabJack
-        self.device.setDOState(pinNumber, state=1)
+        self.device.setDOState(pin_number, state=1)
 
-    def getRelayState(self, pinNumber: int):
+    def get_relay_state(self, pin_number: int):
         """Get the state of a digital relay
 
         Args:
@@ -49,9 +49,9 @@ class LabJack:
             bool: true if low, false if high.
         """
         # Attempts to get the state of a relay given a pin number on the LabJack
-        self.device.getDIOState(pinNumber)
+        self.device.getDIOState(pin_number)
 
-    def getVoltage(self, pinNumber: int) -> float:
+    def get_voltage(self, pin_number: int) -> float:
         """Gets the value of a given analog pin
 
         Args:
@@ -61,9 +61,9 @@ class LabJack:
             float: Voltage of analog pin
         """
         # Attempts to read a voltage given a pin number on the LabJack
-        return self.device.getAIN(pinNumber)
+        return self.device.getAIN(pin_number)
 
-    def getState(self, digitalPins=None, analogPins=None):
+    def get_state(self, digital=None, analog=None):
         """Gets the state of the current labjack
 
         Args:
@@ -74,12 +74,12 @@ class LabJack:
             dict: a dictionary containing the states of the digital and analog states
         """
         state = {}
-        if digitalPins:
+        if digital:
             state["digital"] = {}
-            for pin in digitalPins:
-                state["digital"][pin] = self.getRelayState(pin)
-        if analogPins:
+            for pin in digital:
+                state["digital"][pin] = self.get_relay_state(pin)
+        if analog:
             state["analog"] = {}
-            for pin in analogPins:
-                state["analog"][pin] = self.getVoltage(pin)
+            for pin in analog:
+                state["analog"][pin] = self.get_voltage(pin)
         return state

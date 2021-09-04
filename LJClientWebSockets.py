@@ -17,13 +17,18 @@ class LJClientWebSockets:
         self.last_update = 0
 
     async def sendCommand(self, command: Command):
-        await self.websocket.send(json.dumps(command.toDict()))
+        await self.websocket.send(json.dumps({
+            "command": command.toDict(),
+            "time": time.time()
+        }))
 
     async def listen(self):
         while True:
             data = json.loads(await self.websocket.recv())
-            self.state = data['state']
-            self.last_update = data['time']
+            if data["type"] == "STATE":
+                print(data)
+                self.state = data["data"]
+                self.last_update = data['time']
 
     async def connect(self):
         uri = "ws://" + self.host + ":" + str(self.port)

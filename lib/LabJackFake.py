@@ -1,16 +1,16 @@
-"""
-A labjack class to simulate the actual labjack class for purposes of developing the rest of the software.
-"""
-
 import random
 
 
 class LabJack:
-    def __init__(self, serialNumber: int):
+    def __init__(self, serial_number: int):
         # Constructor opens a USB connection to a LabJack
-        self.serialNumber = serialNumber
+        self.serial_number = serial_number
+        self.state = {
+            "digital": {},
+            "analog": {}
+        }
 
-    def isConnected(self) -> bool:
+    def is_connected(self):
         """Checks if the current labjack is connected
 
         Returns:
@@ -18,21 +18,24 @@ class LabJack:
         """
         return True
 
-    def openRelay(self, pinNumber: int):
+    def open_relay(self, pin_number: int):
         """Opens a relay
 
         Args:
             pinNumber (int)
         """
+        self.state["digital"][pin_number] = True
 
-    def closeRelay(self, pinNumber: int):
+    def close_relay(self, pin_number: int):
         """Closes a given relay
 
         Args:
             pinNumber (int)
         """
+        # Attempts to close a relay given a pin number on the LabJack
+        self.state["digital"][pin_number] = False
 
-    def getRelayState(self, pinNumber: int):
+    def get_relay_state(self, pin_number: int):
         """Get the state of a digital relay
 
         Args:
@@ -41,9 +44,12 @@ class LabJack:
         Returns:
             bool: true if low, false if high.
         """
-        return True
+        # Attempts to get the state of a relay given a pin number on the LabJack
+        if pin_number in self.state["digital"]:
+            return self.state["digital"][pin_number]
+        return False
 
-    def getVoltage(self, pinNumber: int) -> float:
+    def get_voltage(self, pin_number: int) -> float:
         """Gets the value of a given analog pin
 
         Args:
@@ -52,9 +58,10 @@ class LabJack:
         Returns:
             float: Voltage of analog pin
         """
+        # Attempts to read a voltage given a pin number on the LabJack
         return random.random()
 
-    def getState(self, digitalPins=None, analogPins=None):
+    def get_state(self, digital, analog):
         """Gets the state of the current labjack
 
         Args:
@@ -65,12 +72,12 @@ class LabJack:
             dict: a dictionary containing the states of the digital and analog states
         """
         state = {}
-        if digitalPins:
+        if digital:
             state["digital"] = {}
-            for pin in digitalPins:
-                state["digital"][pin] = self.getRelayState(pin)
-        if analogPins:
+            for pin in digital:
+                state["digital"][pin] = self.get_relay_state(pin)
+        if analog:
             state["analog"] = {}
-            for pin in analogPins:
-                state["analog"][pin] = self.getVoltage(pin)
+            for pin in analog:
+                state["analog"][pin] = self.get_voltage(pin)
         return state

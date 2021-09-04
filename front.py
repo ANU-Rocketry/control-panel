@@ -1,13 +1,15 @@
 from lib.LJCommands import Command, CommandString
 from tkinter import *
 import asyncio
+import time
+import json
 from PIL import Image, ImageTk
 from LJClientWebSockets import LJClientWebSockets
 
 window = Tk()
 
 appLoop = asyncio.new_event_loop()
-socketClient = LJClientWebSockets('3f96-150-203-2-194.ngrok.io', 80, appLoop)
+socketClient = LJClientWebSockets('localhost', 8888, appLoop)
 socketClient.start_client()
 
 # Buttons
