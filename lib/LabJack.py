@@ -49,7 +49,7 @@ class LabJack:
             bool: true if low, false if high.
         """
         # Attempts to get the state of a relay given a pin number on the LabJack
-        self.device.getDIOState(pin_number)
+        return self.device.getDIOState(pin_number)
 
     def get_voltage(self, pin_number: int) -> float:
         """Gets the value of a given analog pin

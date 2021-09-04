@@ -146,7 +146,13 @@ class LJWebSocketsServer:
     async def producer_handler(self, ws, path):
         while True:
             await asyncio.sleep(1/STATE_EMIT)
-            await self.emit(ws, 'STATE', self.state)
+            await self.emit(ws, 'STATE', self.serialise_state())
+
+    def serialise_state(self):
+        state = {**self.state}
+        # convert command objects to dictionaries
+        state['current_sequence'] = [x.toDict() for x in state['current_sequence']]
+        return json.dumps(state)
 
     def start_server(self):
         asyncio.get_event_loop().run_until_complete(
@@ -188,8 +194,6 @@ class LJWebSocketsServer:
             raise Exception(
                 "#3102 ABORTSEQUENCE command within non async execute() function")
         elif command.header == CommandString.SLEEP:
-            raise Exception(
-                "#3103 SLEEP command found outside of sequence in particular in execute() function")
             raise Exception(
                 "#3103 SLEEP command found outside of sequence in particular in execute() function")
         elif command.header == CommandString.SETSEQUENCE:
