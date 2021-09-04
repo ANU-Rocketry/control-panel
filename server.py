@@ -41,20 +41,13 @@ class LJSocketWebSockets:
 
     async def producer_handler(self, websocket, path):
         while True:
-            message = await self.producer()
-            await websocket.send(message)
+            await asyncio.sleep(1/20)
+            await self.emit('STATE', self.state)
 
     def start_server(self):
         start_server = websockets.serve(self.event_handler, self.ip, self.port)
         asyncio.get_event_loop().run_until_complete(start_server)
         asyncio.get_event_loop().run_forever()
-
-    async def producer(self):
-        await asyncio.sleep(1/20)
-        return json.dumps({
-            'state': self.state,
-            'time': time.time()
-        })
 
     def execute(self, command: Command):
         if command.header == CommandString.ARMINGSWITCH:
@@ -67,15 +60,20 @@ class LJSocketWebSockets:
         jData = json.loads(data)
         if 'command' in jData.keys():
             if jData["command"]["header"] == CommandString.PING.value:
-                await self.websocket.send(json.dumps(
-                    {
-                        "PONG": jData["time"]
-                    }
-                ))
+                await self.emit('PING', jData['time'])
                 print("PING")
             elif jData["command"]["header"] == CommandString.ARMINGSWITCH.value:
                 self.execute(Command(CommandString.ARMINGSWITCH))
                 print("ARMINGSWITCH")
+
+    async def emit(self, msg_type, data):
+        # if msg_type == "STATE", data is the state, etc.
+        obj = {
+            "type": msg_type,
+            "time": round(time.time()*1000),
+            "data": data
+        }
+        await self.websocket.send(json.dumps(obj))
 
 
 if __name__ == '__main__':

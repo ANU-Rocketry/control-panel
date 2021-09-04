@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 
-const WS_ADDRESS = "ws://3f96-150-203-2-194.ngrok.io:80";
+const WS_ADDRESS = "ws://localhost:8888";
 
 class App extends React.Component {
   constructor(props) {
@@ -10,21 +10,41 @@ class App extends React.Component {
     this.connect()
     this.state = { data: null };
   }
+  componentDidMount() {
+    this.interval = setInterval(() => this.emit('PING'), 1000);
+    this.mounted = true;
+  }
+  componentWillUnmount() {
+    this.mounted = false;
+    clearInterval(this.interval);
+  }
   connect() {
     this.socket = new WebSocket(WS_ADDRESS)
     this.socket.onopen = e => console.log('websocket connection established')
     this.socket.onclose = e => {
-      this.connect()
+      setTimeout(() => this.connect(), 5000)
     }
     this.socket.onmessage = e => {
+      if (!this.mounted) return;
       const data = JSON.parse(e.data);
-      if (data.PONG) {
-        console.log(new Date().getTime() - data.PONG)
-        return;
+      switch (data.type) {
+        case 'STATE':
+          this.setState({ data: data.data })
+          break
+        case 'PING':
+          this.setState({ ping: new Date().getTime() - data.data })
+          break
+        default:
+          console.error(data)
       }
-      const ping = Math.round(new Date().getTime() - 1000 * data.time);
-      this.setState({ data, ping });
     }
+  }
+  emit(header, parameter = null) {
+    if (this.socket.readyState !== WebSocket.OPEN) return;
+    this.socket.send(JSON.stringify({
+      command: { header, parameter },
+      time: new Date().getTime()
+    }));
   }
   render() {
     const toggleArmingSwitch = () => {
@@ -38,7 +58,7 @@ class App extends React.Component {
         time: new Date().getTime()
       }))
     }
-    const armingSwitchActive = this.state.data === null ? false : this.state.data.state.arming_switch;
+    const armingSwitchActive = this.state.data === null ? false : this.state.data.arming_switch;
     return (
       <div>
         <header>
@@ -49,9 +69,7 @@ class App extends React.Component {
           Arming switch
         </div>
         <div>Current data: {JSON.stringify(this.state.data)}</div>
-        <div>Inaccurate ping: {this.state.ping}</div>
-        <div>Print exact ping to console: <button onClick={ ()=>   this.socket.send(JSON.stringify({command:{header:'PING'},time:new Date().getTime()}))
-}>yo</button></div>
+        <div>Ping: {this.state.ping}</div>
       </div>
     );
   }
