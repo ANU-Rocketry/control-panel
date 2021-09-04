@@ -104,26 +104,14 @@ class LJWebSocketsServer:
     """
     async def handle_command(self, ws, header, data, time):
         if self.state["aborting"]:
-            return
-
-        if header == "PING":
-            await self.emit(ws, 'PING', time)
-            return
-
-        if header == CommandString.OPEN:
-            self.LJ_execute(
-                Command(
-                    CommandString.OPEN,
-                    parameter=data
-                )
-            )
-        elif header == CommandString.CLOSE:
-            self.LJ_execute(
-                Command(
-                    CommandString.CLOSE,
-                    parameter=data
-                )
-            )
+            return  # Aborting hard block
+        if header == CommandString.ARMINGSWITCH:
+            self.state["arming_switch"] = data
+        elif header == CommandString.ABORTSEQUENCE:
+            self.state["aborting"] = True
+            self.state["current_sequence"] = [*self.abort_sequence]
+            if not self.state["sequence_running"]:
+                await self.execute_sequence()
         elif header == CommandString.GETDIGITALSTATES:
             self.LJ_execute(
                 Command(
@@ -138,25 +126,41 @@ class LJWebSocketsServer:
                     parameter=data
                 )
             )
-        elif header == CommandString.BEGINSEQUENCE:
-            self.execute_sequence()
+        elif header == CommandString.SETSEQUENCE:
+            self.state["current_sequence"] = data
         elif header == CommandString.GETDIGITALSTATES:
             await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
                 digital=data["pins"]))
         elif header == CommandString.GETANALOGSTATES:
             await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
                 analog=data["pins"]))
-        elif header == CommandString.ABORTSEQUENCE:
-            self.state["aborting"] = True
-            self.state["current_sequence"] = self.abort_sequence
-            if not self.state["sequence_running"]:
-                await self.execute_sequence()
-        elif header == CommandString.ARMINGSWITCH:
-            self.state["arming_switch"] = data
         elif header == CommandString.MANUALSWITCH:
             self.state["manual_switch"] = data
-        elif header == CommandString.SETSEQUENCE:
-            self.state["current_sequence"] = data
+
+        if not self.state["arming_switch"]:
+            return  # Arming switch hard block
+
+        if header == "PING":
+            await self.emit(ws, 'PING', time)
+            return
+
+        if header == CommandString.BEGINSEQUENCE:
+            self.execute_sequence()
+        elif self.state["manual_switch"]:
+            if header == CommandString.OPEN:
+                self.LJ_execute(
+                    Command(
+                        CommandString.OPEN,
+                        parameter=data
+                    )
+                )
+            elif header == CommandString.CLOSE:
+                self.LJ_execute(
+                    Command(
+                        CommandString.CLOSE,
+                        parameter=data
+                    )
+                )
 
     async def producer_handler(self, ws, path):
         while True:
@@ -166,7 +170,8 @@ class LJWebSocketsServer:
     def serialise_state(self):
         state = {**self.state}
         # convert command objects to dictionaries
-        state['current_sequence'] = [x.toDict() for x in state['current_sequence']]
+        state['current_sequence'] = [x.toDict()
+                                     for x in state['current_sequence']]
         return state
 
     def start_server(self):
@@ -189,8 +194,9 @@ class LJWebSocketsServer:
             self.labjacks[LJ].close_relay(pin)
         elif command.header == CommandString.ABORTSEQUENCE:
             print("aborted")
-        raise Exception(
-            "#3104 execute() function was sent unknown command string: " + command.toDict())
+        else:
+            raise Exception(
+                "#3104 execute() function was sent unknown command string: " + str(command))
 
     async def execute_sequence(self):
         if self.state["sequence_running"]:
