@@ -126,4 +126,5 @@ class Command():
                 "header": self.header,
                 "data": self.parameter
             },
+            "time": round(time.time()*1000)
         }
