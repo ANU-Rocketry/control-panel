@@ -4,7 +4,6 @@ from enum import Enum
 import ast
 import time
 
-
 class CommandString(str, Enum):
     """
     An enum to define command headers/names.
@@ -21,6 +20,9 @@ class CommandString(str, Enum):
     MANUALSWITCH = 'MANUALSWITCH'
     PING = "PING"
 
+"""
+Paras: take in a command string and a data value is the JSON
+"""
 
 class Command():
     """
@@ -35,12 +37,28 @@ class Command():
             parameter ([type], optional): The parameter of the command, the type is dependent on the header. Defaults to None.
             csv_file ([type], optional): A csv to produce a sequence command from. Defaults to None.
         """
+
+        """
+        Make sure command string is perfectly formed with the parameters...
+        Run abort sequence and error packet to the client.
+        """
+        
         self.parameter = parameter
         self.header = header
 
+        if (type(header) != CommandString):
+            raise Exception("#2001 command header is not valid")
+
+        if (not csv_file and not parameter):
+            raise Exception("#2002 parameter and csv file is not provided")
+        
         # If a csv is provided and no parameter create from csv
         if csv_file and not parameter:
-            assert header == CommandString.SETSEQUENCE
+            try:
+                assert header == CommandString.SETSEQUENCE
+            except:
+                raise Exception("#2003 csv provided and no parameter without SETSEQUENCE header")
+            
             commands = []
             with open(csv_file, 'r') as in_file:
                 data = csv.reader(in_file, delimiter=',')

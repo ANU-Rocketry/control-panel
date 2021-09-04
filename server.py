@@ -49,6 +49,10 @@ class LJSocketWebSockets:
         asyncio.get_event_loop().run_until_complete(start_server)
         asyncio.get_event_loop().run_forever()
 
+    """
+    Going to have to go through the Labjack object and produce the state...
+    """
+
     async def producer(self):
         await asyncio.sleep(1/20)
         return json.dumps({
@@ -63,6 +67,10 @@ class LJSocketWebSockets:
         else:
             print(command)
 
+
+    """
+    Implementing logic for command executions...
+    """
     async def consumer(self, data):
         jData = json.loads(data)
         if 'command' in jData.keys():
