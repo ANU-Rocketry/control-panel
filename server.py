@@ -126,14 +126,28 @@ class LJWebSocketsServer:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
             self.labjacks[LJ].close_relay(pin)
-        elif command.header == CommandString.SLEEP:
-            raise Exception("#3100 SLEEP command found outside of sequence")
         elif command.header == CommandString.ABORTSEQUENCE:
             print("aborted")
         elif command.header == CommandString.GETDIGITALSTATES:
+            # TODO maybe a problem with the LJ naming convention of lower or upper
             LJ = command.parameter["name"]
             for pin in command.parameter["pins"]:
-                self.state[LJ] 
+                self.state[LJ]["digital"][pin] = True
+        elif command.header == CommandString.GETANALOGSTATES:
+            # TODO maybe a problem with the LJ naming convention of lower or upper
+            LJ = command.parameter["name"]
+            for pin in command.parameter["pins"]:
+                self.state[LJ]["analog"][pin] = True
+        elif command.header == CommandString.ARMINGSWITCH:
+            self.state["arming_switch"] = command.parameter
+        elif command.header == CommandString.MANUALSWITCH:
+            self.state["manual_switch"] = command.parameter
+        elif command.header == CommandString.BEGINSEQUENCE:
+            raise Exception("#3101 BEGINSEQUENCE command within non async execute() function")
+        elif command.header == CommandString.ABORTSEQUENCE:
+            raise Exception("#3102 ABORTSEQUENCE command within non async execute() function")
+        elif command.header == CommandString.SLEEP:
+            raise Exception("#3103 SLEEP command found outside of sequence")
         else:
             print(command)
 
