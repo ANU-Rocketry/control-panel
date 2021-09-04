@@ -120,28 +120,19 @@ class LJWebSocketsServer:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
             self.labjacks[LJ].open_relay(pin)
-<<<<<<< HEAD
             print(LJ, pin)
-=======
->>>>>>> 3dd3dd64fa53273755faadd160ed6973d95a7522
         elif command.header == CommandString.CLOSE:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
             self.labjacks[LJ].close_relay(pin)
-<<<<<<< HEAD
         elif command.header == CommandString.SLEEP:
             raise Exception("#3100 SLEEP command found outside of sequence")
         elif command.header == CommandString.ABORTSEQUENCE:
             print("aborted")
-        
         # elif command.header == CommandString.GETDIGITALSTATES:
         #     LJ = command.parameter["name"]
         #     for pin in command.parameter["pins"]:
-        #         out_voltage = 
-        #         results = []
-
-=======
->>>>>>> 3dd3dd64fa53273755faadd160ed6973d95a7522
+        #         self.state[LJ] 
         else:
             print(command)
 
