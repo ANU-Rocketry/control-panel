@@ -1,11 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import { TopBar } from "./components/index"
-import SafetyPanel from './components/Safety/safety-panel';
-import SequencePanel from './components/Sequence/sequence-panel';
-import ControlPanel from './components/Controls/control-panel';
-import GraphPanel from './components/Graphing/graph-panel';
+import { TopBar, Panel } from "./components/index"
+import SafetyPanel from './components/panels/safety-panel';
 
 const WS_ADDRESS = "ws://localhost:8888";
 
@@ -58,14 +55,14 @@ class App extends React.Component {
     return (
       <div>
         <TopBar/>
-        <div>
+        <div class='panels-root'>
           <div className='panel-row-1'>
             <SafetyPanel state={this.state} emit={this.emit} />
-            <SequencePanel/>
+            <Panel title="Sequence" />
           </div>
           <div className='panel-row-2'>
-            <ControlPanel/>
-            <GraphPanel/>
+            <Panel title="Control" />
+            <Panel title="Graphs" />
           </div>
         </div>
         <div>Current data: {JSON.stringify(this.state.data)}</div>
