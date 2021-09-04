@@ -77,8 +77,8 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 | OPEN | {"name":labjack_name, "pin":pin} |
 | CLOSE | {"name":labjack_name, "pin":pin} |
 | SLEEP | {"milliseconds": time in ms} |
-| GETDIGITALSTATES | {"name":labjack_name, "pins":[pin1, pin2, ...]] |
-| GETANALOGSTATES | [labjack_name, [pin1, pin2, ...]] |
+| GETDIGITALSTATES | {"name":labjack_name, "pins":[pin1, pin2, ...]} |
+| GETANALOGSTATES | {"name":labjack_name, "pins":[pin1, pin2, ...]}|
 | BEGINSEQUENCE | None |
 | ABORTSEQUENCE | None |
 | SETSEQUENCE | [command1, command2, ...] |
