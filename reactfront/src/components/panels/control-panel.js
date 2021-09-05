@@ -12,11 +12,11 @@ function ControlCard(props) {
 
     function normalise (num) {
         const oneBlock = 50/31
-        return `calc(${oneBlock * num}vw - 3px)`
+        return `calc(${oneBlock * num}vw - 2px)`
     }
 
     const box = {
-        position: 'relative',
+        position: 'absolute',
         borderStyle: 'solid',
         width: normalise(props.width),
         height: normalise(props.height),
@@ -26,8 +26,8 @@ function ControlCard(props) {
 
     const label = {
         position: 'relative',
-        top: "-90px", 
-        left: 0, 
+        top: "-70px", 
+        left: "-30px", 
       };
 
     return (
@@ -49,8 +49,8 @@ export default function ControlPanel({ state, emit }) {
 
     const buttons = [
         {pin: "8", testEnd: "LOX", width: "2", height: "1", x: "8", y: "4"},
-        {pin: "10", testEnd: "LOX", width: "2", height: "1", x: "11", y: "0"},
-        {pin: "12", testEnd: "LOX", width: "2", height: "1", x: "12", y: "13"}
+        {pin: "10", testEnd: "LOX", width: "2", height: "1", x: "11", y: "1"},
+        {pin: "12", testEnd: "LOX", width: "2", height: "1", x: "11.5", y: "15"}
     ]
 
     return (  

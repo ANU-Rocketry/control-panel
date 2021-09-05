@@ -76,6 +76,7 @@ h5 {
   background-image: url(labjack.svg);
   background-size: contain;
   background-repeat: no-repeat;
+  position: relative;
   width: 50vw;
   height: 35.5vw;
 }
