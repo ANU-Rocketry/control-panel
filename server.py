@@ -8,8 +8,8 @@ from lib.LJCommands import *
 # Importing from fake labjack so we can test the software
 from lib.LabJackFake import LabJack
 
-STATE_GRAB = 20  # Get state from labjacks 20 times per second
-STATE_EMIT = 20  # Emit the sate to the front end 20 times per second
+STATE_GRAB = 50  # Get state from labjacks 100 times per second
+STATE_EMIT = 10  # Emit the sate to the front end 10 times per second
 LOG_PATH = "./logs"
 
 
@@ -73,7 +73,6 @@ class LJWebSocketsServer:
 
     async def sync_state(self):
         while True:
-            await asyncio.sleep(1/STATE_GRAB)
             if self.state["data_logging"] and self.datalog:
                 self.log_data(self.serialise_state(), type="STATE")
             for key in self.config:
@@ -83,18 +82,15 @@ class LJWebSocketsServer:
                     self.config[key]["digital"], self.config[key]["analog"])
                 self.state[key] = pin_data
             self.state["time"] = round(time.time()*1000)
+            await asyncio.sleep(1/STATE_GRAB)
 
     def log_data(self, data, type="MISC"):
-        if self.datalog:
+        if self.datalog and self.state["data_logging"]:
             self.datalog.log_data(data, type)
-        else:
-            raise Exception(
-                "#1001 No datalog object exists and a request has been made to datalog")
 
     async def consumer_handler(self, ws, path):
         async for message in ws:
-            if self.state['data_logging'] and self.datalog:
-                self.log_data(message, type="COMMAND")
+            self.log_data(message, type="REQUEST")
             data = json.loads(message)
             if 'command' in data.keys():
                 await self.handle_command(ws, data['command']['header'],
@@ -112,12 +108,16 @@ class LJWebSocketsServer:
             if data:
                 self.state["data_logging"] = True
                 self.datalog = Datalog(LOG_PATH)
+                self.log_data(True, type="DATA_LOGGING")
             else:
+                self.log_data(False, type="DATA_LOGGING")
                 self.state["data_logging"] = False
                 self.datalog = None
         if header == CommandString.ARMINGSWITCH:
+            self.log_data(None, type="ARMING_SWITCH")
             self.state["arming_switch"] = data
         elif header == CommandString.ABORTSEQUENCE:
+            self.log_data(True, type="ABORTING")
             self.state["aborting"] = True
             self.state["current_sequence"] = [*self.abort_sequence]
             if not self.state["sequence_running"]:
@@ -189,11 +189,11 @@ class LJWebSocketsServer:
     def start_server(self):
         asyncio.get_event_loop().run_until_complete(
             websockets.serve(self.event_handler, self.ip, self.port))
-        asyncio.get_event_loop().create_task(self.sync_state())
+        asyncio.ensure_future(self.sync_state())
         asyncio.get_event_loop().run_forever()
 
     def LJ_execute(self, command: Command):
-        print(command.header, command.parameter)
+        self.log_data(command.toDict(), "COMMAND_EXECUTED")
         if type(command) == dict:
             command = Command(command['header'], parameter=command['data'])
         # TODO: arming switch shouldn't be a toggle, it should take a bool
@@ -201,13 +201,10 @@ class LJWebSocketsServer:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
             self.labjacks[LJ].open_relay(pin)
-            print(LJ, pin)
         elif command.header == CommandString.CLOSE:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
             self.labjacks[LJ].close_relay(pin)
-        elif command.header == CommandString.ABORTSEQUENCE:
-            print("aborted")
         else:
             raise Exception(
                 "#3104 execute() function was sent unknown command string: " + json.dumps(command.toDict()))
@@ -229,6 +226,7 @@ class LJWebSocketsServer:
                         "data": command.parameter,
                         "time": round(time.time()*1000) + command.parameter
                     }
+                    self.log_data(command.toDict(), type="COMMAND_EXECUTED")
                     await asyncio.sleep(command.parameter / 1000)
                 else:
                     self.LJ_execute(command)
@@ -236,7 +234,7 @@ class LJWebSocketsServer:
 
             self.state["sequence_running"] = False
             self.state["aborting"] = False
-        asyncio.get_event_loop().create_task(temp())
+        asyncio.ensure_future(temp())
 
     async def emit(self, ws, msg_type, data):
         # if msg_type == "STATE", data is the state, etc.

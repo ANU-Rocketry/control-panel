@@ -3,10 +3,10 @@ import { Panel } from '../index'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts'
 
 export default function SafetyPanel({ state, emit }) {
-  const recent = state.history.length > 50 ? state.history.slice(-50) : state.history;
+  const recent = state.history.length > 50 ? state.history.slice(0, 50) : state.history;
   const data = recent == null ? null : recent.map(dict => {
     return {
-      time: dict.time,
+      time: "t - " + (parseInt(state.data.time) - parseInt(dict.time)),
       LOX_N2_Pressure: dict.LOX.analog["1"],
       LOX_Tank_Pressure: dict.LOX.analog["3"],
       ETH_N2_Pressure: dict.ETH.analog["1"],
