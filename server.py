@@ -218,7 +218,7 @@ class LJWebSocketsServer:
                     self.state["sequence_executing"] = {
                         "header": "SLEEP",
                         "data": command.parameter,
-                        "time": time.time() + command.parameter
+                        "time": (time.time()*1000) + command.parameter
                     }
                     await asyncio.sleep(command.parameter / 1000)
                 else:
