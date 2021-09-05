@@ -5,6 +5,7 @@ import { TopBar, Panel } from "./components/index"
 import SafetyPanel from './components/panels/safety-panel';
 import GraphPanel from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';
+import ControlPanel from './components/panels/control-panel';
 
 const WS_ADDRESS = "ws://localhost:8888";
 
@@ -69,7 +70,7 @@ class App extends React.Component {
             <Sequences state={this.state} emit={this.emit} />
           </div>
           <div className='panel-row-2'>
-            <Panel title="Control" />
+            <ControlPanel state={this.state} emit={this.emit} />
             <GraphPanel state={this.state} emit={this.emit} />
           </div>
         </div>

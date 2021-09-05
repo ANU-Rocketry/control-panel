@@ -71,3 +71,11 @@ h5 {
 .toggle-switch > span {
   margin-right: 8px;
 }
+
+.control-panel {
+  background-image: url(labjack.svg);
+  background-size: contain;
+  background-repeat: no-repeat;
+  width: 50vw;
+  height: 35.5vw;
+}

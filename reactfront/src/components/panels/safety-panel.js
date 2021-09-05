@@ -11,6 +11,7 @@ function SafetyCard(props) {
   } else {
     toggle = <ToggleSwitch value={props.switchValue} setValue={props.setSwitchValue} />
   }
+
   return (
     <Card>
       <CardContent>
@@ -38,6 +39,10 @@ export default function SafetyPanel({ state, emit }) {
   const lox8Active = state.data === null ? false : state.data["LOX"]["digital"]["8"]
   const toggleLox8 = x => state.data["LOX"]["digital"]["8"] ? emit('CLOSE', { name: "LOX", pin: 8 }) : emit('OPEN', { name: "LOX", pin: 8 })
 
+  
+  const dataLoggingActive = state.data === null ? false : state.data.data_logging
+  const toggleDataLogging = x => emit('DATALOG', x)
+
   return (
     <Panel title="Safety">
       <div className="flex">
@@ -58,7 +63,13 @@ export default function SafetyPanel({ state, emit }) {
           isButton="true"
           setSwitchValue={abort} />
 
-        <SafetyCard title="LOX Pin 8"
+        <SafetyCard title="Data Logging"
+          label="Logging data"
+          isButton="false"
+          switchValue={dataLoggingActive}
+          setSwitchValue={toggleDataLogging} />
+
+      <SafetyCard title="LOX Pin 8"
           label="Switch pin 8"
           isButton="false"
           switchValue={lox8Active}
