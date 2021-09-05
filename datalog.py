@@ -1,20 +1,23 @@
-from datetime import date
 import time
+import csv
+import os
 
 
 class Datalog():
     def __init__(self, path):
         self.path = path
         self.begin_time = time.time()
-        self.file_name = date.today().strftime('%b-%d-%Y') + ".csv"
-        self.file_stream = open(self.file_name, "w")
-        self.file_stream.write(f"TIME; CODE; DATA\n")
+        self.file_name = time.strftime("%Y%m%d-%H%M%S") + ".csv"
+        self.file_stream = open(os.path.join(path, self.file_name), "w")
+        self.writer = csv.writer(self.file_stream)
+        self.header = ["TIME", "CODE", "DATA"]
+        self.writer.writerow(self.header)
         self.file_stream.flush()
 
     def log_data(self, data, code="MISC"):
-        data = ((time.time-self.begin_time)
-                + ";" + code + ";" + (str(data).replace('\n', '')))
-        self.file_stream.write()
+        data = [(time.time()-self.begin_time),
+                code, str(data).replace('\n', '')]
+        self.writer.writerow(data)
         self.file_stream.flush()
 
     def __del__(self):
