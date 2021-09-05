@@ -173,8 +173,6 @@ class LJWebSocketsServer:
     def serialise_state(self):
         state = {**self.state}
         # convert command objects to dictionaries
-        if state["sequence_executing"]:
-            state["sequence_executing"] = state["sequence_executing"].toDict()
         state['current_sequence'] = [x.toDict()
                                      for x in state['current_sequence']]
         return state
@@ -217,6 +215,11 @@ class LJWebSocketsServer:
                     0)
                 command = self.state["sequence_executing"]
                 if command.header == CommandString.SLEEP:
+                    self.state["sequence_executing"] = {
+                        "header": "SLEEP",
+                        "data": command.parameter,
+                        "time": time.time() + command.parameter
+                    }
                     await asyncio.sleep(command.parameter / 1000)
                 else:
                     self.LJ_execute(command)
