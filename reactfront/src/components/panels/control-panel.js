@@ -50,7 +50,8 @@ export default function ControlPanel({ state, emit }) {
     const buttons = [
         {pin: "8", testEnd: "LOX", width: "2", height: "1", x: "8", y: "4"},
         {pin: "10", testEnd: "LOX", width: "2", height: "1", x: "11", y: "1"},
-        {pin: "12", testEnd: "LOX", width: "2", height: "1", x: "11.5", y: "15"}
+        {pin: "12", testEnd: "LOX", width: "2", height: "1", x: "11.5", y: "15"},
+        {pin: "14", testEnd: "LOX", width: "2", height: "1", x: "8", y: "13"}
     ]
 
     return (  

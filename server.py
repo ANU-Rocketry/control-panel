@@ -24,7 +24,8 @@ class LJWebSocketsServer:
             "current_sequence": [],
             "sequence_running": False,
             "data_logging": False,
-            "aborting": False
+            "aborting": False,
+            "time": None
         }
         self.abort_sequence = None
         self.datalog = None
@@ -81,6 +82,7 @@ class LJWebSocketsServer:
                 pin_data = self.labjacks[key].get_state(
                     self.config[key]["digital"], self.config[key]["analog"])
                 self.state[key] = pin_data
+            self.state["time"] = round(time.time()*1000)
 
     def log_data(self, data, type="MISC"):
         if self.datalog:
@@ -218,7 +220,7 @@ class LJWebSocketsServer:
                     self.state["sequence_executing"] = {
                         "header": "SLEEP",
                         "data": command.parameter,
-                        "time": (time.time()*1000) + command.parameter
+                        "time": round(time.time()*1000) + command.parameter
                     }
                     await asyncio.sleep(command.parameter / 1000)
                 else:

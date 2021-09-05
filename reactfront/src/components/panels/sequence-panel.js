@@ -26,7 +26,7 @@ export default function Sequences({ state, emit }) {
                             <TableRow style={{ background: 'linear-gradient(45deg, #70D478 30%, #94F690 90%)' }}>
                                 <TableCell component="th" scope="row">{current_executing.header}</TableCell>
                                 <TableCell align="right">{current_executing.data.name && current_executing.data.name}</TableCell>
-                                <TableCell align="right">{current_executing.data.name ? current_executing.data.pin : current_executing.data}</TableCell>
+                                <TableCell align="right">{current_executing.data.name ? current_executing.data.pin : ((current_executing.time - state.data.time)/1000).toFixed(4)}</TableCell>
                             </TableRow>}
                         {sequences.map((com) => (
                             <TableRow>
