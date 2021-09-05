@@ -1,6 +1,6 @@
 import React from 'react';
 import { Panel } from '../index'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts'
 
 export default function SafetyPanel({ state, emit }) {
   const recent = state.history.length > 50 ? state.history.slice(-50) : state.history;
@@ -18,10 +18,18 @@ export default function SafetyPanel({ state, emit }) {
       <ResponsiveContainer width="100%" height="90%">
         <LineChart
           data={data}
+          margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="time" />
-          <YAxis />
+          <YAxis>
+            <Label angle={270} position='left' style={{ textAnchor: 'middle' }}>
+              Pressure (PSI)
+            </Label>
+          </YAxis>
+          <Tooltip
+            position={{ x: 100, y: 0 }} // this was my preferred static position
+          />
           <Legend />
           <Line type="monotone" dataKey="LOX_N2_Pressure" stroke="#ff0000"></Line>
           <Line type="monotone" dataKey="LOX_Tank_Pressure" stroke="#000000"></Line>

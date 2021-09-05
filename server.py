@@ -18,6 +18,7 @@ class LJWebSocketsServer:
     def __init__(self, ip: str, port: int, config='config.json'):
         self.config = {}
         self.state = {
+            "sequence_executing": None,
             "arming_switch": False,
             "manual_switch": False,
             "current_sequence": [],
@@ -112,6 +113,8 @@ class LJWebSocketsServer:
             self.state["current_sequence"] = [*self.abort_sequence]
             if not self.state["sequence_running"]:
                 self.execute_sequence()
+            self.state["arming_switch"] = False
+            self.state["manual_switch"] = False
         elif header == CommandString.GETDIGITALSTATES:
             self.LJ_execute(
                 Command(
@@ -170,6 +173,8 @@ class LJWebSocketsServer:
     def serialise_state(self):
         state = {**self.state}
         # convert command objects to dictionaries
+        if state["sequence_executing"]:
+            state["sequence_executing"] = state["sequence_executing"].toDict()
         state['current_sequence'] = [x.toDict()
                                      for x in state['current_sequence']]
         return state
@@ -208,11 +213,14 @@ class LJWebSocketsServer:
             self.state["sequence_running"] = True
 
             while len(self.state["current_sequence"]) != 0 and self.state["sequence_running"]:
-                command = self.state["current_sequence"].pop(0)
+                self.state["sequence_executing"] = self.state["current_sequence"].pop(
+                    0)
+                command = self.state["sequence_executing"]
                 if command.header == CommandString.SLEEP:
                     await asyncio.sleep(command.parameter / 1000)
                 else:
                     self.LJ_execute(command)
+                self.state["sequence_executing"] = None
 
             self.state["sequence_running"] = False
             self.state["aborting"] = False

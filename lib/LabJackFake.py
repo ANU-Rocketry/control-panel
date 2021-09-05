@@ -1,4 +1,6 @@
 import random
+import time
+import math
 
 
 class LabJack:
@@ -59,7 +61,7 @@ class LabJack:
             float: Voltage of analog pin
         """
         # Attempts to read a voltage given a pin number on the LabJack
-        return random.random()
+        return math.sin(time.time() + pin_number + self.serial_number)
 
     def get_state(self, digital, analog):
         """Gets the state of the current labjack
