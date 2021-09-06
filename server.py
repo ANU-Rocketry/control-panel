@@ -8,7 +8,7 @@ from lib.LJCommands import *
 # Importing from fake labjack so we can test the software
 from lib.LabJackFake import LabJack
 
-STATE_GRAB = 50  # Get state from labjacks 100 times per second
+STATE_GRAB = 50  # Get state from labjacks 50 times per second
 STATE_EMIT = 10  # Emit the sate to the front end 10 times per second
 LOG_PATH = "./logs"
 
