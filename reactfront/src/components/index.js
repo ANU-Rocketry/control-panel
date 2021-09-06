@@ -6,7 +6,7 @@ import Switch from '@material-ui/core/Switch';
 
 export function SectionTitle({ children }) {
     return (
-        <div style={{width:"100%", padding: "6px"}}>
+        <div style={{width:"100%", padding: "6px", height:"40px"}}>
             <h5>
                 {children}
             </h5>
@@ -45,27 +45,27 @@ export function TopBar() {
 
 export function Panel({ children, title }) {
   return (
-    <Paper className='panel'>
+    <div className='panel'>
         <SectionTitle>{title}</SectionTitle>
-        <div style={{width:"100%", height:"100%"}}>
+        <Paper style={{width:"100%", height:"calc(100% - 52px"}}>
           {children}
-        </div>
-    </Paper>
+        </Paper>
+    </div>
   );
 }
 
-export const CustomSwitch = withStyles((theme) => ({
+export const BigSwitch = withStyles((theme) => ({
   root: {
-    width: 28,
-    height: 16,
-    padding: 0,
+    width: 60,
+    height: 32,
+    padding: 1,
     display: 'flex',
   },
   switchBase: {
     padding: 2,
     color: theme.palette.grey[500],
     '&$checked': {
-      transform: 'translateX(12px)',
+      transform: 'translateX(26px)',
       color: theme.palette.common.white,
       '& + $track': {
         opacity: 1,
@@ -75,8 +75,8 @@ export const CustomSwitch = withStyles((theme) => ({
     },
   },
   thumb: {
-    width: 12,
-    height: 12,
+    width: 28,
+    height: 28,
     boxShadow: 'none',
   },
   track: {
@@ -88,12 +88,24 @@ export const CustomSwitch = withStyles((theme) => ({
   checked: {},
 }))(Switch);
 
+export const NormalSwitch = withStyles((theme) => ({
+  root: {
+    position: 'absolute',
+    top: "-10px",
+    left: "-10px",
+    width: "6vw",
+  },
+}))(Switch);
+
 export function ToggleSwitch({ value, setValue }) {
   return (
     <label className='toggle-switch'>
       <span className={value ? 'inactive' : 'active'}>Off</span>
-      <CustomSwitch checked={value} onChange={() => setValue(!value)} />
+      <BigSwitch checked={value} onChange={() => setValue(!value)} />
       <span className={value ? 'active' : 'inactive'}>On</span>
     </label>
   );
 }
+
+
+

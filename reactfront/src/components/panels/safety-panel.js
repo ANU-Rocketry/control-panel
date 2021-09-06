@@ -36,10 +36,6 @@ export default function SafetyPanel({ state, emit }) {
 
   const abort = x => emit('ABORTSEQUENCE', x)
 
-  const lox8Active = state.data === null ? false : state.data["LOX"]["digital"]["8"]
-  const toggleLox8 = x => state.data["LOX"]["digital"]["8"] ? emit('CLOSE', { name: "LOX", pin: 8 }) : emit('OPEN', { name: "LOX", pin: 8 })
-
-  
   const dataLoggingActive = state.data === null ? false : state.data.data_logging
   const toggleDataLogging = x => emit('DATALOG', x)
 
@@ -68,12 +64,6 @@ export default function SafetyPanel({ state, emit }) {
           isButton="false"
           switchValue={dataLoggingActive}
           setSwitchValue={toggleDataLogging} />
-
-      <SafetyCard title="LOX Pin 8"
-          label="Switch pin 8"
-          isButton="false"
-          switchValue={lox8Active}
-          setSwitchValue={toggleLox8} />
       </div>
     </Panel>
   )
