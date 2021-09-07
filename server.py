@@ -104,75 +104,81 @@ class LJWebSocketsServer:
     async def handle_command(self, ws, header, data, time):
         if self.state["aborting"]:
             return  # Aborting hard block
-        if header == CommandString.DATALOG:
-            if data:
-                self.state["data_logging"] = True
-                self.datalog = Datalog(LOG_PATH)
-                self.log_data(True, type="DATA_LOGGING")
-            else:
-                self.log_data(False, type="DATA_LOGGING")
-                self.state["data_logging"] = False
-                self.datalog = None
-        if header == CommandString.ARMINGSWITCH:
-            self.log_data(None, type="ARMING_SWITCH")
-            self.state["arming_switch"] = data
-        elif header == CommandString.ABORTSEQUENCE:
-            self.log_data(True, type="ABORTING")
-            self.state["aborting"] = True
-            self.state["current_sequence"] = [*self.abort_sequence]
-            if not self.state["sequence_running"]:
+        try:
+            if header == CommandString.DATALOG:
+                if data:
+                    self.state["data_logging"] = True
+                    self.datalog = Datalog(LOG_PATH)
+                    self.log_data(True, type="DATA_LOGGING")
+                else:
+                    self.log_data(False, type="DATA_LOGGING")
+                    self.state["data_logging"] = False
+                    self.datalog = None
+            if header == CommandString.ARMINGSWITCH:
+                self.log_data(None, type="ARMING_SWITCH")
+                self.state["arming_switch"] = data
+            elif header == CommandString.ABORTSEQUENCE:
+                self.log_data(True, type="ABORTING")
+                self.state["aborting"] = True
+                self.state["current_sequence"] = [*self.abort_sequence]
+                if not self.state["sequence_running"]:
+                    self.execute_sequence()
+                self.state["arming_switch"] = False
+                self.state["manual_switch"] = False
+            elif header == CommandString.GETDIGITALSTATES:
+                self.LJ_execute(
+                    Command(
+                        CommandString.GETDIGITALSTATES,
+                        parameter=data
+                    )
+                )
+            elif header == CommandString.GETANALOGSTATES:
+                self.LJ_execute(
+                    Command(
+                        CommandString.GETANALOGSTATES,
+                        parameter=data
+                    )
+                )
+            elif header == CommandString.SETSEQUENCE:
+                self.state["current_sequence"] = data
+            elif header == CommandString.GETDIGITALSTATES:
+                await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
+                    digital=data["pins"]))
+            elif header == CommandString.GETANALOGSTATES:
+                await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
+                    analog=data["pins"]))
+            elif header == CommandString.MANUALSWITCH:
+                self.state["manual_switch"] = data
+
+            if not self.state["arming_switch"]:
+                return  # Arming switch hard block
+
+            if header == "PING":
+                await self.emit(ws, 'PING', time)
+                return
+
+            if header == CommandString.BEGINSEQUENCE:
                 self.execute_sequence()
-            self.state["arming_switch"] = False
-            self.state["manual_switch"] = False
-        elif header == CommandString.GETDIGITALSTATES:
-            self.LJ_execute(
-                Command(
-                    CommandString.GETDIGITALSTATES,
-                    parameter=data
-                )
-            )
-        elif header == CommandString.GETANALOGSTATES:
-            self.LJ_execute(
-                Command(
-                    CommandString.GETANALOGSTATES,
-                    parameter=data
-                )
-            )
-        elif header == CommandString.SETSEQUENCE:
-            self.state["current_sequence"] = data
-        elif header == CommandString.GETDIGITALSTATES:
-            await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
-                digital=data["pins"]))
-        elif header == CommandString.GETANALOGSTATES:
-            await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
-                analog=data["pins"]))
-        elif header == CommandString.MANUALSWITCH:
-            self.state["manual_switch"] = data
-
-        if not self.state["arming_switch"]:
-            return  # Arming switch hard block
-
-        if header == "PING":
-            await self.emit(ws, 'PING', time)
-            return
-
-        if header == CommandString.BEGINSEQUENCE:
-            self.execute_sequence()
-        elif self.state["manual_switch"]:
-            if header == CommandString.OPEN:
-                self.LJ_execute(
-                    Command(
-                        CommandString.OPEN,
-                        parameter=data
+            elif self.state["manual_switch"]:
+                if header == CommandString.OPEN:
+                    self.LJ_execute(
+                        Command(
+                            CommandString.OPEN,
+                            parameter=data
+                        )
                     )
-                )
-            elif header == CommandString.CLOSE:
-                self.LJ_execute(
-                    Command(
-                        CommandString.CLOSE,
-                        parameter=data
+                elif header == CommandString.CLOSE:
+                    self.LJ_execute(
+                        Command(
+                            CommandString.CLOSE,
+                            parameter=data
+                        )
                     )
-                )
+        
+        # Haven't tested this code yet...
+        except Exception as e:
+            await self.emit(ws=ws, msg_type="ERROR", data=str(e))
+            await self.log_data(data=str(e), type="ERROR")
 
     async def producer_handler(self, ws, path):
         while True:

@@ -24,7 +24,6 @@ class CommandString(str, Enum):
     MANUALSWITCH = 'MANUALSWITCH',
     DATALOG = "DATALOG",
 
-
 """
 Paras: take in a command string and a data value is the JSON
 """

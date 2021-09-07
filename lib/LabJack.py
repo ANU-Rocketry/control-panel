@@ -1,6 +1,5 @@
 import u3
 
-
 class LabJack:
     def __init__(self, serial_number: int):
         # Constructor opens a USB connection to a LabJack
