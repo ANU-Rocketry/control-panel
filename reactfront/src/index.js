@@ -74,8 +74,7 @@ class App extends React.Component {
             <GraphPanel state={this.state} emit={this.emit} />
           </div>
         </div>
-        <div>Current data: {JSON.stringify(this.state.data)}</div>
-        <div>Ping: {this.state.ping}</div>
+        {/* <div>Ping: {this.state.ping}</div> */}
       </div>
     )
   }
