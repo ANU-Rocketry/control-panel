@@ -6,8 +6,6 @@ function ControlCard(props) {
     const state = props.state
     const emit = props.emit
 
-    console.log(props.pin)
-
     const value = state.data === null ? false : state.data[props.testEnd]["digital"][props.pin]
     const setValue =  x => state.data[props.testEnd]["digital"][props.pin] ? emit('CLOSE', { name: props.testEnd, pin: parseInt(props.pin) }) : emit('OPEN', { name: props.testEnd, pin: parseInt(props.pin) })
 
@@ -19,6 +17,7 @@ function ControlCard(props) {
     const box = {
         position: 'absolute',
         borderStyle: 'solid',
+        borderColor: 'transparent', // temp hack to keep alignment, should change margins instead
         width: normalise(props.width),
         height: normalise(props.height),
         top: normalise(props.y), 

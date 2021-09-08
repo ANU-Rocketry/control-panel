@@ -75,3 +75,6 @@ h5 {
   height: 35.5vw;
 }
 
+.control-panel .MuiSwitch-track {
+  width: 36px;
+}
