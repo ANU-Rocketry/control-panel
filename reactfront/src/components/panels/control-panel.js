@@ -1,3 +1,4 @@
+import { Switch } from '@material-ui/core';
 import React from 'react';
 import { NormalSwitch, Panel } from '../index'
 
@@ -35,7 +36,7 @@ function ControlCard(props) {
     return (
         <div>
             <div style={box}>
-                <NormalSwitch checked={value} onChange={() => setValue(!value)} />
+                <Switch checked={value} onChange={() => setValue(!value)} />
                 <label className={value ? 'active' : 'inactive'}>
                     <break/>
                 On

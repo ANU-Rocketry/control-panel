@@ -6,7 +6,6 @@ import os
 class Datalog():
     def __init__(self, path):
         self.path = path
-        os.mkdir(os.path.abspath(path))
         self.begin_time = time.time()
         self.file_name = time.strftime("%Y%m%d-%H%M%S") + ".csv"
         self.file_stream = open(os.path.join(path, self.file_name), "w")
@@ -20,6 +19,3 @@ class Datalog():
                 code, str(data).replace('\n', '')]
         self.writer.writerow(data)
         self.file_stream.flush()
-
-    def __del__(self):
-        self.file_stream.close()
