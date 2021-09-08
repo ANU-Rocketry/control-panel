@@ -4,11 +4,8 @@ import { Panel } from '../index'
 
 export default function Sequences({ state, emit }) {
 
-    var sequences = state.data === null ? [] : state.data.current_sequence
+    var sequences = (state.data && state.data.current_sequence) ?? []
     var current_executing = state.data === null ? null : state.data.sequence_executing
-    if (sequences == undefined) {
-        sequences = []
-    }
 
     return (
         <Panel title="Sequences">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Paper, Typography, Toolbar, AppBar } from '@material-ui/core';
+import { Paper, Toolbar, AppBar } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import { withStyles } from '@material-ui/core/styles';
 import Switch from '@material-ui/core/Switch';

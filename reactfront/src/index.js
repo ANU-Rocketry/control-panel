@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import { TopBar, Panel } from "./components/index"
+import { TopBar } from "./components/index"
 import SafetyPanel from './components/panels/safety-panel';
 import GraphPanel from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';

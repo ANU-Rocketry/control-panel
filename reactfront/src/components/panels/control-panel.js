@@ -1,4 +1,3 @@
-import { Card, CardContent, Switch } from '@material-ui/core';
 import React from 'react';
 import { NormalSwitch, Panel } from '../index'
 
