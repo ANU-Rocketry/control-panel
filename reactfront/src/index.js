@@ -7,7 +7,7 @@ import GraphPanel from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';
 import ControlPanel from './components/panels/control-panel';
 
-const WS_ADDRESS = "ws://192.168.1.19:8888";
+const WS_ADDRESS = "ws://127.0.0.1:8888";
 
 class App extends React.Component {
 
@@ -18,7 +18,7 @@ class App extends React.Component {
     this.emit = this.emit.bind(this)
   }
   componentDidMount() {
-    this.interval = setInterval(() => this.emit('PING'), 100);
+    this.interval = setInterval(() => this.emit('PING'), 1000);
     this.mounted = true;
   }
   componentWillUnmount() {

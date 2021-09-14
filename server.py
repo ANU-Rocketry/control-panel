@@ -102,6 +102,9 @@ class LJWebSocketsServer:
     Implementing logic for command executions...
     """
     async def handle_command(self, ws, header, data, time):
+        if header == "PING":
+            await self.emit(ws, 'PING', time)
+            return
         if self.state["aborting"]:
             return  # Aborting hard block
         if header == CommandString.DATALOG:
@@ -153,10 +156,6 @@ class LJWebSocketsServer:
 
         if not self.state["arming_switch"]:
             return  # Arming switch hard block
-
-        if header == "PING":
-            await self.emit(ws, 'PING', time)
-            return
 
         if header == CommandString.BEGINSEQUENCE:
             print("here")
