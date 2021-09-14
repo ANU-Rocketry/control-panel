@@ -74,7 +74,6 @@ class Command():
                     if line[0] != CommandString.SLEEP:
                         param_dict = {}
                         if not (line[1] in STANDSTRINGS):
-                            print(line)
                             raise Exception(
                                 f"#2103 invalid second column command for sequence '{line[1]}'")
 
@@ -123,24 +122,20 @@ class Command():
 
         elif self.header in [CommandString.ARMINGSWITCH, CommandString.MANUALSWITCH, CommandString.DATALOG]:
             if not (type(self.parameter) == bool):
-                print(self.parameter)
                 raise Exception(
                     f"#2205 switch {self.header} is not of bool type")
 
         elif self.header in [CommandString.BEGINSEQUENCE, CommandString.ABORTSEQUENCE]:
             if self.parameter is not None:
-                print(self.parameter)
                 raise Exception(
                     f"#2206 begin/end sequence takes no parameters")
 
         elif self.header == CommandString.SETSEQUENCE:
             if type(self.parameter) != list:
-                print(self.parameter)
                 raise Exception(
                     f"#2207 sequence is not a valid list of command JSON's or Command objects")
             for i, commandlike in enumerate(self.parameter):
                 # if the JSON/dict is invalid we'll get an exception
-                print(commandlike)
                 if type(commandlike) == str:
                     commandlike = json.loads(commandlike)
                 if type(commandlike) == dict:

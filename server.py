@@ -104,7 +104,6 @@ class LJWebSocketsServer:
     async def handle_command(self, ws, header, data, time):
         if self.state["aborting"]:
             return  # Aborting hard block
-
         if header == CommandString.DATALOG:
             if data:
                 self.state["data_logging"] = True
@@ -160,6 +159,7 @@ class LJWebSocketsServer:
             return
 
         if header == CommandString.BEGINSEQUENCE:
+            print("here")
             self.execute_sequence()
         elif self.state["manual_switch"]:
             if header == CommandString.OPEN:
