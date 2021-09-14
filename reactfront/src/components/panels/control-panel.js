@@ -7,9 +7,6 @@ function ControlCard(props) {
     const state = props.state
     const emit = props.emit
 
-    const value = state.data === null ? false : state.data[props.testEnd]["digital"][props.pin]
-    const setValue =  x => state.data[props.testEnd]["digital"][props.pin] ? emit('CLOSE', { name: props.testEnd, pin: parseInt(props.pin) }) : emit('OPEN', { name: props.testEnd, pin: parseInt(props.pin) })
-
     function normalise (num) {
         const oneBlock = 45/31
         return `calc(${oneBlock * num}vw - 2px)`
@@ -27,26 +24,45 @@ function ControlCard(props) {
 
     const label = {
         position: 'absolute',
+        margin: 'auto',
         fontSize: "1vw",
         top: normalise(props.y - 1), 
         left: normalise(props.x - 1), 
       };
 
+    if (props.isButton) {
 
-    return (
-        <div>
-            <div style={box}>
-                <Switch checked={value} onChange={() => setValue(!value)} />
-                <label className={value ? 'active' : 'inactive'}>
-                    <break/>
-                On
-                </label>
+        const value = state.data === null ? false : state.data[props.testEnd]["digital"][props.pin]
+        const setValue =  x => state.data[props.testEnd]["digital"][props.pin] ? emit('CLOSE', { name: props.testEnd, pin: parseInt(props.pin) }) : emit('OPEN', { name: props.testEnd, pin: parseInt(props.pin) })
+
+        return (
+            <div>
+                <div style={box}>
+                    <Switch checked={value} onChange={() => setValue(!value)} />
+                    <label className={value ? 'active' : 'inactive'}>
+                        <break/>
+                    On
+                    </label>
+                </div>
+                <h4 style={label}>
+                    {props.title}
+                </h4>
             </div>
-            <h4 style={label}>
-                {props.title}
-            </h4>
-        </div>
-    );
+        );
+    } else {
+        const value = state.data === null ? 0 : state.data[props.testEnd]["analog"][props.pin]
+    
+        return (
+            <div style={box}>
+                <div style={{fontSize: "1vw"}}>
+                    {props.title}
+                </div>
+                <div style={{fontSize: "1vw"}}>
+                    {value.toFixed(3)}
+                </div>
+            </div>
+        );
+    }
   }
 
 export default function ControlPanel({ state, emit }) {
@@ -64,7 +80,21 @@ export default function ControlPanel({ state, emit }) {
                         width={button.position.width}
                         height={button.position.height}
                         x={button.position.x}
-                        y={button.position.y} />    
+                        y={button.position.y} 
+                        isButton={true}/>    
+                )}
+                {sensors.map((sensor) =>
+                    <ControlCard 
+                        title= {sensor.pin.nameShort}
+                        state={state}
+                        emit={emit}
+                        pin={sensor.pin.labJackChanel}
+                        testEnd={sensor.pin.testEnd}
+                        width={sensor.position.width}
+                        height={sensor.position.height}
+                        x={sensor.position.x}
+                        y={sensor.position.y} 
+                        isButton={false}/>    
                 )}
             </div>
         </Panel>
@@ -120,5 +150,24 @@ const buttons = [
     {
         pin: {valve: 0,  labJackPin: 'EIO7', labJackChanel: '15', testEnd: 'LOX',      name: 'Oxidiser (LOX) Line Nitrogen Purge Valve',           nameShort: 'O.L.V2'},
         position: {width: "2", height: "1", x: "21", y: "17"}
+    }
+]
+
+const sensors = [
+    {
+        pin: {sensorNumber: 0, labJackPin: 'FIO1', labJackChanel: '1', testEnd: 'LOX', maxPressure: '250bar', name: 'LOX Nitrogen Pressurant Sensor', nameShort: '(N.L.O.P1)'},
+        position: {width: "5", height: "3", x: "25", y: "3"}
+    },
+    {
+        pin: {sensorNumber: 1, labJackPin: 'FIO3', labJackChanel: '3', testEnd: 'LOX', maxPressure: '160bar', name: 'LOX Tank Pressure Sensor', nameShort: '(O.L.P1)'},
+        position: {width: "3", height: "4.5", x: "17", y: "7.5"}
+    },
+    {
+        pin: {sensorNumber: 2, labJackPin: 'FIO1', labJackChanel: '1', testEnd: 'ETH', maxPressure: '250bar', name: 'Ethanol Nitrogen Pressurant Sensor', nameShort: '(N.L.E.P1)'},
+        position: {width: "5", height: "3", x: "1", y: "3"}
+    },
+    {
+        pin: {sensorNumber: 3, labJackPin: 'FIO3', labJackChanel: '3', testEnd: 'ETH', maxPressure: '160bar', name: 'Ethanol Tank Pressure Sensor', nameShort: '(E.L.P1)'},
+        position: {width: "3", height: "4.5", x: "11", y: "7.5"}
     }
 ]
