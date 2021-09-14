@@ -1,6 +1,33 @@
 import { Table, TableBody, TableCell, TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@material-ui/core';
 import React from 'react';
-import { Panel } from '../index'
+import { Panel, ToggleSwitch } from '../index'
+import Card from '@material-ui/core/Card';
+import CardContent from '@material-ui/core/CardContent';
+import Typography from '@material-ui/core/Typography';
+
+
+function SequenceCard(props) {
+    var toggle = ""
+    if (props.isButton === "true") {
+        toggle = <button onClick={() => props.setSwitchValue("bum")}>START SEQUENCE</button>
+    } else {
+        toggle = <ToggleSwitch value={props.switchValue} setValue={props.setSwitchValue} />
+    }
+
+    return (
+        <Card>
+            <CardContent>
+                <h2>
+                    {props.title}
+                </h2>
+                <Typography color="textSecondary">
+                    {props.label}
+                </Typography>
+                {toggle}
+            </CardContent>
+        </Card>
+    );
+}
 
 export default function Sequences({ state, emit }) {
 
@@ -10,13 +37,15 @@ export default function Sequences({ state, emit }) {
     const [open, setOpen] = React.useState(false);
 
     const handleChange = async (inputElement) => {
+        if (inputElement.target.files.length === 0) return;
         var file = inputElement.target.files[0];
         const data = parseCSV(file)
-        if (data) {
+        if (data !== false) {
             emit('SETSEQUENCE', await data)
         } else {
             setOpen(true);
         }
+        inputElement.target.value = ''
     };
 
     function csvToArray(str, delimiter = ",") {
@@ -74,6 +103,8 @@ export default function Sequences({ state, emit }) {
                         header: element[0],
                         parameter: num
                     });
+                } else if (element[0] == "") {
+                    return
                 } else { throw "invalid input" };
             })
         } catch (e) {
@@ -109,6 +140,17 @@ export default function Sequences({ state, emit }) {
                         <input type="file" accept=".csv" maxLength="1"
                             onChange={handleChange} />
                     </div>
+                    <Card>
+                        <CardContent>
+                            <h2>
+                                Start Sequence
+                            </h2>
+                            <Typography color="textSecondary">
+                                Start
+                            </Typography>
+                            <button onClick={() => emit('BEGINSEQUENCE', null)}>START SEQUENCE</button>
+                        </CardContent>
+                    </Card>
                 </div>
                 <div style={{ maxHeight: 200, overflow: 'auto', width: 'calc(100% - 6vw)', height: '100%' }}>
                     <Table stickyHeader aria-label="simple table">

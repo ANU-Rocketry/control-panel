@@ -78,3 +78,7 @@ h5 {
 .control-panel .MuiSwitch-track {
   width: 36px;
 }
+
+input[type='file'] {
+  color: transparent;
+}
