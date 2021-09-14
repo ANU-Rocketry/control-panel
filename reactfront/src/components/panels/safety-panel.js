@@ -21,7 +21,7 @@ function SafetyCard(props) {
         <Typography color="textSecondary">
           {props.label}
         </Typography>
-          {toggle}
+        {toggle}
       </CardContent>
     </Card>
   );

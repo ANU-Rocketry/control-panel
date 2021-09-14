@@ -7,7 +7,7 @@ import GraphPanel from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';
 import ControlPanel from './components/panels/control-panel';
 
-const WS_ADDRESS = "ws://localhost:8888";
+const WS_ADDRESS = "ws://127.0.0.1:8888";
 
 class App extends React.Component {
 
@@ -18,7 +18,7 @@ class App extends React.Component {
     this.emit = this.emit.bind(this)
   }
   componentDidMount() {
-    this.interval = setInterval(() => this.emit('PING'), 1000);
+    this.interval = setInterval(() => this.emit('PING'), 100);
     this.mounted = true;
   }
   componentWillUnmount() {
@@ -63,6 +63,7 @@ class App extends React.Component {
   render() {
     return (
       <div>
+        <div>Ping: {this.state.ping}</div>
         <TopBar />
         <div className='panels-root'>
           <div className='panel-row-1'>
@@ -74,7 +75,6 @@ class App extends React.Component {
             <GraphPanel state={this.state} emit={this.emit} />
           </div>
         </div>
-        {/* <div>Ping: {this.state.ping}</div> */}
       </div>
     )
   }

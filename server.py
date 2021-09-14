@@ -140,7 +140,9 @@ class LJWebSocketsServer:
                 )
             )
         elif header == CommandString.SETSEQUENCE:
-            self.state["current_sequence"] = data
+            command = Command(
+                CommandString.SETSEQUENCE, parameter=data)
+            self.state["current_sequence"] = command.parameter
         elif header == CommandString.GETDIGITALSTATES:
             await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
                 digital=data["pins"]))
