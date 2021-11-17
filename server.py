@@ -30,6 +30,7 @@ class LJWebSocketsServer:
         self.abort_sequence = None
         self.datalog = None
         self.time_since_command = None
+        self.warned_five = False
 
         with open(config, "r") as in_file:
             data = json.loads(in_file.read())
@@ -76,6 +77,17 @@ class LJWebSocketsServer:
         while True:
             if self.state["data_logging"] and self.datalog:
                 self.log_data(self.serialise_state(), type="STATE")
+
+            # This may be a horrible implementation
+            if self.time_since_command < self.state["time"] + 300 and not self.warned_five:
+                self.warned_five = True
+                raise Warning("Time since last command has exceeded 5 minutes")
+            elif self.time_since_command < self.state["time"] + 600:
+                raise Warning("Time since last command has been 10 minutes")
+                # Inclusion of abort
+
+
+
             for key in self.config:
                 if key == "ABORT_SEQUENCE":
                     continue
