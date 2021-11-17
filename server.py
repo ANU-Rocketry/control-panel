@@ -29,6 +29,7 @@ class LJWebSocketsServer:
         }
         self.abort_sequence = None
         self.datalog = None
+        self.time_since_command = None
 
         with open(config, "r") as in_file:
             data = json.loads(in_file.read())
@@ -82,6 +83,7 @@ class LJWebSocketsServer:
                     self.config[key]["digital"], self.config[key]["analog"])
                 self.state[key] = pin_data
             self.state["time"] = round(time.time()*1000)
+            
             await asyncio.sleep(1/STATE_GRAB)
 
     def log_data(self, data, type="MISC"):
@@ -102,6 +104,8 @@ class LJWebSocketsServer:
     Implementing logic for command executions...
     """
     async def handle_command(self, ws, header, data, time):
+        self.time_since_command = round(time.time()*1000)
+        
         if header == "PING":
             await self.emit(ws, 'PING', time)
             return
