@@ -11,6 +11,7 @@ from lib.LabJackFake import LabJack
 
 STATE_GRAB = 50  # Get state from labjacks 50 times per second
 STATE_EMIT = 10  # Emit the sate to the front end 10 times per second
+CONNECTION_TIMEOUT = 5  # Second to timeout and run abort sequence after
 LOG_PATH = "./logs"
 
 
@@ -80,6 +81,17 @@ class LJWebSocketsServer:
         for task in pending:
             task.cancel()
         self.clients -= 1
+
+    async def timeoutCounter(self):
+        lastConnection = time.time()
+        timeSinceLast = 0
+        while True:
+            timeSinceLast = time.time() - lastConnection
+            if not (self.clients == 0 and self.state["arming_switch"]):
+                lastConnection = time.time()
+            if timeSinceLast > (CONNECTION_TIMEOUT*1000):
+                print("ABORT")
+            await asyncio.sleep(1)
 
     async def sync_state(self):
         while True:
@@ -205,6 +217,7 @@ class LJWebSocketsServer:
         asyncio.get_event_loop().run_until_complete(
             websockets.serve(self.event_handler, self.ip, self.port))
         asyncio.ensure_future(self.sync_state())
+        asyncio.ensure_future(self.timeoutCounter())
         asyncio.get_event_loop().run_forever()
 
     def LJ_execute(self, command: Command):
