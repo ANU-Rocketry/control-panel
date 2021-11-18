@@ -13,7 +13,6 @@ STATE_GRAB = 50  # Get state from labjacks 50 times per second
 STATE_EMIT = 10  # Emit the sate to the front end 10 times per second
 LOG_PATH = "./logs"
 
-
 class LJWebSocketsServer:
 
     def __init__(self, ip: str, port: int, config='config.json'):
@@ -26,11 +25,11 @@ class LJWebSocketsServer:
             "sequence_running": False,
             "data_logging": False,
             "aborting": False,
-            "time": None
+            "time": None,
+            "latest_warning": None
         }
         self.abort_sequence = None
         self.datalog = None
-        self.warning_timer = None
         self.abort_timer = None
 
         with open(config, "r") as in_file:
@@ -58,11 +57,10 @@ class LJWebSocketsServer:
             raise Exception("#5001 No abort sequence supplied. Quitting.")
         print(f"Hosting server on {ip}:{port}")
 
-    async def timeout_warning():
-        raise Warning("300 seconds since last event")
-
-    async def timeout_abort():
+    async def timeout_abort(self):
         # Need to run abort sequence somehow
+
+        self.state["latest_warning"] = "600 seconds since last command... aborting"
         raise Exception("600 seconds since last command... aborting")
 
     async def event_handler(self, websocket, path):
@@ -70,8 +68,6 @@ class LJWebSocketsServer:
         Going to have to go through the Labjack object and produce the state...
         This will be a separate asynchronous task on a concurrent timer
         """
-        self.warning_timer.cancel()
-        self.abort_timer.cancel()
         
         consumer_task = asyncio.ensure_future(
             self.consumer_handler(websocket, path))
@@ -84,9 +80,6 @@ class LJWebSocketsServer:
         for task in pending:
             task.cancel()
 
-        self.warning_timer = Timer(300, self.timeout_warning)
-        self.abort_timer = Timer(600, self.timeout_abort)
-
     async def sync_state(self):
         while True:
             if self.state["data_logging"] and self.datalog:
@@ -97,8 +90,8 @@ class LJWebSocketsServer:
                 pin_data = self.labjacks[key].get_state(
                     self.config[key]["digital"], self.config[key]["analog"])
                 self.state[key] = pin_data
-            self.state["time"] = round(time.time()*1000)
             
+            self.state["time"] = round(time.time()*1000)
             await asyncio.sleep(1/STATE_GRAB)
 
     def log_data(self, data, type="MISC"):
@@ -115,12 +108,19 @@ class LJWebSocketsServer:
             else:
                 raise Exception("#2069 Invalid Command Given: " + message)
 
+    async def run_abort_sequence(self):
+        self.log_data(True, type="ABORTING")
+        self.state["aborting"] = True
+        self.state["current_sequence"] = [*self.abort_sequence]
+        if not self.state["sequence_running"]:
+            self.execute_sequence()
+        self.state["arming_switch"] = False
+        self.state["manual_switch"] = False
+    
     """
     Implementing logic for command executions...
     """
-    async def handle_command(self, ws, header, data, time):
-        self.time_since_command = round(time.time()*1000)
-        
+    async def handle_command(self, ws, header, data, time):        
         if header == "PING":
             await self.emit(ws, 'PING', time)
             return
@@ -139,13 +139,7 @@ class LJWebSocketsServer:
             self.log_data(None, type="ARMING_SWITCH")
             self.state["arming_switch"] = data
         elif header == CommandString.ABORTSEQUENCE:
-            self.log_data(True, type="ABORTING")
-            self.state["aborting"] = True
-            self.state["current_sequence"] = [*self.abort_sequence]
-            if not self.state["sequence_running"]:
-                self.execute_sequence()
-            self.state["arming_switch"] = False
-            self.state["manual_switch"] = False
+            self.run_abort_sequence()
         elif header == CommandString.GETDIGITALSTATES:
             self.LJ_execute(
                 Command(
