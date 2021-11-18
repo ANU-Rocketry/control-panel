@@ -14,6 +14,7 @@ STATE_EMIT = 10  # Emit the sate to the front end 10 times per second
 CONNECTION_TIMEOUT = 5  # Second to timeout and run abort sequence after
 LOG_PATH = "./logs"
 
+
 class LJWebSocketsServer:
 
     def __init__(self, ip: str, port: int, config='config.json'):
@@ -87,13 +88,11 @@ class LJWebSocketsServer:
         lastConnection = time.time()
         timeSinceLast = 0
         while True:
-            print("In here")
-            timeSinceLast = time.time() - lastConnection
-            print(timeSinceLast)
-            if not (self.clients == 0 and self.state["arming_switch"]):
+            if self.clients != 0 or not self.state["arming_switch"]:
                 lastConnection = time.time()
+            timeSinceLast = time.time() - lastConnection
             if timeSinceLast > (CONNECTION_TIMEOUT):
-                print("ABORT")
+                self.run_abort_sequence()
             await asyncio.sleep(1)
 
     async def sync_state(self):
@@ -132,7 +131,7 @@ class LJWebSocketsServer:
             self.execute_sequence()
         self.state["arming_switch"] = False
         self.state["manual_switch"] = False
-    
+
     """
     Implementing logic for command executions...
     """
