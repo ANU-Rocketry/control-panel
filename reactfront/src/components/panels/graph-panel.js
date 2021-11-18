@@ -1,28 +1,15 @@
 import React from 'react';
 import { Panel } from '../index'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label, Brush } from 'recharts'
 import Switch from '@material-ui/core/Switch';
 
 const MAX_GRAPH_POINTS = 100;
 
-function decimate(history) {
-  // We want to plot at most MAX_GRAPH_POINTS data points realistically
-  const n = history.length;
-  if (n <= MAX_GRAPH_POINTS) return history;
-  const decimated = [];
-  const step = n / MAX_GRAPH_POINTS;
-  let i = 0;
-  for (; i <= n - 1; i += step) {
-    decimated.push(history[Math.round(i)])
-  }
-  if (i < n - 1) decimated.push(history[n - 1]);
-  return decimated
-}
-
 export default function GraphPanel({ state, emit }) {
-  const [full, setFull] = React.useState(true);
+  const [paused, setPaused] = React.useState(false);
+  const [staticData, setStaticData] = React.useState([...state.history]);
   const n = state.history.length;
-  const sample = decimate(!full ? state.history.slice(n - 200, -1) : state.history)
+  const sample = !paused ? state.history.slice(n - 200, -1) : staticData;
   const data = sample.map(dict => {
     if (!dict) console.log(sample)
     if (!state.data) console.log(state)
@@ -58,7 +45,10 @@ export default function GraphPanel({ state, emit }) {
           <Line type="monotone" dataKey="ETH_Tank_Pressure" stroke="#66ff99"></Line>
         </LineChart>
       </ResponsiveContainer>
-      <Switch checked={full} onChange={e => setFull(e.target.checked)} /> Full time scale
+      <Switch checked={paused} onChange={e => {
+        setPaused(e.target.checked)
+        if (paused) setStaticData([...state.history.slice(n - 200, -1)]);
+      }} /> Pause
     </Panel>
   )
 }
