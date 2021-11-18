@@ -41,6 +41,7 @@ class LJWebSocketsServer:
             self.abort_sequence = command.parameter
 
         self.labjacks = {}
+        self.clients = 0
 
         for key in self.config:
             if key == "ABORT_SEQUENCE":
@@ -58,9 +59,6 @@ class LJWebSocketsServer:
             raise Exception("#5001 No abort sequence supplied. Quitting.")
         print(f"Hosting server on {ip}:{port}")
 
-    async def timeout_warning():
-        raise Warning("300 seconds since last event")
-
     async def timeout_abort():
         # Need to run abort sequence somehow
         raise Exception("600 seconds since last command... aborting")
@@ -70,9 +68,7 @@ class LJWebSocketsServer:
         Going to have to go through the Labjack object and produce the state...
         This will be a separate asynchronous task on a concurrent timer
         """
-        self.warning_timer.cancel()
-        self.abort_timer.cancel()
-        
+        self.clients += 1
         consumer_task = asyncio.ensure_future(
             self.consumer_handler(websocket, path))
         producer_task = asyncio.ensure_future(
@@ -83,9 +79,7 @@ class LJWebSocketsServer:
         )
         for task in pending:
             task.cancel()
-
-        self.warning_timer = Timer(300, self.timeout_warning)
-        self.abort_timer = Timer(600, self.timeout_abort)
+        self.clients -= 1
 
     async def sync_state(self):
         while True:
@@ -98,7 +92,7 @@ class LJWebSocketsServer:
                     self.config[key]["digital"], self.config[key]["analog"])
                 self.state[key] = pin_data
             self.state["time"] = round(time.time()*1000)
-            
+
             await asyncio.sleep(1/STATE_GRAB)
 
     def log_data(self, data, type="MISC"):
@@ -119,8 +113,8 @@ class LJWebSocketsServer:
     Implementing logic for command executions...
     """
     async def handle_command(self, ws, header, data, time):
-        self.time_since_command = round(time.time()*1000)
-        
+        #self.time_since_command = round(time.time()*1000)
+
         if header == "PING":
             await self.emit(ws, 'PING', time)
             return
