@@ -1,6 +1,7 @@
 import React from 'react';
 import { Panel } from '../index'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label, ReferenceArea } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts'
+import Switch from '@material-ui/core/Switch';
 
 const MAX_GRAPH_POINTS = 100;
 
@@ -19,12 +20,14 @@ function decimate(history) {
 }
 
 export default function GraphPanel({ state, emit }) {
-  const sample = decimate(state.history)
+  const [full, setFull] = React.useState(true);
+  const n = state.history.length;
+  const sample = decimate(!full ? state.history.slice(n - 200, -1) : state.history)
   const data = sample.map(dict => {
     if (!dict) console.log(sample)
     if (!state.data) console.log(state)
     return {
-      time: "t - " + (parseInt(state.data.time) - parseInt(dict.time)),
+      time: "t-" + ((parseInt(state.data.time) - parseInt(dict.time)) / 1000).toFixed(3),
       LOX_N2_Pressure: dict.LOX.analog["1"],
       LOX_Tank_Pressure: dict.LOX.analog["3"],
       ETH_N2_Pressure: dict.ETH.analog["1"],
@@ -55,6 +58,7 @@ export default function GraphPanel({ state, emit }) {
           <Line type="monotone" dataKey="ETH_Tank_Pressure" stroke="#66ff99"></Line>
         </LineChart>
       </ResponsiveContainer>
+      <Switch checked={full} onChange={e => setFull(e.target.checked)} /> Full time scale
     </Panel>
   )
 }
