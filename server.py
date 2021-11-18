@@ -57,7 +57,7 @@ class LJWebSocketsServer:
         if not self.abort_sequence:
             raise Exception("#5001 No abort sequence supplied. Quitting.")
         print(f"Hosting server on {ip}:{port}")
-    
+
     async def timeout_warning():
         raise Warning("300 seconds since last event")
 
@@ -91,7 +91,6 @@ class LJWebSocketsServer:
         while True:
             if self.state["data_logging"] and self.datalog:
                 self.log_data(self.serialise_state(), type="STATE")
-
             for key in self.config:
                 if key == "ABORT_SEQUENCE":
                     continue
