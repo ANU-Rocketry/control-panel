@@ -36,10 +36,16 @@ class App extends React.Component {
       const data = JSON.parse(e.data);
       switch (data.type) {
         case 'STATE':
-          const history = [...this.state.history]
-          if (history.length > 200) history.pop()
-          history.unshift(data.data)
-          this.setState({ data: data.data, history })
+          // React state is not meant to be mutated but we don't want to copy
+          // huge lists all the time and it won't cause us any problems in
+          // this specific case
+          // The history list is stored as [oldest, ..., newest]
+          this.state.history.push(data.data);
+          // Anything beyond 1 000 000 items is a bit extreme, halve it
+          // 1M items will last more than 8 hours
+          if (this.state.history.length > 1000000)
+            this.state.history = this.state.history.slice(500000, -1);
+          this.setState({ data: data.data, history: this.state.history })
           break
         case 'PING':
           this.setState({ ping: new Date().getTime() - data.data })

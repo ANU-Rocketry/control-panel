@@ -1,10 +1,28 @@
 import React from 'react';
 import { Panel } from '../index'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label, ReferenceArea } from 'recharts'
 
-export default function SafetyPanel({ state, emit }) {
-  const recent = state.history.length > 50 ? state.history.slice(0, 50) : state.history;
-  const data = recent == null ? null : recent.map(dict => {
+const MAX_GRAPH_POINTS = 100;
+
+function decimate(history) {
+  // We want to plot at most MAX_GRAPH_POINTS data points realistically
+  const n = history.length;
+  if (n <= MAX_GRAPH_POINTS) return history;
+  const decimated = [];
+  const step = n / MAX_GRAPH_POINTS;
+  let i = 0;
+  for (; i <= n - 1; i += step) {
+    decimated.push(history[Math.round(i)])
+  }
+  if (i < n - 1) decimated.push(history[n - 1]);
+  return decimated
+}
+
+export default function GraphPanel({ state, emit }) {
+  const sample = decimate(state.history)
+  const data = sample.map(dict => {
+    if (!dict) console.log(sample)
+    if (!state.data) console.log(state)
     return {
       time: "t - " + (parseInt(state.data.time) - parseInt(dict.time)),
       LOX_N2_Pressure: dict.LOX.analog["1"],
