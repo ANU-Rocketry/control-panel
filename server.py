@@ -60,12 +60,6 @@ class LJWebSocketsServer:
             raise Exception("#5001 No abort sequence supplied. Quitting.")
         print(f"Hosting server on {ip}:{port}")
 
-    async def timeout_abort():
-        # Need to run abort sequence somehow
-
-        self.state["latest_warning"] = "600 seconds since last command... aborting"
-        raise Exception("600 seconds since last command... aborting")
-
     async def event_handler(self, websocket, path):
         """
         Going to have to go through the Labjack object and produce the state...
@@ -141,6 +135,7 @@ class LJWebSocketsServer:
         if header == "PING":
             await self.emit(ws, 'PING', time)
             return
+
         if self.state["aborting"]:
             return  # Aborting hard block
         if header == CommandString.DATALOG:
@@ -153,6 +148,12 @@ class LJWebSocketsServer:
                 self.state["data_logging"] = False
                 self.datalog = None
         if header == CommandString.ARMINGSWITCH:
+            # Example of warning
+            self.state["latest_warning"] = {
+                "id":str(time),
+                "code":5050,
+                "message":"testing"
+            }
             self.log_data(None, type="ARMING_SWITCH")
             self.state["arming_switch"] = data
         elif header == CommandString.ABORTSEQUENCE:

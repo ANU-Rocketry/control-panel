@@ -15,7 +15,7 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.connect()
-    this.state = { data: null, history: [] };
+    this.state = { data: null, history: [], mostRecentWarning: {}, showWarning: false };
     this.emit = this.emit.bind(this)
   }
   componentDidMount() {
@@ -68,6 +68,11 @@ class App extends React.Component {
   }
 
   render() {
+    if (this.state.data && this.state.data.latest_warning && this.state.data.latest_warning.id != this.state.mostRecentWarning.id) {
+      console.log(this.state.mostRecentWarning);
+      this.state.mostRecentWarning = this.state.data.latest_warning;
+      this.state.showWarning = true;
+    }
     return (
       <div>
         <div>Ping: {this.state.ping}</div>
@@ -81,7 +86,12 @@ class App extends React.Component {
             <ControlPanel state={this.state} emit={this.emit} />
             <GraphPanel state={this.state} emit={this.emit} />
           </div>
-          <Alert onClose={()=>{}}severity="error" className='alert'>test</Alert>
+          {
+          this.state.showWarning 
+            ? <Alert onClose={()=>{this.setState({ showWarning: false })}} severity="error" className='alert'>
+              {"ID: " + this.state.mostRecentWarning.id + " CODE: " + this.state.mostRecentWarning.code + " MESSAGE: " + this.state.mostRecentWarning.message}
+              </Alert> 
+            : null}
         </div>
       </div>
     )
