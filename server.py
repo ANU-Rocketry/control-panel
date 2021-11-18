@@ -126,86 +126,86 @@ class LJWebSocketsServer:
         self.state["arming_switch"] = False
         self.state["manual_switch"] = False
 
+    def handleException(self, e):
+        self.state["latest_warning"] = {
+            "id":str(time.time()),
+            "message":str(e)
+        }
+
     """
     Implementing logic for command executions...
     """
     async def handle_command(self, ws, header, data, time):
         #self.time_since_command = round(time.time()*1000)
-
-        if header == "PING":
-            await self.emit(ws, 'PING', time)
-            return
-
-        if self.state["aborting"]:
-            return  # Aborting hard block
-        if header == CommandString.DATALOG:
-            if data:
-                self.state["data_logging"] = True
-                self.datalog = Datalog(LOG_PATH)
-                self.log_data(True, type="DATA_LOGGING")
-            else:
-                self.log_data(False, type="DATA_LOGGING")
-                self.state["data_logging"] = False
-                self.datalog = None
-        if header == CommandString.ARMINGSWITCH:
-            # Example of warning
-            self.state["latest_warning"] = {
-                "id":str(time),
-                "code":5050,
-                "message":"testing"
-            }
-            self.log_data(None, type="ARMING_SWITCH")
-            self.state["arming_switch"] = data
-        elif header == CommandString.ABORTSEQUENCE:
-            self.run_abort_sequence()
-        elif header == CommandString.GETDIGITALSTATES:
-            self.LJ_execute(
-                Command(
-                    CommandString.GETDIGITALSTATES,
-                    parameter=data
-                )
-            )
-        elif header == CommandString.GETANALOGSTATES:
-            self.LJ_execute(
-                Command(
-                    CommandString.GETANALOGSTATES,
-                    parameter=data
-                )
-            )
-        elif header == CommandString.SETSEQUENCE:
-            command = Command(
-                CommandString.SETSEQUENCE, parameter=data)
-            self.state["current_sequence"] = command.parameter
-        elif header == CommandString.GETDIGITALSTATES:
-            await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
-                digital=data["pins"]))
-        elif header == CommandString.GETANALOGSTATES:
-            await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
-                analog=data["pins"]))
-        elif header == CommandString.MANUALSWITCH:
-            self.state["manual_switch"] = data
-
-        if not self.state["arming_switch"]:
-            return  # Arming switch hard block
-
-        if header == CommandString.BEGINSEQUENCE:
-            print("here")
-            self.execute_sequence()
-        elif self.state["manual_switch"]:
-            if header == CommandString.OPEN:
+        try:
+            if header == "PING":
+                await self.emit(ws, 'PING', time)
+                return
+            if self.state["aborting"]:
+                return  # Aborting hard block
+            if header == CommandString.DATALOG:
+                if data:
+                    self.state["data_logging"] = True
+                    self.datalog = Datalog(LOG_PATH)
+                    self.log_data(True, type="DATA_LOGGING")
+                else:
+                    self.log_data(False, type="DATA_LOGGING")
+                    self.state["data_logging"] = False
+                    self.datalog = None
+            if header == CommandString.ARMINGSWITCH:
+                self.log_data(None, type="ARMING_SWITCH")
+                self.state["arming_switch"] = data
+            elif header == CommandString.ABORTSEQUENCE:
+                self.run_abort_sequence()
+            elif header == CommandString.GETDIGITALSTATES:
                 self.LJ_execute(
                     Command(
-                        CommandString.OPEN,
+                        CommandString.GETDIGITALSTATES,
                         parameter=data
                     )
                 )
-            elif header == CommandString.CLOSE:
+            elif header == CommandString.GETANALOGSTATES:
                 self.LJ_execute(
                     Command(
-                        CommandString.CLOSE,
+                        CommandString.GETANALOGSTATES,
                         parameter=data
                     )
                 )
+            elif header == CommandString.SETSEQUENCE:
+                command = Command(
+                    CommandString.SETSEQUENCE, parameter=data)
+                self.state["current_sequence"] = command.parameter
+            elif header == CommandString.GETDIGITALSTATES:
+                await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
+                    digital=data["pins"]))
+            elif header == CommandString.GETANALOGSTATES:
+                await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
+                    analog=data["pins"]))
+            elif header == CommandString.MANUALSWITCH:
+                self.state["manual_switch"] = data
+
+            if not self.state["arming_switch"]:
+                return  # Arming switch hard block
+
+            if header == CommandString.BEGINSEQUENCE:
+                self.execute_sequence()
+            elif self.state["manual_switch"]:
+                if header == CommandString.OPEN:
+                    self.LJ_execute(
+                        Command(
+                            CommandString.OPEN,
+                            parameter=data
+                        )
+                    )
+                elif header == CommandString.CLOSE:
+                    self.LJ_execute(
+                        Command(
+                            CommandString.CLOSE,
+                            parameter=data
+                        )
+                    )
+        except Exception as e:
+            self.handleException(e)
 
     async def producer_handler(self, ws, path):
         while True:

@@ -35,7 +35,7 @@ export function TopBar() {
       <AppBar position="static">
         <Toolbar>
           <h6 variant="h6" className={classes.title}>
-            Test End Control Software
+            Test Stand Control Software
           </h6>
         </Toolbar>
       </AppBar>

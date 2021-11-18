@@ -75,7 +75,6 @@ class App extends React.Component {
     }
     return (
       <div>
-        <div>Ping: {this.state.ping}</div>
         <TopBar />
         <div className='panels-root'>
           <div className='panel-row-1'>
@@ -89,7 +88,7 @@ class App extends React.Component {
           {
           this.state.showWarning 
             ? <Alert onClose={()=>{this.setState({ showWarning: false })}} severity="error" className='alert'>
-              {"ID: " + this.state.mostRecentWarning.id + " CODE: " + this.state.mostRecentWarning.code + " MESSAGE: " + this.state.mostRecentWarning.message}
+              {this.state.mostRecentWarning.message}
               </Alert> 
             : null}
         </div>
