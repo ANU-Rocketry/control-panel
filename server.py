@@ -14,7 +14,6 @@ STATE_EMIT = 10  # Emit the sate to the front end 10 times per second
 CONNECTION_TIMEOUT = 5  # Second to timeout and run abort sequence after
 LOG_PATH = "./logs"
 
-
 class LJWebSocketsServer:
 
     def __init__(self, ip: str, port: int, config='config.json'):
@@ -27,11 +26,11 @@ class LJWebSocketsServer:
             "sequence_running": False,
             "data_logging": False,
             "aborting": False,
-            "time": None
+            "time": None,
+            "latest_warning": None
         }
         self.abort_sequence = None
         self.datalog = None
-        self.warning_timer = None
         self.abort_timer = None
 
         with open(config, "r") as in_file:
@@ -62,6 +61,8 @@ class LJWebSocketsServer:
 
     async def timeout_abort():
         # Need to run abort sequence somehow
+
+        self.state["latest_warning"] = "600 seconds since last command... aborting"
         raise Exception("600 seconds since last command... aborting")
 
     async def event_handler(self, websocket, path):
@@ -121,6 +122,15 @@ class LJWebSocketsServer:
             else:
                 raise Exception("#2069 Invalid Command Given: " + message)
 
+    async def run_abort_sequence(self):
+        self.log_data(True, type="ABORTING")
+        self.state["aborting"] = True
+        self.state["current_sequence"] = [*self.abort_sequence]
+        if not self.state["sequence_running"]:
+            self.execute_sequence()
+        self.state["arming_switch"] = False
+        self.state["manual_switch"] = False
+    
     """
     Implementing logic for command executions...
     """
@@ -145,13 +155,7 @@ class LJWebSocketsServer:
             self.log_data(None, type="ARMING_SWITCH")
             self.state["arming_switch"] = data
         elif header == CommandString.ABORTSEQUENCE:
-            self.log_data(True, type="ABORTING")
-            self.state["aborting"] = True
-            self.state["current_sequence"] = [*self.abort_sequence]
-            if not self.state["sequence_running"]:
-                self.execute_sequence()
-            self.state["arming_switch"] = False
-            self.state["manual_switch"] = False
+            self.run_abort_sequence()
         elif header == CommandString.GETDIGITALSTATES:
             self.LJ_execute(
                 Command(
