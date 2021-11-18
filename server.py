@@ -87,10 +87,12 @@ class LJWebSocketsServer:
         lastConnection = time.time()
         timeSinceLast = 0
         while True:
+            print("In here")
             timeSinceLast = time.time() - lastConnection
+            print(timeSinceLast)
             if not (self.clients == 0 and self.state["arming_switch"]):
                 lastConnection = time.time()
-            if timeSinceLast > (CONNECTION_TIMEOUT*1000):
+            if timeSinceLast > (CONNECTION_TIMEOUT):
                 print("ABORT")
             await asyncio.sleep(1)
 
