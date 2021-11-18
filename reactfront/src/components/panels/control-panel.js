@@ -39,8 +39,7 @@ function ControlCard(props) {
             <div>
                 <div style={box}>
                     <Switch checked={value} onChange={() => setValue(!value)} />
-                    <label className={value ? 'active' : 'inactive'}>
-                        <break/>
+                    <label className={value ? 'active' : 'inactive'}><br/>
                     On
                     </label>
                 </div>
@@ -58,7 +57,7 @@ function ControlCard(props) {
                     {props.title}
                 </div>
                 <div style={{fontSize: "1vw"}}>
-                    {value.toFixed(3)}
+                    {value && value.toFixed(3)}
                 </div>
             </div>
         );
@@ -71,8 +70,9 @@ export default function ControlPanel({ state, emit }) {
         <Panel title="Control Panel">
             <div className="control-panel"> 
                 {buttons.map((button) =>
-                    <ControlCard 
-                        title= {button.pin.nameShort}
+                    <ControlCard
+                        title={button.pin.nameShort}
+                        key={button.pin.nameShort}
                         state={state}
                         emit={emit}
                         pin={button.pin.labJackChanel}
@@ -84,8 +84,9 @@ export default function ControlPanel({ state, emit }) {
                         isButton={true}/>    
                 )}
                 {sensors.map((sensor) =>
-                    <ControlCard 
-                        title= {sensor.pin.nameShort}
+                    <ControlCard
+                        title={sensor.pin.nameShort}
+                        key={sensor.pin.nameShort}
                         state={state}
                         emit={emit}
                         pin={sensor.pin.labJackChanel}
