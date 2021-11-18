@@ -6,6 +6,7 @@ import SafetyPanel from './components/panels/safety-panel';
 import GraphPanel from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';
 import ControlPanel from './components/panels/control-panel';
+import Alert from '@material-ui/lab/Alert';
 
 const WS_ADDRESS = "ws://127.0.0.1:8888";
 
@@ -80,6 +81,7 @@ class App extends React.Component {
             <ControlPanel state={this.state} emit={this.emit} />
             <GraphPanel state={this.state} emit={this.emit} />
           </div>
+          <Alert onClose={()=>{}}severity="error" className='alert'>test</Alert>
         </div>
       </div>
     )

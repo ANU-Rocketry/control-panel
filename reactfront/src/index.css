@@ -75,10 +75,22 @@ h5 {
   height: 35.5vw;
 }
 
+.alert {
+  position: fixed;
+  bottom: 10px;
+  left: 1vw;
+  width: 96vw;
+  z-index: 99999999999999999999;
+}
+
 .control-panel .MuiSwitch-track {
   width: 36px;
 }
 
 input[type='file'] {
   color: transparent;
+}
+
+body {
+  overflow: hidden;
 }

@@ -123,7 +123,7 @@ class LJWebSocketsServer:
             else:
                 raise Exception("#2069 Invalid Command Given: " + message)
 
-    async def run_abort_sequence(self):
+    def run_abort_sequence(self):
         self.log_data(True, type="ABORTING")
         self.state["aborting"] = True
         self.state["current_sequence"] = [*self.abort_sequence]
