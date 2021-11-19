@@ -19,7 +19,7 @@ class App extends React.Component {
     this.emit = this.emit.bind(this)
   }
   componentDidMount() {
-    this.interval = setInterval(() => this.emit('PING'), 1000);
+    this.interval = setInterval(() => this.emit('PING'), 200);
     this.mounted = true;
   }
   componentWillUnmount() {

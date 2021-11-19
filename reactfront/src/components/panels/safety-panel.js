@@ -40,7 +40,7 @@ export default function SafetyPanel({ state, emit }) {
   const toggleDataLogging = x => emit('DATALOG', x)
 
   return (
-    <Panel title={state.ping ? "Safety | PING : " + state.ping.toString() : "Safety"}>
+    <Panel title={"Safety | PING : " + (state.ping ? state.ping : "")}>
       <div className="flex">
         <SafetyCard title="Arming Switch"
           label="Controls if the state can change"

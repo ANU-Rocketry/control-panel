@@ -23,9 +23,9 @@ function reduceResolution(data) {
 
 export default function GraphPanel({ state, emit }) {
   const [paused, setPaused] = React.useState(false);
-  const [staticData, setStaticData] = React.useState([...state.history]);
+  const [staticData, setStaticData] = React.useState(formatData(state, state.history));
   const n = state.history.length;
-  const sample = !paused ? state.history.slice(n - 200, -1) : staticData;
+  const sample = !paused ? (n > 200 ? state.history.slice(n - 200, -1) : state.history) : staticData;
   const data = !paused ? formatData(state, sample) : staticData;
   return (
     <Panel title="Graphs">
@@ -34,6 +34,7 @@ export default function GraphPanel({ state, emit }) {
           data={data}
           margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
         >
+          <Legend verticalAlign="top" height={50}/>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="time" />
           <YAxis>
@@ -45,7 +46,6 @@ export default function GraphPanel({ state, emit }) {
             position={{ x: 100, y: 0 }} // this was my preferred static position
           />
           {paused ? <Brush/> : null}
-          <Legend />
           <Line type="monotone" dataKey="LOX_N2_Pressure" stroke="#ff0000"></Line>
           <Line type="monotone" dataKey="LOX_Tank_Pressure" stroke="#000000"></Line>
           <Line type="monotone" dataKey="ETH_N2_Pressure" stroke="#0099ff"></Line>
@@ -54,7 +54,7 @@ export default function GraphPanel({ state, emit }) {
       </ResponsiveContainer>
       <Switch checked={paused} onChange={e => {
         setPaused(e.target.checked)
-        if (paused) setStaticData(formatData(state, reduceResolution(state.history.slice(n - 6000, -1))));
+        if (paused) setStaticData(formatData(state, reduceResolution(n > 600 ? state.history.slice(n - 600, -1) : state.history)));
       }} /> Analysis Mode
     </Panel>
   )
