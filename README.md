@@ -2,7 +2,9 @@
 
 Full stack suite to allow custom control of LabJacks, over TCP for rocket testing
 
-This project consists of two parts: a backend that runs on a Raspberry Pi written in Python, and a front end website client written using Node.js. The two communicate over a point-to-point wifi connection. In order to use this project you only need Python 3 and Python's Pip package manager (installed by default with Python)
+![screenshot](./screenshot.png)
+
+This project consists of two parts: a backend that runs on a Raspberry Pi written in Python, and a front end website client written using Node.js. The two communicate over a point-to-point wifi connection. In order to use this project you only need Python 3 and Python's Pip package manager (installed by default with Python).
 
 On the Raspberry Pi, download this repository, run `pip install asyncio websockets` in a terminal. You will also need the LabJack `u3` Python library
 
@@ -12,12 +14,13 @@ To run the front-end, on your laptop download this repository, go to the `reactf
 
 To connect to a RPi, find the local IP address of the RPi (looks like `192.168.1.20` or `10.20.68.27`) and write the local IP address in the Raspberry Pi IP field in the front end. It should then start showing data. If it stops showing data it's not connected.
 
-TODO:
+If you have any problems, just file a GitHub Issue or email us if you have our details.
+
+# TODO
+
 * Document `LabJackFake`
 * Link to where you can download `u3.py` (or is it a pip module?)
-* Include contact details for support - this is quite difficult to use
 * Document the sequence feature and link to the example sequence files with explanations
-* Include screenshots
 
 # Development
 
