@@ -2,23 +2,26 @@
 
 Full stack suite to allow custom control of LabJacks, over TCP for rocket testing
 
-This project consists of two parts: a backend that runs on a Raspberry Pi written in Python, and a front end website client written using Node.js. The two communicate over a point-to-point wifi connection.
+This project consists of two parts: a backend that runs on a Raspberry Pi written in Python, and a front end website client written using Node.js. The two communicate over a point-to-point wifi connection. In order to use this project you only need Python 3 and Python's Pip package manager (installed by default with Python)
 
 On the Raspberry Pi, download this repository, run `pip install asyncio websockets` in a terminal. You will also need the LabJack `u3` Python library
 
 Then you can run the server with `python server.py` in the RPi terminal. Currently the LabJack data is fake, if you have a real LabJack plugged into the RPi and `u3` installed then just change the line `from lib.LabJackFake import LabJack` in `server.py` to `from lib.LabJack import LabJack` and it should work.
 
-To run the front-end, you will need to install Node.js on the computer you're running the front-end on. Then download this repository on that computer, go into the `reactfront` folder in a terminal / command prompt, run `npm install` and then `npm start`. After a short wait this will open a browser tab with the front end in it.
+To run the front-end, on your laptop download this repository, go to the `reactfront/build` folder and open a terminal. Then run `python http.server` and open the link it comes up with.
 
 To connect to a RPi, find the local IP address of the RPi (looks like `192.168.1.20` or `10.20.68.27`) and write the local IP address in the Raspberry Pi IP field in the front end. It should then start showing data. If it stops showing data it's not connected.
 
 TODO:
 * Document `LabJackFake`
 * Link to where you can download `u3.py` (or is it a pip module?)
-* Create static builds of the react front end so users don't need to install node and build it themselves
 * Include contact details for support - this is quite difficult to use
 * Document the sequence feature and link to the example sequence files with explanations
 * Include screenshots
+
+# Development
+
+To run the dev build of the front-end, you will need to install Node.js on the computer you're running the front-end on. Then download this repository on that computer, go into the `reactfront` folder in a terminal / command prompt, run `npm install` and then `npm start`. After a short wait this will open a browser tab with the front end in it. When you're done make sure to `npm run build` so the `reactfront/build` folder is updated.
 
 # Data Schema
 
