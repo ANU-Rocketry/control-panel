@@ -2,6 +2,24 @@
 
 Full stack suite to allow custom control of LabJacks, over TCP for rocket testing
 
+This project consists of two parts: a backend that runs on a Raspberry Pi written in Python, and a front end website client written using Node.js. The two communicate over a point-to-point wifi connection.
+
+On the Raspberry Pi, download this repository, run `pip install asyncio websockets` in a terminal. You will also need the LabJack `u3` Python library
+
+Then you can run the server with `python server.py` in the RPi terminal. Currently the LabJack data is fake, if you have a real LabJack plugged into the RPi and `u3` installed then just change the line `from lib.LabJackFake import LabJack` in `server.py` to `from lib.LabJack import LabJack` and it should work.
+
+To run the front-end, you will need to install Node.js on the computer you're running the front-end on. Then download this repository on that computer, go into the `reactfront` folder in a terminal / command prompt, run `npm install` and then `npm start`. After a short wait this will open a browser tab with the front end in it.
+
+To connect to a RPi, find the line `const WS_ADDRESS = "ws://127.0.0.1:8888";` in `reactfront/src/index.js` and edit the IP address. If the local IP address of the Raspberry Pi is `10.20.68.27` then change the line to `const WS_ADDRESS = "ws://10.20.68.27:8888"` and reload the front end.
+
+TODO:
+* Document `LabJackFake`
+* Make it easier to set the RPi IP address in the client
+* Link to where you can download `u3.py` (or is it a pip module?)
+* Create static builds of the react front end once the IP address UI is there so users don't need to install node and build it themselves
+* Include contact details for support - this is quite difficult to use
+* Document the sequence feature and link to the example sequence files with explanations
+
 # Data Schema
 
 Data is transferred between the server and client over websockets.
