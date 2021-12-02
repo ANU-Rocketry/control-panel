@@ -43,19 +43,14 @@ h1,h2,h3,h4,h5,h6 {
   margin: 6px 0px;
 }
 
-h6 {
-  font-size: 32px;
-}
-
-h5 {
-  font-size: 24px;
-}
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.2rem; }
 
 .flex {
   display: flex;
   height: 100%;
   justify-content: space-around;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .active, .inactive {
@@ -65,14 +60,35 @@ h5 {
   color: grey;
 }
 
+.frame {
+  padding: 0.5rem 1rem;
+}
+
 
 .control-panel {
   background-image: url(labjack.svg);
   background-size: contain;
   background-repeat: no-repeat;
   position: relative;
-  width: 45vw;
-  height: 35.5vw;
+  width: 800px;
+  height: 557px;
+}
+
+.panel.control {
+  width: 800px;
+}
+
+.panel.graphs {
+  width: calc(100% - 850px);
+}
+
+.control-panel .MuiSwitch-root {
+  transform:translate(-11px, -11px);
+  z-index: 10;
+}
+
+.panel.safety .safety-card {
+  margin: 1rem;
 }
 
 .alert {
@@ -93,4 +109,13 @@ input[type='file'] {
 
 body {
   overflow: hidden;
+}
+
+.control-label {
+  position: relative;
+  display: block;
+  transform: translate(-10px, -34px) !important;
+}
+.control-label.disabled {
+  cursor:help;
 }

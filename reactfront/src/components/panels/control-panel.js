@@ -1,6 +1,6 @@
 import { Switch } from '@material-ui/core';
 import React from 'react';
-import { NormalSwitch, Panel } from '../index'
+import { Panel } from '../index'
 
 function ControlCard(props) {
 
@@ -8,8 +8,7 @@ function ControlCard(props) {
     const emit = props.emit
 
     function normalise (num) {
-        const oneBlock = 45/31
-        return `calc(${oneBlock * num}vw - 2px)`
+        return `${num*26}px`;
     }
 
     const box = {
@@ -19,7 +18,8 @@ function ControlCard(props) {
         width: normalise(props.width),
         height: normalise(props.height),
         top: normalise(props.y), 
-        left: normalise(props.x), 
+        left: normalise(props.x),
+        ...(!props.enabled && props.isButton ? {cursor:'help'} : {})
       };
 
     const label = {
@@ -37,10 +37,10 @@ function ControlCard(props) {
 
         return (
             <div>
-                <div style={box}>
-                    <Switch checked={value} onChange={() => setValue(!value)} />
-                    <label className={value ? 'active' : 'inactive'}><br/>
-                    On
+                <div style={box} title={!props.enabled ? 'Please enable the arming and manual control switches to toggle' : ''}>
+                    <Switch checked={value} onChange={() => setValue(!value)} disabled={!props.enabled} />
+                    <label className={(value ? 'active' : 'inactive') + ' control-label ' + (props.enabled ? '':'disabled')}><br/>
+                    {value ? "On" : "Off"}
                     </label>
                 </div>
                 <h4 style={label}>
@@ -67,7 +67,7 @@ function ControlCard(props) {
 export default function ControlPanel({ state, emit }) {
 
     return (  
-        <Panel title="Control Panel">
+        <Panel title="Control Panel" className='panel control'>
             <div className="control-panel"> 
                 {buttons.map((button) =>
                     <ControlCard
@@ -80,8 +80,9 @@ export default function ControlPanel({ state, emit }) {
                         width={button.position.width}
                         height={button.position.height}
                         x={button.position.x}
-                        y={button.position.y} 
-                        isButton={true}/>    
+                        y={button.position.y}
+                        enabled={state.data.arming_switch && state.data.manual_switch}
+                        isButton={true}/>
                 )}
                 {sensors.map((sensor) =>
                     <ControlCard
@@ -94,8 +95,9 @@ export default function ControlPanel({ state, emit }) {
                         width={sensor.position.width}
                         height={sensor.position.height}
                         x={sensor.position.x}
-                        y={sensor.position.y} 
-                        isButton={false}/>    
+                        y={sensor.position.y}
+                        enabled={state.data.arming_switch && state.data.manual_switch}
+                        isButton={false}/>
                 )}
             </div>
         </Panel>

@@ -7,9 +7,9 @@ import Switch from '@material-ui/core/Switch';
 export function SectionTitle({ children }) {
     return (
         <div style={{width:"100%", padding: "6px", height:"40px"}}>
-            <h5>
+            <h1>
                 {children}
-            </h5>
+            </h1>
         </div>
     );
 }
@@ -34,18 +34,18 @@ export function TopBar() {
     <div className={classes.root}>
       <AppBar position="static">
         <Toolbar>
-          <h6 variant="h6" className={classes.title}>
+          <h1 className={classes.title}>
             Test Stand Control Software
-          </h6>
+          </h1>
         </Toolbar>
       </AppBar>
     </div>
   );
 }
 
-export function Panel({ children, title }) {
+export function Panel({ children, title, ...props }) {
   return (
-    <div className='panel'>
+    <div className='panel' {...props}>
         <SectionTitle>{title}</SectionTitle>
         <Paper style={{width:"100%", height:"calc(100% - 52px"}}>
           {children}
@@ -99,11 +99,11 @@ export const NormalSwitch = withStyles((theme) => ({
 
 export function ToggleSwitch({ value, setValue }) {
   return (
-    <label className='toggle-switch'>
+    <div className='toggle-switch' style={{ width: 60}}>
       <span className={value ? 'inactive' : 'active'}>Off</span>
       <BigSwitch checked={value} onChange={() => setValue(!value)} />
-      <span className={value ? 'active' : 'inactive'}>On</span>
-    </label>
+      <span className={value ? 'active' : 'inactive'} style={{ textAlign:'right', width:'100%', display:'block' }}>On</span>
+    </div>
   );
 }
 

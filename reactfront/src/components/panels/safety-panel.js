@@ -1,29 +1,25 @@
 import React from 'react';
 import { Panel, ToggleSwitch } from '../index'
-import Card from '@material-ui/core/Card';
-import CardContent from '@material-ui/core/CardContent';
-import Typography from '@material-ui/core/Typography';
 
-function SafetyCard(props) {
+export function SafetyCard(props) {
   var toggle = ""
-  if (props.isButton === "true") {
-    toggle = <button onClick={() => props.setSwitchValue("bum")}>ABORT</button>
+  if (props.children) {
+    toggle = props.children;
+  } else if (props.isButton === "true") {
+    toggle = <button onClick={() => props.setSwitchValue("")}>ABORT</button>
   } else {
     toggle = <ToggleSwitch value={props.switchValue} setValue={props.setSwitchValue} />
   }
 
+  const style = props.label ? {cursor:'help',borderBottom:'1px dotted #333'} : {}
+
   return (
-    <Card>
-      <CardContent>
-        <h2>
-          {props.title}
-        </h2>
-        <Typography color="textSecondary">
-          {props.label}
-        </Typography>
-        {toggle}
-      </CardContent>
-    </Card>
+    <div className='safety-card'>
+      <h2 title={props.label} style={style}>
+        {props.title}
+      </h2>
+      {toggle}
+    </div>
   );
 }
 
@@ -34,14 +30,12 @@ export default function SafetyPanel({ state, emit }) {
   const manualSwitchActive = state.data === null ? false : state.data.manual_switch
   const toggleManualSwitch = x => emit('MANUALSWITCH', x)
 
-  const abort = x => emit('ABORTSEQUENCE', x)
-
   const dataLoggingActive = state.data === null ? false : state.data.data_logging
   const toggleDataLogging = x => emit('DATALOG', x)
 
   return (
-    <Panel title={"Safety | PING : " + (state.ping ? state.ping : "")}>
-      <div className="flex">
+    <Panel title="Safety" className='panel safety'>
+      <div className="flex" style={{ justifyContent: 'flex-start' }}>
         <SafetyCard title="Arming Switch"
           label="Controls if the state can change"
           isButton="false"
@@ -54,16 +48,16 @@ export default function SafetyPanel({ state, emit }) {
           switchValue={manualSwitchActive}
           setSwitchValue={toggleManualSwitch} />
 
-        <SafetyCard title="Abort Button"
-          label="Abort the current sequence"
-          isButton="true"
-          setSwitchValue={abort} />
-
         <SafetyCard title="Data Logging"
           label="Logging data"
           isButton="false"
           switchValue={dataLoggingActive}
           setSwitchValue={toggleDataLogging} />
+
+        <SafetyCard title="Ping"
+          label="Time delay to reach the server">
+          {state.ping ? state.ping : '?'}ms
+        </SafetyCard>
       </div>
     </Panel>
   )

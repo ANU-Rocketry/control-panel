@@ -45,6 +45,7 @@ class App extends React.Component {
           // Anything beyond 1 000 000 items is a bit extreme, halve it
           // 1M items will last more than 8 hours
           if (this.state.history.length > 1000000)
+            // eslint-disable-next-line
             this.state.history = this.state.history.slice(500000, -1);
           this.setState({ data: data.data, history: this.state.history })
           break
@@ -68,10 +69,9 @@ class App extends React.Component {
   }
 
   render() {
-    if (this.state.data && this.state.data.latest_warning && this.state.data.latest_warning.id != this.state.mostRecentWarning.id) {
+    if (this.state.data && this.state.data.latest_warning && this.state.data.latest_warning.id !== this.state.mostRecentWarning.id) {
       console.log(this.state.mostRecentWarning);
-      this.state.mostRecentWarning = this.state.data.latest_warning;
-      this.state.showWarning = true;
+      this.setState({ mostRecentWarning: this.state.data.latest_warning, showWarning: true });
     }
     return (
       <div>

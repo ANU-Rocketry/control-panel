@@ -19,6 +19,7 @@ TODO:
 * Create static builds of the react front end once the IP address UI is there so users don't need to install node and build it themselves
 * Include contact details for support - this is quite difficult to use
 * Document the sequence feature and link to the example sequence files with explanations
+* Include screenshots
 
 # Data Schema
 

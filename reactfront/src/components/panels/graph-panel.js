@@ -28,7 +28,7 @@ export default function GraphPanel({ state, emit }) {
   const sample = !paused ? (n > 200 ? state.history.slice(n - 200, -1) : state.history) : staticData;
   const data = !paused ? formatData(state, sample) : staticData;
   return (
-    <Panel title="Graphs">
+    <Panel title="Graphs" className='panel graphs'>
       <ResponsiveContainer width="100%" height="90%">
         <LineChart
           data={data}
