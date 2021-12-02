@@ -10,13 +10,12 @@ Then you can run the server with `python server.py` in the RPi terminal. Current
 
 To run the front-end, you will need to install Node.js on the computer you're running the front-end on. Then download this repository on that computer, go into the `reactfront` folder in a terminal / command prompt, run `npm install` and then `npm start`. After a short wait this will open a browser tab with the front end in it.
 
-To connect to a RPi, find the line `const WS_ADDRESS = "ws://127.0.0.1:8888";` in `reactfront/src/index.js` and edit the IP address. If the local IP address of the Raspberry Pi is `10.20.68.27` then change the line to `const WS_ADDRESS = "ws://10.20.68.27:8888"` and reload the front end.
+To connect to a RPi, find the local IP address of the RPi (looks like `192.168.1.20` or `10.20.68.27`) and write the local IP address in the Raspberry Pi IP field in the front end. It should then start showing data. If it stops showing data it's not connected.
 
 TODO:
 * Document `LabJackFake`
-* Make it easier to set the RPi IP address in the client
 * Link to where you can download `u3.py` (or is it a pip module?)
-* Create static builds of the react front end once the IP address UI is there so users don't need to install node and build it themselves
+* Create static builds of the react front end so users don't need to install node and build it themselves
 * Include contact details for support - this is quite difficult to use
 * Document the sequence feature and link to the example sequence files with explanations
 * Include screenshots

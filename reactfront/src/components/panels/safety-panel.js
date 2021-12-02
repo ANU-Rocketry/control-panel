@@ -23,7 +23,7 @@ export function SafetyCard(props) {
   );
 }
 
-export default function SafetyPanel({ state, emit }) {
+export default function SafetyPanel({ state, emit, that }) {
   const armingSwitchActive = state.data === null ? false : state.data.arming_switch
   const toggleArmingSwitch = x => emit('ARMINGSWITCH', x)
 
@@ -56,7 +56,16 @@ export default function SafetyPanel({ state, emit }) {
 
         <SafetyCard title="Ping"
           label="Time delay to reach the server">
-          {state.ping ? state.ping : '?'}ms
+          {state.ping ? state.ping : '0'}ms
+        </SafetyCard>
+
+        <SafetyCard title="Raspberry Pi IP"
+          label="Local IP address of the Raspberry Pi. Must be on the same network. If it's incorrect no new data will appear">
+          <input value={state.wsAddress} onChange={e => {
+            that.setState({ wsAddress: e.target.value }, () => {
+              that.connect()
+            })
+          }} placeholder={state.defaultWSAddress} />
         </SafetyCard>
       </div>
     </Panel>

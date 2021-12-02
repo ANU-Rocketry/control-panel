@@ -65,11 +65,10 @@ function ControlCard(props) {
   }
 
 export default function ControlPanel({ state, emit }) {
-
     return (  
         <Panel title="Control Panel" className='panel control'>
-            <div className="control-panel"> 
-                {buttons.map((button) =>
+            <div className="control-panel">
+                {state.data && buttons.map((button) =>
                     <ControlCard
                         title={button.pin.nameShort}
                         key={button.pin.nameShort}
@@ -84,7 +83,7 @@ export default function ControlPanel({ state, emit }) {
                         enabled={state.data.arming_switch && state.data.manual_switch}
                         isButton={true}/>
                 )}
-                {sensors.map((sensor) =>
+                {state.data && sensors.map((sensor) =>
                     <ControlCard
                         title={sensor.pin.nameShort}
                         key={sensor.pin.nameShort}

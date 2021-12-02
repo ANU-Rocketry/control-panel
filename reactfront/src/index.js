@@ -8,15 +8,14 @@ import Sequences from './components/panels/sequence-panel';
 import ControlPanel from './components/panels/control-panel';
 import Alert from '@material-ui/lab/Alert';
 
-const WS_ADDRESS = "ws://127.0.0.1:8888";
-
 class App extends React.Component {
 
   constructor(props) {
     super(props);
-    this.connect()
-    this.state = { data: null, history: [], mostRecentWarning: {}, showWarning: false };
+    this.state = { data: null, history: [], mostRecentWarning: {}, showWarning: false,
+    wsAddress: "127.0.0.1", defaultWSAddress: "127.0.0.1" };
     this.emit = this.emit.bind(this)
+    this.connect()
   }
   componentDidMount() {
     this.interval = setInterval(() => this.emit('PING'), 200);
@@ -27,10 +26,16 @@ class App extends React.Component {
     clearInterval(this.interval);
   }
   connect() {
-    this.socket = new WebSocket(WS_ADDRESS)
+    if (this.socket) this.socket.close();
+    try {
+    this.socket = new WebSocket(`ws://${this.state.wsAddress}:8888`)
     this.socket.onopen = e => console.log('websocket connection established')
     this.socket.onclose = e => {
-      setTimeout(() => this.connect(), 5000)
+      setTimeout(() => {
+        if (!this.socket) {
+          this.connect()
+        }
+      }, 1000)
     }
     this.socket.onmessage = e => {
       if (!this.mounted) return;
@@ -56,6 +61,9 @@ class App extends React.Component {
           console.error(data)
       }
     }
+    } catch (e) {
+      console.error(e)
+    }
   }
   emit(commandHeader, parameter = null) {
     if (this.socket.readyState !== WebSocket.OPEN) return;
@@ -78,7 +86,7 @@ class App extends React.Component {
         <TopBar />
         <div className='panels-root'>
           <div className='panel-row-1'>
-            <SafetyPanel state={this.state} emit={this.emit} />
+            <SafetyPanel state={this.state} emit={this.emit} that={this} />
             <Sequences state={this.state} emit={this.emit} />
           </div>
           <div className='panel-row-2'>
