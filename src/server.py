@@ -5,9 +5,9 @@ import time
 from timer import Timer
 import json
 from datalog import Datalog
-from lib.LJCommands import *
+from LJCommands import *
 # Importing from fake labjack so we can test the software
-from lib.LabJackFake import LabJack
+from LabJackFake import LabJack
 
 STATE_GRAB = 50  # Get state from labjacks 50 times per second
 STATE_EMIT = 10  # Emit the sate to the front end 10 times per second
