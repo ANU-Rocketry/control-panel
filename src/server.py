@@ -7,7 +7,8 @@ import json
 from datalog import Datalog
 from LJCommands import *
 # Importing from fake labjack so we can test the software
-from LabJackFake import LabJack
+from LabJack import LabJack
+from traceback import print_exc
 
 STATE_GRAB = 50  # Get state from labjacks 50 times per second
 STATE_EMIT = 10  # Emit the sate to the front end 10 times per second
@@ -48,7 +49,7 @@ class LJWebSocketsServer:
             if key == "ABORT_SEQUENCE":
                 continue
             self.config[key]
-            self.labjacks[key] = LabJack(self.config[key]["serial"])
+            self.labjacks[key] = LabJack(self.config[key]["serial"], self.config[key]["analog"])
             self.state[key] = {
                 "digital": {},
                 "analog": {}
@@ -136,6 +137,7 @@ class LJWebSocketsServer:
     Implementing logic for command executions...
     """
     async def handle_command(self, ws, header, data, time):
+        print(header)
         #self.time_since_command = round(time.time()*1000)
         try:
             if header == "PING":
@@ -191,6 +193,7 @@ class LJWebSocketsServer:
                 self.execute_sequence()
             elif self.state["manual_switch"]:
                 if header == CommandString.OPEN:
+                    print("hi")
                     self.LJ_execute(
                         Command(
                             CommandString.OPEN,
@@ -205,6 +208,7 @@ class LJWebSocketsServer:
                         )
                     )
         except Exception as e:
+            print_exc()
             self.handleException(e)
 
     async def producer_handler(self, ws, path):
@@ -281,7 +285,7 @@ class LJWebSocketsServer:
 
 
 if __name__ == '__main__':
-    ip = "127.0.0.1"
+    ip = "192.168.43.207"
     port = 8888
     socket = LJWebSocketsServer(ip, port)
     socket.start_server()

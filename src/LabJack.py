@@ -1,10 +1,17 @@
 import u3
+from traceback import print_exc
+import sys
 
 class LabJack:
-    def __init__(self, serial_number: int):
+    def __init__(self, serial_number: int, analog_inputs: list[int]):
         # Constructor opens a USB connection to a LabJack
         self.serial_number = serial_number
-        self.device = u3.U3(first_found=False, serial=self.serial_number)
+        self.device = u3.U3(firstFound=False, serial=self.serial_number)
+        x = 0
+        for pin in analog_inputs:
+            x |= 1 << int(pin)
+        print(self.device.configIO())
+        self.device.configIO(FIOAnalog=x, EIOAnalog=0)
 
     def is_connected(self):
         """Checks if the current labjack is connected
@@ -26,8 +33,9 @@ class LabJack:
         Args:
             pinNumber (int)
         """
+        print("yo")
         # Attempts to open a relay given a pin number on the LabJack
-        self.device.setDOState(pin_number, state=0)
+        self.device.setDIOState(pin_number, state=1)
 
     def close_relay(self, pin_number: int):
         """Closes a given relay
@@ -36,7 +44,7 @@ class LabJack:
             pinNumber (int)
         """
         # Attempts to close a relay given a pin number on the LabJack
-        self.device.setDOState(pin_number, state=1)
+        self.device.setDIOState(pin_number, state=0)
 
     def get_relay_state(self, pin_number: int):
         """Get the state of a digital relay
@@ -48,7 +56,13 @@ class LabJack:
             bool: true if low, false if high.
         """
         # Attempts to get the state of a relay given a pin number on the LabJack
-        return self.device.getDIOState(pin_number)
+        try:
+            return self.device.getDIOState(pin_number)
+        except Exception:
+            print(pin_number)
+            print_exc()
+            print(f"pin: {pin_number}")
+            sys.exit()
 
     def get_voltage(self, pin_number: int) -> float:
         """Gets the value of a given analog pin
@@ -60,7 +74,13 @@ class LabJack:
             float: Voltage of analog pin
         """
         # Attempts to read a voltage given a pin number on the LabJack
-        return self.device.getAIN(pin_number)
+        try:
+            return self.device.getAIN(pin_number)
+        except Exception:
+            print(pin_number)
+            print_exc()
+            print(f"pin {pin_number}")
+            sys.exit()
 
     def get_state(self, digital=None, analog=None):
         """Gets the state of the current labjack
