@@ -122,7 +122,7 @@ const buttons = [
         position: {width: "2", height: "1", x: "8", y: "4"}
     },
     {
-        pin: {valve: 7,  labJackPin: 'CIO3', labJackChanel: '99', testEnd: 'ETH',  name: 'Fuel (Ethanol) Tank Vent Valve',                     nameShort: 'N.L.E.V3'}, 
+        pin: {valve: 7,  labJackPin: 'CIO3', labJackChanel: '19', testEnd: 'ETH',  name: 'Fuel (Ethanol) Tank Vent Valve',                     nameShort: 'N.L.E.V3'}, 
         position: {width: "2", height: "1", x: "11", y: "1"}
     },
     {
