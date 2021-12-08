@@ -4,23 +4,46 @@ Full stack suite to allow custom control of LabJacks, over TCP for rocket testin
 
 ![screenshot](./screenshot.png)
 
-This project consists of two parts: a backend that runs on a Raspberry Pi written in Python, and a front end website client written using Node.js. The two communicate over a point-to-point wifi connection. In order to use this project you only need Python 3 and Python's Pip package manager (installed by default with Python).
+This project consists of two parts: a backend that runs on a Raspberry Pi written in Python, and a front end website client written using Node.js and React.js. The two communicate over a point-to-point wifi connection.
 
-On the Raspberry Pi, download this repository, run `pip install asyncio websockets` in a terminal. You will also need the LabJack `u3` Python library
+# How To Use
 
-Then you can run the server with `python server.py` in the RPi terminal. Currently the LabJack data is fake, if you have a real LabJack plugged into the RPi and `u3` installed then just change the line `from lib.LabJackFake import LabJack` in `server.py` to `from lib.LabJack import LabJack` and it should work.
+You'll need a Raspberry Pi and your laptop, and some way of putting them on the same network. You can network with point-to-point ethernet or a hotspot + Linux compatible wifi dongle (don't need wifi dongle on newer Pi's). You cannot use ResNet as they block the ports we need.
 
-To run the front-end, on your laptop download this repository, go to the `reactfront/build` folder and open a terminal. Then run `python http.server` and open the link it comes up with.
+Setting up the Raspberry Pi:
+1. Open a terminal
+1. Build the LabJack Exodrvier
+    1. Go to your home folder (type `cd ~` in the terminal)
+    1. Install the libusb headers with `sudo apt-get install libusb-1.0-0 libusb-1.0-0-dev` (note the dashes where you'd expect periods to be)
+    1. Clone the Exodriver repository (`git clone https://github.com/labjack/exodriver`)
+    1. Go into the repository (`cd exodriver`)
+    1. Run installation script (`sudo ./install.sh`)
+1. Install this repository
+    1. Go to your home folder (`cd ~`)
+    1. Clone this repository (`git clone https://github.com/pstefa1707/LJSoftware`)
+    1. Go into the repository (`cd LJSoftware`)
+    1. Run `pip install asyncio websockets` (ensure it's Python 3 with `python --version`)
+    1. Note: we already bundle the u3 Python library in this repo because we need a consistent version and they often make silly breaking API change, so you only need the Exodrivers
 
-To connect to a RPi, find the local IP address of the RPi (looks like `192.168.1.20` or `10.20.68.27`) and write the local IP address in the Raspberry Pi IP field in the front end. It should then start showing data. If it stops showing data it's not connected.
+How to run the backend on the Pi
+1. Connect the Pi to the same network as your laptop (cannot be ResNet) via point-to-point wifi, ethernet or a mobile hotspot
+    * If you have a USB wifi dongle with Linux support, you can connect manually to a fixed wifi network with [this tutorial](https://www.raspberrypi-spy.co.uk/2017/04/manually-setting-up-pi-wifi-using-wpa_supplicant-conf/). You'll just need a laptop with an SD card reader OR a keyboard and monitor and HDMI cable to edit the files on the Pi
+    * If you have an ethernet cable you just need your laptop to have an ethernet port
+    * If you have in-built wifi on your Pi, you'll just need a keyboard, mouse and monitor to set it up
+1. Connect the LabJacks via USB to the Pi
+1. `cd ~/LJSoftware/src`
+1. Run `ip route get 8.8.8.8 | awk '{print $(NF-2); exit}'` to get the Raspberry Pi's local IP address
+1. Run `python server.py` to start the backend server (on port 8888 if you're interested)
 
-If you have any problems, just file a GitHub Issue or email us if you have our details.
+How to start the front-end on your laptop
+1. Clone the LJSoftware repository as above (you'll need Git installed on your laptop for this, if you don't you can download it as a zip which is also fine)
+1. Open a terminal, run `cd reactfront/build` and then `python http.server` and open the link it comes up with
+1. Enter the IP address from the Raspberry Pi into the website
+1. You should see data coming in, and if you enable the manual and arming switches you should be able to control valves. If it stops showing data it's not connected.
 
-# TODO
+If you have any problems, just file a GitHub Issue, contact us on Microsoft Teams or email our student emails.
 
-* Document `LabJackFake`
-* Link to where you can download `u3.py` (or is it a pip module?)
-* Document the sequence feature and link to the example sequence files with explanations
+Note: the front end is written using Node and React, but the version in the `build` folder is static and already built and just needs to be locally hosted. `python http.server` is one way of doing this, but there are others. For developing and debugging the front-end, you do need Node.js installed (see below).
 
 # Development
 
