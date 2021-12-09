@@ -13,7 +13,8 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = { data: null, history: [], mostRecentWarning: {}, showWarning: false,
-    wsAddress: "127.0.0.1", defaultWSAddress: "127.0.0.1" };
+    wsAddress: localStorage.getItem('wsaddr') || "127.0.0.1",
+    defaultWSAddress: "127.0.0.1" };
     this.emit = this.emit.bind(this)
     this.connect()
   }
