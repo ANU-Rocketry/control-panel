@@ -107,10 +107,6 @@ input[type='file'] {
   color: transparent;
 }
 
-body {
-  overflow: hidden;
-}
-
 .control-label {
   position: relative;
   display: block;

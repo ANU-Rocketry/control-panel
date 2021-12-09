@@ -137,7 +137,7 @@ class LJWebSocketsServer:
     Implementing logic for command executions...
     """
     async def handle_command(self, ws, header, data, time):
-        print(header)
+        if header != "PING": print(header)
         #self.time_since_command = round(time.time()*1000)
         try:
             if header == "PING":
@@ -193,7 +193,6 @@ class LJWebSocketsServer:
                 self.execute_sequence()
             elif self.state["manual_switch"]:
                 if header == CommandString.OPEN:
-                    print("hi")
                     self.LJ_execute(
                         Command(
                             CommandString.OPEN,

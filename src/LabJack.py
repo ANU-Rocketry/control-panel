@@ -33,7 +33,6 @@ class LabJack:
         Args:
             pinNumber (int)
         """
-        print("yo")
         # Attempts to open a relay given a pin number on the LabJack
         self.device.setDIOState(pin_number, state=0)
 
@@ -53,11 +52,11 @@ class LabJack:
             pinNumber (int)
 
         Returns:
-            bool: true if low, false if high.
+            bool: true if high, false if low.
         """
         # Attempts to get the state of a relay given a pin number on the LabJack
         try:
-            return self.device.getDIOState(pin_number)
+            return not self.device.getDIOState(pin_number)
         except Exception:
             print(pin_number)
             print_exc()
