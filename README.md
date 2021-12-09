@@ -14,6 +14,7 @@ Setting up the Raspberry Pi:
 1. Open a terminal
 1. Build the LabJack Exodrvier
     1. Go to your home folder (type `cd ~` in the terminal)
+    1. Install Python Pip if not already installed (`sudo apt install python3-pip`)
     1. Install the libusb headers with `sudo apt-get install libusb-1.0-0 libusb-1.0-0-dev` (note the dashes where you'd expect periods to be)
     1. Clone the Exodriver repository (`git clone https://github.com/labjack/exodriver`)
     1. Go into the repository (`cd exodriver`)
@@ -33,11 +34,12 @@ How to run the backend on the Pi
 1. Connect the LabJacks via USB to the Pi
 1. `cd ~/LJSoftware/src`
 1. Run `ip route get 8.8.8.8 | awk '{print $(NF-2); exit}'` to get the Raspberry Pi's local IP address
+1. Edit `server.py` to change the IP address at the end to be the local IP of the Pi
 1. Run `python server.py` to start the backend server (on port 8888 if you're interested)
 
 How to start the front-end on your laptop
 1. Clone the LJSoftware repository as above (you'll need Git installed on your laptop for this, if you don't you can download it as a zip which is also fine)
-1. Open a terminal, run `cd reactfront/build` and then `python http.server` and open the link it comes up with
+1. Open a terminal, run `cd reactfront/build` and then `python -m http.server` and open the link it comes up with
 1. Enter the IP address from the Raspberry Pi into the website
 1. You should see data coming in, and if you enable the manual and arming switches you should be able to control valves. If it stops showing data it's not connected.
 
