@@ -35,7 +35,7 @@ class LabJack:
         """
         print("yo")
         # Attempts to open a relay given a pin number on the LabJack
-        self.device.setDIOState(pin_number, state=1)
+        self.device.setDIOState(pin_number, state=0)
 
     def close_relay(self, pin_number: int):
         """Closes a given relay
@@ -44,7 +44,7 @@ class LabJack:
             pinNumber (int)
         """
         # Attempts to close a relay given a pin number on the LabJack
-        self.device.setDIOState(pin_number, state=0)
+        self.device.setDIOState(pin_number, state=1)
 
     def get_relay_state(self, pin_number: int):
         """Get the state of a digital relay
