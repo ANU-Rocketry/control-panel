@@ -3,14 +3,22 @@ import { Panel } from '../index'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label, Brush } from 'recharts'
 import Switch from '@material-ui/core/Switch';
 
+function voltsToPsi(volts, barMax) {
+  const resistance = 120; // ohm
+  const current1 = 0.004; // amps
+  const current2 = 0.02; // amps
+  const bar = barMax/(resistance * current2) * (volts - resistance * current1)
+  return bar * 14.504; // 1bar = 14.5psi
+}
+
 function formatData(state, data) {
   return data.map(dict => {
     return {
       time: "t-" + ((parseInt(state.data.time) - parseInt(dict.time)) / 1000).toFixed(3),
-      LOX_N2_Pressure: dict.LOX.analog["1"],
-      LOX_Tank_Pressure: dict.LOX.analog["3"],
-      ETH_N2_Pressure: dict.ETH.analog["1"],
-      ETH_Tank_Pressure: dict.ETH.analog["3"],
+      LOX_N2_Pressure: voltsToPsi(dict.LOX.analog["1"], 250 /* bar */),
+      LOX_Tank_Pressure: voltsToPsi(dict.LOX.analog["3"], 100 /* bar */),
+      ETH_N2_Pressure: voltsToPsi(dict.ETH.analog["1"], 250 /* bar */),
+      ETH_Tank_Pressure: voltsToPsi(dict.ETH.analog["3"], 100 /* bar */),
     }
   })
 }

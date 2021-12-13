@@ -23,10 +23,29 @@ Setting up the Raspberry Pi:
     1. Go to your home folder (`cd ~`)
     1. Clone this repository (`git clone https://github.com/pstefa1707/LJSoftware`)
     1. Go into the repository (`cd LJSoftware`)
-    1. Run `pip install asyncio websockets` (ensure it's Python 3 with `python --version`)
+    1. Run `sudo pip install asyncio websockets`
+      1. The sudo is VERY IMPORTANT. Otherwise the startup script will not be able to find the pip modules because they'll be locally installed otherwise
     1. Note: we already bundle the u3 Python library in this repo because we need a consistent version and they often make silly breaking API change, so you only need the Exodrivers
+1. Configure startup script
+    1. `sudo nano /etc/rc.local`
+    1. Replace the contents with:
+      ```sh
+     #!/bin/sh -e
+     sudo sh /home/pi/LJSoftware/startup.sh &
+     exit 0
+     ```
+1. Set up Ubiquity point-to-point wifi
+    1. `sudo nano /etc/dhcpcd.conf` and paste this at the bottom:
+      ```
+      interface eth0
+      static ip_address=192.168.1.5/24
+      static routers=192.168.1.2
+      static domain_name_servers=192.168.1.2
+      ```
+      Then it will have the IP `192.168.1.5`. This assumes the gateway (the router-y thing you plug the Pi into via ethernet) has the IP `192.168.1.2` and has no DCHP (so you need to manually set the IP). If you need to use another ethernet connection you'll have to comment out these lines with `#` at the start of each line temporarily.
 
 How to run the backend on the Pi
+1. If you used the Ubiquity and startup script steps, plug the LabJacks via USB to the Pi, connect one end of the Ubiquity to the ethernet port, then power the Pi. Configure your laptop to use a manual IP for ethernet (eg 192.168.1.4) plugged into the other Ubiquity and then open the front-end as above. If you aren't using this setup follow the remaining instructions
 1. Connect the Pi to the same network as your laptop (cannot be ResNet) via point-to-point wifi, ethernet or a mobile hotspot
     * If you have a USB wifi dongle with Linux support, you can connect manually to a fixed wifi network with [this tutorial](https://www.raspberrypi-spy.co.uk/2017/04/manually-setting-up-pi-wifi-using-wpa_supplicant-conf/). You'll just need a laptop with an SD card reader OR a keyboard and monitor and HDMI cable to edit the files on the Pi
     * If you have an ethernet cable you just need your laptop to have an ethernet port
@@ -34,7 +53,7 @@ How to run the backend on the Pi
 1. Connect the LabJacks via USB to the Pi
 1. `cd ~/LJSoftware/src`
 1. Run `ip route get 8.8.8.8 | awk '{print $(NF-2); exit}'` to get the Raspberry Pi's local IP address
-1. Edit `server.py` to change the IP address at the end to be the local IP of the Pi
+1. Edit `server.py` to change the IP address at the end to be the local IP of the Pi (if you're using Ubiquity as above this is already done)
 1. Run `python server.py` to start the backend server (on port 8888 if you're interested)
 
 How to start the front-end on your laptop
