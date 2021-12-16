@@ -5,8 +5,6 @@ export function SafetyCard(props) {
   var toggle = ""
   if (props.children) {
     toggle = props.children;
-  } else if (props.isButton === "true") {
-    toggle = <button onClick={() => props.setSwitchValue("")}>ABORT</button>
   } else {
     toggle = <ToggleSwitch value={props.switchValue} setValue={props.setSwitchValue} />
   }

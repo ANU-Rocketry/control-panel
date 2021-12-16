@@ -88,6 +88,7 @@ export default function Sequences({ state, emit }) {
     }
 
     const abort = x => emit('ABORTSEQUENCE', x)
+    const armed = state.data && state.data.arming_switch;
 
     return (
         <Panel title="Sequences">
@@ -97,7 +98,7 @@ export default function Sequences({ state, emit }) {
                     aria-labelledby="alert-dialog-title"
                     aria-describedby="alert-dialog-description"
                 >
-                    <DialogTitle id="alert-dialog-title">{"Invalid CSV"}</DialogTitle>
+                    <DialogTitle id="alert-dialog-title">Invalid CSV</DialogTitle>
                     <DialogContent>
                         <DialogContentText id="alert-dialog-description">
                             Confirm the CSV given was valid, read documentation if unsure.
@@ -120,10 +121,10 @@ export default function Sequences({ state, emit }) {
                             <input type="file" accept=".csv" maxLength="1"
                                 onChange={handleChange} />
                         </div><br/>
-                        <button onClick={() => emit('BEGINSEQUENCE', null)}>Start</button><br/><br/>
-                        <SafetyCard title="Run Abort Sequence"
-                            isButton="true"
-                            setSwitchValue={abort} />
+                        <button onClick={() => emit('BEGINSEQUENCE', null)} style={{backgroundColor:armed?'lime':'lightgrey',padding:10,cursor:'pointer'}}>Start</button><br/><br/>
+                        <SafetyCard title="Run Abort Sequence">
+                            <button onClick={() => abort()} style={{backgroundColor:armed?'tomato':'lightgrey',padding:10,cursor:'pointer'}}>ABORT</button>
+                        </SafetyCard>
                     </div>
                 </div>
                 <div style={{ overflow: 'auto', width: '100%', height: '100%' }}>

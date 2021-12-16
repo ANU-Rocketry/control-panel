@@ -12,7 +12,7 @@ from traceback import print_exc
 
 STATE_GRAB = 50  # Get state from labjacks 50 times per second
 STATE_EMIT = 10  # Emit the sate to the front end 10 times per second
-CONNECTION_TIMEOUT = 5  # Second to timeout and run abort sequence after
+CONNECTION_TIMEOUT = 300  # Second to timeout and run abort sequence after
 LOG_PATH = "./logs"
 
 
@@ -264,7 +264,11 @@ class LJWebSocketsServer:
                         "time": round(time.time()*1000) + command.parameter
                     }
                     self.log_data(command.toDict(), type="COMMAND_EXECUTED")
-                    await asyncio.sleep(command.parameter / 1000)
+                    # break sleep into 100 chunks so aborts will interrupt sleeps
+                    # await asyncio.sleep(command.parameter / 1000)
+                    for i in range(100):
+                        if not self.state['aborting']:
+                            await asyncio.sleep(command.parameter / 1000 / 100)
                 else:
                     self.LJ_execute(command)
                 self.state["sequence_executing"] = None
@@ -284,7 +288,7 @@ class LJWebSocketsServer:
 
 
 if __name__ == '__main__':
-    ip = "192.168.43.207"
+    ip = "192.168.1.5"
     port = 8888
     socket = LJWebSocketsServer(ip, port)
     socket.start_server()

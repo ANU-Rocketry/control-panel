@@ -37,19 +37,19 @@ function ControlCard(props) {
 
         return (
             <div>
-                <div style={box} title={!props.enabled ? 'Please enable the arming and manual control switches to toggle' : ''}>
+                {state.data && <div style={box} title={!props.enabled ? 'Please enable the arming and manual control switches to toggle' : ''}>
                     <Switch checked={value} onChange={() => setValue(!value)} disabled={!props.enabled} />
                     <label className={(value ? 'active' : 'inactive') + ' control-label ' + (props.enabled ? '':'disabled')}><br/>
                     {value ? "On" : "Off"}
                     </label>
-                </div>
+                </div>}
                 <h4 style={label}>
                     {props.title}
                 </h4>
             </div>
         );
     } else {
-        const value = state.data === null ? 0 : state.data[props.testEnd]["analog"][props.pin]
+        const value = state.data === null ? null : state.data[props.testEnd]["analog"][props.pin]
     
         return (
             <div style={box}>
@@ -68,9 +68,9 @@ export default function ControlPanel({ state, emit }) {
     return (  
         <Panel title="Control Panel" className='panel control'>
             <div className="control-panel">
-                {state.data && buttons.map((button) =>
+                {buttons.map((button) =>
                     <ControlCard
-                        title={button.pin.nameShort}
+                        title={button.pin.testEnd.charAt(0) + ' ' + button.pin.abbrev + ' ' + button.pin.labJackChanel}
                         key={button.pin.nameShort}
                         state={state}
                         emit={emit}
@@ -80,10 +80,10 @@ export default function ControlPanel({ state, emit }) {
                         height={button.position.height}
                         x={button.position.x}
                         y={button.position.y}
-                        enabled={state.data.arming_switch && state.data.manual_switch}
+                        enabled={state.data && state.data.arming_switch && state.data.manual_switch}
                         isButton={true}/>
                 )}
-                {state.data && sensors.map((sensor) =>
+                {sensors.map((sensor) =>
                     <ControlCard
                         title={sensor.pin.nameShort}
                         key={sensor.pin.nameShort}
@@ -95,7 +95,7 @@ export default function ControlPanel({ state, emit }) {
                         height={sensor.position.height}
                         x={sensor.position.x}
                         y={sensor.position.y}
-                        enabled={state.data.arming_switch && state.data.manual_switch}
+                        enabled={state.data && state.data.arming_switch && state.data.manual_switch}
                         isButton={false}/>
                 )}
             </div>
@@ -106,51 +106,63 @@ export default function ControlPanel({ state, emit }) {
 
 const buttons = [
     {
-        pin: {valve: 11, labJackPin: 'EIO6', labJackChanel: '14', testEnd: 'ETH',  name: 'Main Fuel (Ethanol) Valve',                          nameShort: 'E.L.V1'},
+        pin: {valve: 11, labJackPin: 'EIO6', labJackChanel: '14', testEnd: 'ETH',  name: 'Main Fuel (Ethanol) Valve',
+            nameShort: 'E.L.V1', abbrev: 'main'},
         position: {width: "2", height: "1", x: "11.5", y: "15"}
     },
     {
-        pin: {valve: 10, labJackPin: 'CIO1', labJackChanel: '12', testEnd: 'ETH',  name: 'Fuel (Ethanol) Fill Valve',                          nameShort: 'E.DF.V1'}, 
+        pin: {valve: 10, labJackPin: 'CIO1', labJackChanel: '12', testEnd: 'ETH',  name: 'Fuel (Ethanol) Fill Valve',
+            nameShort: 'E.DF.V1', abbrev: 'fill'}, 
         position: {width: "2", height: "1", x: "8", y: "13"}
     },
     {
-        pin: {valve: 9,  labJackPin: 'EIO2', labJackChanel: '10', testEnd: 'ETH',  name: 'Fuel (Ethanol) Dump Valve',                          nameShort: 'E.DF.V2'}, 
+        pin: {valve: 9,  labJackPin: 'EIO2', labJackChanel: '10', testEnd: 'ETH',  name: 'Fuel (Ethanol) Dump Valve',
+            nameShort: 'E.DF.V2', abbrev: 'dump'}, 
         position: {width: "2", height: "1", x: "4", y: "13"}
     },
     { 
-        pin: {valve: 8,  labJackPin: 'EIO0', labJackChanel: '8',  testEnd: 'ETH',  name: 'Fuel (Ethanol) Tank Nitrogen Pressurisation Valve',  nameShort: 'N.L.E.V2'}, 
+        pin: {valve: 8,  labJackPin: 'EIO0', labJackChanel: '8',  testEnd: 'ETH',  name: 'Fuel (Ethanol) Tank Nitrogen Pressurisation Valve',
+            nameShort: 'N.L.E.V2', abbrev: 'pres'}, 
         position: {width: "2", height: "1", x: "8", y: "4"}
     },
     {
-        pin: {valve: 7,  labJackPin: 'CIO3', labJackChanel: '19', testEnd: 'ETH',  name: 'Fuel (Ethanol) Tank Vent Valve',                     nameShort: 'N.L.E.V3'}, 
+        pin: {valve: 7,  labJackPin: 'CIO3', labJackChanel: '19', testEnd: 'ETH',  name: 'Fuel (Ethanol) Tank Vent Valve',
+            nameShort: 'N.L.E.V3', abbrev: 'vent'}, 
         position: {width: "2", height: "1", x: "11", y: "1"}
     },
     {
-        pin: {valve: 6,  labJackPin: 'EIO4', labJackChanel: '17', testEnd: 'ETH',  name: 'Fuel (Ethanol) Line Nitrogen Purge Valve',           nameShort: 'E.L.V2'}, 
+        pin: {valve: 6,  labJackPin: 'EIO4', labJackChanel: '17', testEnd: 'ETH',  name: 'Fuel (Ethanol) Line Nitrogen Purge Valve',
+            nameShort: 'E.L.V2', abbrev: 'purge'}, 
         position: {width: "2", height: "1", x: "8", y: "17"}
     },
     {
-        pin: {valve: 5,  labJackPin: 'CIO0', labJackChanel: '16', testEnd: 'LOX',      name: 'Main Oxidiser (LOX) Valve',                          nameShort: 'O.L.V1'}, 
+        pin: {valve: 5,  labJackPin: 'CIO0', labJackChanel: '16', testEnd: 'LOX',      name: 'Main Oxidiser (LOX) Valve',
+            nameShort: 'O.L.V1', abbrev: 'main'}, 
         position: {width: "2", height: "1", x: "17.5", y: "15"}
     },
     {
-        pin: {valve: 4,  labJackPin: 'CIO2', labJackChanel: '18', testEnd: 'LOX',      name: 'Oxidiser (LOX) Fill Valve',                          nameShort: 'O.DF.V1'},
+        pin: {valve: 4,  labJackPin: 'CIO2', labJackChanel: '18', testEnd: 'LOX',      name: 'Oxidiser (LOX) Fill Valve',
+            nameShort: 'O.DF.V1', abbrev: 'fill'},
         position: {width: "2", height: "1", x: "21", y: "13"}
     },
     {
-        pin: {valve: 3,  labJackPin: 'EIO1', labJackChanel: '9',  testEnd: 'LOX',      name: 'Oxidiser (LOX) Dump Valve',                          nameShort: 'O.DF.V2'}, 
+        pin: {valve: 3,  labJackPin: 'EIO1', labJackChanel: '9',  testEnd: 'LOX',      name: 'Oxidiser (LOX) Dump Valve',
+            nameShort: 'O.DF.V2', abbrev: 'dump'}, 
         position: {width: "2", height: "1", x: "25", y: "13"}
     },
     {
-        pin: {valve: 2,  labJackPin: 'EIO3', labJackChanel: '11', testEnd: 'LOX',      name: 'Oxidiser (LOX) Tank Nitrogen Pressurisation Valve',  nameShort: 'N.L.O.V2'}, 
+        pin: {valve: 2,  labJackPin: 'EIO3', labJackChanel: '11', testEnd: 'LOX',      name: 'Oxidiser (LOX) Tank Nitrogen Pressurisation Valve',
+            nameShort: 'N.L.O.V2', abbrev: 'pres'}, 
         position: {width: "2", height: "1", x: "21", y: "4"}
     },
     {
-        pin: {valve: 1,  labJackPin: 'EIO5', labJackChanel: '13', testEnd: 'LOX',      name: 'Oxidiser (LOX) Tank Vent Valve',                     nameShort: 'N.L.O.V3'}, 
+        pin: {valve: 1,  labJackPin: 'EIO5', labJackChanel: '13', testEnd: 'LOX',      name: 'Oxidiser (LOX) Tank Vent Valve',
+            nameShort: 'N.L.O.V3', abbrev: 'vent'}, 
         position: {width: "2", height: "1", x: "18", y: "1"}
     },
     {
-        pin: {valve: 0,  labJackPin: 'EIO7', labJackChanel: '15', testEnd: 'LOX',      name: 'Oxidiser (LOX) Line Nitrogen Purge Valve',           nameShort: 'O.L.V2'},
+        pin: {valve: 0,  labJackPin: 'EIO7', labJackChanel: '15', testEnd: 'LOX',      name: 'Oxidiser (LOX) Line Nitrogen Purge Valve',
+            nameShort: 'O.L.V2', abbrev: 'purge'},
         position: {width: "2", height: "1", x: "21", y: "17"}
     }
 ]
