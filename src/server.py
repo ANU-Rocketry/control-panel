@@ -6,7 +6,7 @@ from timer import Timer
 import json
 from datalog import Datalog
 from LJCommands import *
-from LabJackFake import LabJack
+from LabJack import LabJack
 from traceback import print_exc
 
 STATE_GRAB = 50  # Get state from labjacks 50 times per second
