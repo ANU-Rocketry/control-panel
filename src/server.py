@@ -6,8 +6,7 @@ from timer import Timer
 import json
 from datalog import Datalog
 from LJCommands import *
-# Importing from fake labjack so we can test the software
-from LabJack import LabJack
+from LabJackFake import LabJack
 from traceback import print_exc
 
 STATE_GRAB = 50  # Get state from labjacks 50 times per second
@@ -286,9 +285,19 @@ class LJWebSocketsServer:
         }
         await ws.send(json.dumps(obj))
 
-
-if __name__ == '__main__':
-    ip = "192.168.1.5"
+def run_server(ip="192.168.1.5", port=8888):
     port = 8888
     socket = LJWebSocketsServer(ip, port)
     socket.start_server()
+
+def get_local_ip():
+    # Source: https://stackoverflow.com/a/166589
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ret = s.getsockname()[0]
+    s.close()
+    return ret
+
+if __name__ == '__main__':
+    run_server(get_local_ip())

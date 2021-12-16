@@ -1,77 +1,47 @@
-import random
 import time
 import math
-
+from traceback import print_exc
+from typing import Optional
 
 class LabJack:
-    def __init__(self, serial_number: int):
-        # Constructor opens a USB connection to a LabJack
+    """
+    FAKE LabJack class for mock testing when you don't have access to a real LabJack. Mirrors the LabJack class interface.
+    Maintains digital pin states you set and returns sine waves for the voltages.
+    """
+
+    def __init__(self, serial_number: int, analog_inputs: list[int]):
         self.serial_number = serial_number
         self.state = {
             "digital": {},
             "analog": {}
         }
 
-    def is_connected(self):
-        """Checks if the current labjack is connected
-
-        Returns:
-            bool
-        """
-        return True
+    def set_relay_state(self, pin_number: int, state: bool):
+        self.state["digital"][pin_number] = state
 
     def open_relay(self, pin_number: int):
-        """Opens a relay
-
-        Args:
-            pinNumber (int)
-        """
-        self.state["digital"][pin_number] = True
+        self.set_relay_state(pin_number, True)
 
     def close_relay(self, pin_number: int):
-        """Closes a given relay
+        self.set_relay_state(pin_number, False)
 
-        Args:
-            pinNumber (int)
-        """
-        # Attempts to close a relay given a pin number on the LabJack
-        self.state["digital"][pin_number] = False
-
-    def get_relay_state(self, pin_number: int):
-        """Get the state of a digital relay
-
-        Args:
-            pinNumber (int)
-
-        Returns:
-            bool: true if low, false if high.
-        """
-        # Attempts to get the state of a relay given a pin number on the LabJack
+    def get_relay_state(self, pin_number: int) -> bool:
         if pin_number in self.state["digital"]:
             return self.state["digital"][pin_number]
-        return False
+        else:
+            # inverted pins are default off (ie only vent vales are default on)
+            self.set_relay_state(pin_number, not self._is_inverted_pin(pin_number))
+            return self.get_relay_state(pin_number)
 
     def get_voltage(self, pin_number: int) -> float:
-        """Gets the value of a given analog pin
-
-        Args:
-            pinNumber (int)
-
-        Returns:
-            float: Voltage of analog pin
-        """
-        # Attempts to read a voltage given a pin number on the LabJack
         return math.sin(time.time() + pin_number + self.serial_number)
 
-    def get_state(self, digital, analog):
-        """Gets the state of the current labjack
-
-        Args:
-            digitalPins ([int], optional): List of digital pins to get. Defaults to None.
-            analogPins ([int], optional): List of analog pins to get. Defaults to None.
-
-        Returns:
-            dict: a dictionary containing the states of the digital and analog states
+    def get_state(self, digital: Optional[list[int]] = None, analog: Optional[list[int]] = None) -> dict:
+        """
+        Returns a dictionary of states of all specified pins. Used to update the entire front end 20 times a second.
+        Example:
+        >>> labjack.get_state([1,2,3],[4,5,6])
+        { "digital": { 1: True, 2: False, 3: True }, "analog": { 4: 1.3, 5: 2.7, 6: 0.01} }
         """
         state = {}
         if digital:
@@ -83,3 +53,10 @@ class LabJack:
             for pin in analog:
                 state["analog"][pin] = self.get_voltage(pin)
         return state
+
+    def _is_inverted_pin(self, pin_number):
+        # the vent valves (ETH 19, LOX 13) are digitally 0 iff they're mechanically 0
+        # all other valves are digitally 0 iff they're mechanically 1
+        # this is part of the electronics
+        # the interface of this class hides this implementation detail
+        return pin_number != 13 and pin_number != 19
