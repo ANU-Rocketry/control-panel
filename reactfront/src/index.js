@@ -48,11 +48,10 @@ class App extends React.Component {
           // this specific case
           // The history list is stored as [oldest, ..., newest]
           this.state.history.push(data.data);
-          // Anything beyond 1 000 000 items is a bit extreme, halve it
-          // 1M items will last more than 8 hours
-          if (this.state.history.length > 1000000)
+          // Anything beyond 10 000 items is a bit extreme, halve it
+          if (this.state.history.length > 10000)
             // eslint-disable-next-line
-            this.state.history = this.state.history.slice(500000, -1);
+            this.state.history = this.state.history.slice(5000, -1);
           this.setState({ data: data.data, history: this.state.history })
           break
         case 'PING':

@@ -25,7 +25,7 @@ function ControlCard(props) {
     const label = {
         position: 'absolute',
         margin: 'auto',
-        fontSize: "1vw",
+        fontSize: "1rem",
         top: normalise(props.y - 1), 
         left: normalise(props.x - 1), 
       };
@@ -53,10 +53,10 @@ function ControlCard(props) {
     
         return (
             <div style={box}>
-                <div style={{fontSize: "1vw"}}>
+                <div style={{fontSize: "1rem"}}>
                     {props.title}
                 </div>
-                <div style={{fontSize: "1vw"}}>
+                <div style={{fontSize: "1rem"}}>
                     {value && value.toFixed(3)}
                 </div>
             </div>
