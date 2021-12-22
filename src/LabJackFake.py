@@ -18,6 +18,7 @@ class LabJack:
 
     def set_relay_state(self, pin_number: int, state: bool):
         self.state["digital"][pin_number] = state
+        print(f"Set relay {pin_number} to {state}")
 
     def open_relay(self, pin_number: int):
         self.set_relay_state(pin_number, True)
