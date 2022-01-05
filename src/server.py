@@ -240,11 +240,11 @@ class LJWebSocketsServer:
         if command.header == CommandString.OPEN:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
-            self.labjacks[LJ].open_relay(pin)
+            self.labjacks[LJ].open_valve(pin)
         elif command.header == CommandString.CLOSE:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
-            self.labjacks[LJ].close_relay(pin)
+            self.labjacks[LJ].close_valve(pin)
         else:
             raise Exception(
                 "#3104 execute() function was sent unknown command string: " + json.dumps(command.toDict()))

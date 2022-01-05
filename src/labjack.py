@@ -109,7 +109,7 @@ class LabJack(LabJackBase):
         when they're low voltage. We abstract this away here so don't worry about it.
         """
         # Is it a legal state we're moving into?
-        if not self._is_legal_state_with(pin, open):
+        if not self._is_legal_state_with(pin_number, open):
             return
         # Invert if the relay on state opposes the valve open state
         if self._is_inverted_relay(pin_number): open = not open
@@ -151,14 +151,20 @@ class LabJackFake(LabJackBase):
         }
 
     def set_valve_state(self, pin_number: int, state: bool):
+        # Is it a legal state we're moving into?
+        if not self._is_legal_state_with(pin_number, open):
+            return
         self.state["digital"][pin_number] = state
+
+    def _set_default_state(self, pin_number: int):
+        default_on = [13, 19]  # only vent valves are default on
+        self.state['digital'][pin_number] = True if pin_number in default_on else False
 
     def get_valve_state(self, pin_number: int) -> bool:
         if pin_number in self.state["digital"]:
             return self.state["digital"][pin_number]
         else:
-            # inverted pins are default off (ie only vent valves are default on)
-            self.set_valve_state(pin_number, not self._is_inverted_relay(pin_number))
+            self._set_default_state(pin_number)
             return self.get_valve_state(pin_number)
 
     def get_voltage(self, pin_number: int) -> float:

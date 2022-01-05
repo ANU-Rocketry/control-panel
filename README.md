@@ -51,8 +51,6 @@ How to run the backend on the Pi
     * If you have in-built wifi on your Pi, you'll just need a keyboard, mouse and monitor to set it up
 1. Connect the LabJacks via USB to the Pi
 1. `cd ~/LJSoftware/src`
-1. Run `ip route get 8.8.8.8 | awk '{print $(NF-2); exit}'` to get the Raspberry Pi's local IP address
-1. Edit `server.py` to change the IP address at the end to be the local IP of the Pi (if you're using Ubiquity as above this is already done)
 1. Run `python server.py` to start the backend server (on port 8888 if you're interested)
 
 How to start the front-end on your laptop
@@ -68,6 +66,8 @@ Note: the front end is written using Node and React, but the version in the `bui
 # Development
 
 To run the dev build of the front-end, you will need to install Node.js on the computer you're running the front-end on. Then download this repository on that computer, go into the `reactfront` folder in a terminal / command prompt, run `npm install` and then `npm start`. After a short wait this will open a browser tab with the front end in it. When you're done make sure to `npm run build` so the `reactfront/build` folder is updated.
+
+The backend Pi server has an optional `dev` flag (ie `python server.py --dev`) that lets you use a fake simulated LabJack for testing.
 
 # Data Schema
 
@@ -179,7 +179,7 @@ Errors are categorised according to their importance by a system of numbering:
 
 # Project Overview
 
-The `LabJack.py` file contains a simple library used to communicate with the LabJacks themselves. The `LabJackFake.py` file provides a fake interface such that we can build the rest of the software without the LabJacks.
+The `LabJack.py` file contains a simple library used to communicate with the LabJacks themselves. There's a `LabJackFake` simulation class you can use as well.
 
 
 The `LJCommands.py` file contains the `Command` and `CommandString` objects, which define hollistic commands and headers respectively. The `Command` object ensures correctness of commands. This object throws errors.
