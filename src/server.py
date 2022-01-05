@@ -227,12 +227,11 @@ class LJWebSocketsServer:
                                      for x in state['current_sequence']]
         return state
 
-    def start_server(self):
-        asyncio.get_event_loop().run_until_complete(
-            websockets.serve(self.event_handler, self.ip, self.port))
-        asyncio.ensure_future(self.sync_state())
-        asyncio.ensure_future(self.timeoutCounter())
-        asyncio.get_event_loop().run_forever()
+    async def start_server(self):
+        asyncio.create_task(self.sync_state())
+        asyncio.create_task(self.timeoutCounter())
+        async with websockets.serve(self.event_handler, self.ip, self.port):
+            await asyncio.Future()
 
     def LJ_execute(self, command: Command):
         self.log_data(command.toDict(), "COMMAND_EXECUTED")
@@ -293,7 +292,7 @@ class LJWebSocketsServer:
 def run_server(ip="192.168.1.5", port=8888):
     port = 8888
     socket = LJWebSocketsServer(ip, port)
-    socket.start_server()
+    asyncio.run(socket.start_server())
 
 def get_local_ip():
     # Source: https://stackoverflow.com/a/166589
