@@ -255,6 +255,7 @@ class LJWebSocketsServer:
                 raise Exception("#3001 sequence is already running")
 
             self.state["sequence_running"] = True
+            is_abort_sequence = self.state['aborting']
 
             while len(self.state["current_sequence"]) != 0 and self.state["sequence_running"]:
                 self.state["sequence_executing"] = self.state["current_sequence"].pop(
@@ -267,12 +268,17 @@ class LJWebSocketsServer:
                         "time": round(time.time()*1000) + command.parameter
                     }
                     self.log_data(command.toDict(), type="COMMAND_EXECUTED")
+                    print(f"[Sequence] sleeping for {command.parameter}ms")
                     # break sleep into 100 chunks so aborts will interrupt sleeps
                     # await asyncio.sleep(command.parameter / 1000)
                     for i in range(100):
-                        if not self.state['aborting']:
+                        if not self.state['aborting'] or is_abort_sequence:
                             await asyncio.sleep(command.parameter / 1000 / 100)
                 else:
+                    if command.header == CommandString.OPEN:
+                        print(f"[Sequence] opening {command.parameter}")
+                    elif command.header == CommandString.CLOSE:
+                        print(f"[Sequence] closing {command.parameter}")
                     self.LJ_execute(command)
                 self.state["sequence_executing"] = None
 

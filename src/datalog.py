@@ -1,14 +1,17 @@
 import time
 import csv
 import os
-
+import pathlib
 
 class Datalog():
     def __init__(self, path):
         self.path = path
+        pathlib.Path(self.path).mkdir(parents=True, exist_ok=True)
         self.begin_time = time.time()
         self.file_name = time.strftime("%Y%m%d-%H%M%S") + ".csv"
-        self.file_stream = open(os.path.join(path, self.file_name), "w")
+        full_path = os.path.join(path, self.file_name)
+        print("Datalogging to " + full_path)
+        self.file_stream = open(full_path, "w")
         self.writer = csv.writer(self.file_stream)
         self.header = ["TIME", "CODE", "DATA"]
         self.writer.writerow(self.header)
