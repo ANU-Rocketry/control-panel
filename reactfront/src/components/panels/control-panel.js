@@ -1,5 +1,6 @@
 import { Switch } from '@material-ui/core';
 import React from 'react';
+import { voltsToPsi } from '../../utils';
 import { Panel } from '../index'
 
 function normalisePosition (num) {
@@ -19,61 +20,69 @@ function controlWidgetStyle({ x, y, width, height, enabled }) {
     };
 }
 
-function ControlCard(props) {
+function ControlSwitch({ state, emit, ...props}) {
 
-    const state = props.state
-    const emit = props.emit
+    const value = state.data === null ? false : state.data[props.testEnd]["digital"][props.pin]
+    const setValue =  x => state.data[props.testEnd]["digital"][props.pin] ? emit('CLOSE', { name: props.testEnd, pin: parseInt(props.pin) }) : emit('OPEN', { name: props.testEnd, pin: parseInt(props.pin) })
 
     const box = controlWidgetStyle(props);
-
     const label = {
         position: 'absolute',
         margin: 'auto',
         fontSize: "1rem",
         top: normalisePosition(props.y - 1), 
         left: normalisePosition(props.x - 1), 
-      };
+    };
 
-    if (props.isButton) {
+    return (
+        <div>
+            {state.data && <div style={box} title={!props.enabled ? 'Please enable the arming and manual control switches to toggle' : ''}>
+                <Switch checked={value} onChange={() => setValue(!value)} disabled={!props.enabled} />
+                <label className={(value ? 'active' : 'inactive') + ' control-label ' + (props.enabled ? '':'disabled')}><br/>
+                {value ? "On" : "Off"}
+                </label>
+            </div>}
+            <h4 style={label}>
+                {props.title}
+            </h4>
+        </div>
+    );
+}
 
-        const value = state.data === null ? false : state.data[props.testEnd]["digital"][props.pin]
-        const setValue =  x => state.data[props.testEnd]["digital"][props.pin] ? emit('CLOSE', { name: props.testEnd, pin: parseInt(props.pin) }) : emit('OPEN', { name: props.testEnd, pin: parseInt(props.pin) })
+function ControlCard({ state, emit, ...props }) {
 
-        return (
-            <div>
-                {state.data && <div style={box} title={!props.enabled ? 'Please enable the arming and manual control switches to toggle' : ''}>
-                    <Switch checked={value} onChange={() => setValue(!value)} disabled={!props.enabled} />
-                    <label className={(value ? 'active' : 'inactive') + ' control-label ' + (props.enabled ? '':'disabled')}><br/>
-                    {value ? "On" : "Off"}
-                    </label>
-                </div>}
-                <h4 style={label}>
-                    {props.title}
-                </h4>
-            </div>
-        );
-    } else {
-        const value = state.data === null ? null : state.data[props.testEnd]["analog"][props.pin]
-    
-        return (
-            <div style={box}>
-                <div style={{fontSize: "1rem"}}>
-                    {props.title}
-                </div>
-                <div style={{fontSize: "1rem"}}>
-                    {value && value.toFixed(3)}
-                </div>
-            </div>
-        );
+    const box = controlWidgetStyle({ enabled: true, ...props });
+    let value = null;
+    if (state.data) {
+        value = state.data[props.testEnd]["analog"][props.pin]
+        value = voltsToPsi(value, props.barMax)
     }
-  }
+
+    const atmosphere = 14.6959 //psi
+    // Display as pressurised if it's more than 2 atmospheres
+    const pressurised = value && value > atmosphere * 2
+    if (pressurised) {
+        box.backgroundColor = 'tomato'
+    }
+
+    return (
+        <div style={box}>
+            <div style={{fontSize: "1rem"}}>
+                {props.title}
+            </div>
+            <div style={{fontSize: "1rem"}}>
+                {value && value.toFixed(3)} PSI
+            </div>
+        </div>
+    );
+}
 
 export default function ControlPanel({ state, emit }) {
     return (  
         <Panel title="Control Panel" className='panel control'>
             <div className="control-panel">
                 {buttons.map((button) =>
-                    <ControlCard
+                    <ControlSwitch
                         title={button.pin.testEnd.charAt(0) + ' ' + button.pin.abbrev + ' ' + button.pin.labJackChanel}
                         key={button.pin.nameShort}
                         state={state}
@@ -85,7 +94,7 @@ export default function ControlPanel({ state, emit }) {
                         x={button.position.x}
                         y={button.position.y}
                         enabled={state.data && state.data.arming_switch && state.data.manual_switch}
-                        isButton={true}/>
+                    />
                 )}
                 {sensors.map((sensor) =>
                     <ControlCard
@@ -99,8 +108,8 @@ export default function ControlPanel({ state, emit }) {
                         height={sensor.position.height}
                         x={sensor.position.x}
                         y={sensor.position.y}
-                        enabled={true}
-                        isButton={false}/>
+                        barMax={sensor.pin.maxPressure}
+                    />
                 )}
             </div>
         </Panel>
@@ -173,19 +182,20 @@ const buttons = [
 
 const sensors = [
     {
-        pin: {sensorNumber: 0, labJackPin: 'FIO1', labJackChanel: '1', testEnd: 'LOX', maxPressure: '250bar', name: 'LOX Nitrogen Pressurant Sensor', nameShort: '(N.L.O.P1)'},
+        // Note: these bar max figures are also in the formatData function in graph-panel.js
+        pin: {sensorNumber: 0, labJackPin: 'FIO1', labJackChanel: '1', testEnd: 'LOX', maxPressure: 250, name: 'LOX Nitrogen Pressurant Sensor', nameShort: '(N.L.O.P1)'},
         position: {width: "5", height: "3", x: "25", y: "3"}
     },
     {
-        pin: {sensorNumber: 1, labJackPin: 'FIO3', labJackChanel: '3', testEnd: 'LOX', maxPressure: '160bar', name: 'LOX Tank Pressure Sensor', nameShort: '(O.L.P1)'},
+        pin: {sensorNumber: 1, labJackPin: 'FIO3', labJackChanel: '3', testEnd: 'LOX', maxPressure: 100, name: 'LOX Tank Pressure Sensor', nameShort: '(O.L.P1)'},
         position: {width: "3", height: "4.5", x: "17", y: "7.5"}
     },
     {
-        pin: {sensorNumber: 2, labJackPin: 'FIO1', labJackChanel: '1', testEnd: 'ETH', maxPressure: '250bar', name: 'Ethanol Nitrogen Pressurant Sensor', nameShort: '(N.L.E.P1)'},
+        pin: {sensorNumber: 2, labJackPin: 'FIO1', labJackChanel: '1', testEnd: 'ETH', maxPressure: 250, name: 'Ethanol Nitrogen Pressurant Sensor', nameShort: '(N.L.E.P1)'},
         position: {width: "5", height: "3", x: "1", y: "3"}
     },
     {
-        pin: {sensorNumber: 3, labJackPin: 'FIO3', labJackChanel: '3', testEnd: 'ETH', maxPressure: '160bar', name: 'Ethanol Tank Pressure Sensor', nameShort: '(E.L.P1)'},
+        pin: {sensorNumber: 3, labJackPin: 'FIO3', labJackChanel: '3', testEnd: 'ETH', maxPressure: 100, name: 'Ethanol Tank Pressure Sensor', nameShort: '(E.L.P1)'},
         position: {width: "3", height: "4.5", x: "11", y: "7.5"}
     }
 ]

@@ -8,6 +8,7 @@ function formatData(state, data) {
   return data.map(dict => {
     return {
       time: "t-" + ((parseInt(state.data.time) - parseInt(dict.time)) / 1000).toFixed(3),
+      // Note: these bar max figures are also in the sensors list in control-panel.js
       LOX_N2_Pressure: voltsToPsi(dict.LOX.analog["1"], 250 /* bar */),
       LOX_Tank_Pressure: voltsToPsi(dict.LOX.analog["3"], 100 /* bar */),
       ETH_N2_Pressure: voltsToPsi(dict.ETH.analog["1"], 250 /* bar */),
