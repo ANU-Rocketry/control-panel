@@ -6,8 +6,13 @@ from timer import Timer
 import json
 from datalog import Datalog
 from LJCommands import *
-from LabJack import LabJack
 from traceback import print_exc
+import sys
+from labjack import get_class
+
+# If you run `python3 server.py --dev` you get a simulated LabJack class
+# If you run `python3 server.py` it tries to connect properly and needs u3+exodriver
+LabJack = get_class('--dev' in sys.argv)
 
 STATE_GRAB = 50  # Get state from labjacks 50 times per second
 STATE_EMIT = 10  # Emit the sate to the front end 10 times per second
@@ -232,7 +237,6 @@ class LJWebSocketsServer:
         self.log_data(command.toDict(), "COMMAND_EXECUTED")
         if type(command) == dict:
             command = Command(command['header'], parameter=command['data'])
-        # TODO: arming switch shouldn't be a toggle, it should take a bool
         if command.header == CommandString.OPEN:
             LJ = command.parameter["name"]
             pin = command.parameter["pin"]
