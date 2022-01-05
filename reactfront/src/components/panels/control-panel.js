@@ -2,32 +2,36 @@ import { Switch } from '@material-ui/core';
 import React from 'react';
 import { Panel } from '../index'
 
+function normalisePosition (num) {
+    return `${num*26}px`;
+}
+
+function controlWidgetStyle({ x, y, width, height, enabled }) {
+    return {
+        position: 'absolute',
+        borderStyle: 'solid',
+        borderColor: 'transparent', // temp hack to keep alignment, should change margins instead
+        width: normalisePosition(width),
+        height: normalisePosition(height),
+        top: normalisePosition(y), 
+        left: normalisePosition(x),
+        ...(!enabled ? {cursor:'help'} : {})
+    };
+}
+
 function ControlCard(props) {
 
     const state = props.state
     const emit = props.emit
 
-    function normalise (num) {
-        return `${num*26}px`;
-    }
-
-    const box = {
-        position: 'absolute',
-        borderStyle: 'solid',
-        borderColor: 'transparent', // temp hack to keep alignment, should change margins instead
-        width: normalise(props.width),
-        height: normalise(props.height),
-        top: normalise(props.y), 
-        left: normalise(props.x),
-        ...(!props.enabled && props.isButton ? {cursor:'help'} : {})
-      };
+    const box = controlWidgetStyle(props);
 
     const label = {
         position: 'absolute',
         margin: 'auto',
         fontSize: "1rem",
-        top: normalise(props.y - 1), 
-        left: normalise(props.x - 1), 
+        top: normalisePosition(props.y - 1), 
+        left: normalisePosition(props.x - 1), 
       };
 
     if (props.isButton) {
@@ -95,7 +99,7 @@ export default function ControlPanel({ state, emit }) {
                         height={sensor.position.height}
                         x={sensor.position.x}
                         y={sensor.position.y}
-                        enabled={state.data && state.data.arming_switch && state.data.manual_switch}
+                        enabled={true}
                         isButton={false}/>
                 )}
             </div>
