@@ -11,7 +11,8 @@ import sys
 from labjack import get_class
 
 # If you run `python3 server.py --dev` you get a simulated LabJack class
-# If you run `python3 server.py` it tries to connect properly and needs u3+exodriver
+# If you run `python3 server.py` it tries to connect properly
+# (To connect properly we need LabJackPython's u3.py and the Exodriver, see README)
 LabJack = get_class('--dev' in sys.argv)
 
 STATE_GRAB = 50  # Get state from labjacks 50 times per second

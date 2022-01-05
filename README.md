@@ -23,9 +23,8 @@ Setting up the Raspberry Pi:
     1. Go to your home folder (`cd ~`)
     1. Clone this repository (`git clone https://github.com/pstefa1707/LJSoftware`)
     1. Go into the repository (`cd LJSoftware`)
-    1. Run `sudo pip install asyncio websockets`
+    1. Run `sudo pip install -r requirements.txt`
       1. The sudo is VERY IMPORTANT. Otherwise the startup script will not be able to find the pip modules because they'll be locally installed otherwise
-    1. Note: we already bundle the u3 Python library in this repo because we need a consistent version and they often make silly breaking API change, so you only need the Exodrivers
 1. Configure startup script
     1. `sudo nano /etc/rc.local`
     1. Replace the contents with:

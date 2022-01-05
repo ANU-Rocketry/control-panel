@@ -86,7 +86,11 @@ class LabJack(LabJackBase):
 
     def __init__(self, serial_number: int, analog_inputs: list[int]):
         """Opens a USB connection to a LabJack and configures whether pins are analog/digital"""
-        import u3  # Python imports are cached so this only happens once
+        # Import LabJackPython (Python imports are cached so this only happens once)
+        import LabJackPython
+        # if you get an error here do `sudo pip uninstall LabJackPython` and then `sudo pip install LabJackPython==2.0.4`
+        assert LabJackPython.__version__ == '2.0.4', 'User error: LabJackPython pip module must be exactly v2.0.4'
+        import u3
         self.serial_number = serial_number
         self.device = u3.U3(firstFound=False, serial=self.serial_number)
         x = 0
