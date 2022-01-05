@@ -15,8 +15,8 @@ from labjack import get_class
 LabJack = get_class('--dev' in sys.argv)
 
 STATE_GRAB = 50  # Get state from labjacks 50 times per second
-STATE_EMIT = 10  # Emit the sate to the front end 10 times per second
-CONNECTION_TIMEOUT = 300  # Second to timeout and run abort sequence after
+STATE_EMIT = 10  # Emit the state to the front end 10 times per second
+CONNECTION_TIMEOUT = 600  # Second to timeout and run abort sequence after
 LOG_PATH = "./logs"
 
 
@@ -83,7 +83,7 @@ class LJWebSocketsServer:
             task.cancel()
         self.clients -= 1
 
-    async def timeoutCounter(self):
+    async def timeout_counter(self):
         lastConnection = time.time()
         timeSinceLast = 0
         while True:
@@ -125,8 +125,8 @@ class LJWebSocketsServer:
     def run_abort_sequence(self):
         self.log_data(True, type="ABORTING")
         self.state["aborting"] = True
-        self.state["current_sequence"] = [*self.abort_sequence]
         if not self.state["sequence_running"]:
+            self.state["current_sequence"] = [*self.abort_sequence]
             self.execute_sequence()
         self.state["arming_switch"] = False
         self.state["manual_switch"] = False
@@ -228,7 +228,7 @@ class LJWebSocketsServer:
 
     async def start_server(self):
         asyncio.create_task(self.sync_state())
-        asyncio.create_task(self.timeoutCounter())
+        asyncio.create_task(self.timeout_counter())
         async with websockets.serve(self.event_handler, self.ip, self.port):
             await asyncio.Future()
 
@@ -268,11 +268,18 @@ class LJWebSocketsServer:
                     }
                     self.log_data(command.toDict(), type="COMMAND_EXECUTED")
                     print(f"[Sequence] sleeping for {command.parameter}ms")
-                    # break sleep into 100 chunks so aborts will interrupt sleeps
-                    # await asyncio.sleep(command.parameter / 1000)
-                    for i in range(100):
-                        if not self.state['aborting'] or is_abort_sequence:
-                            await asyncio.sleep(command.parameter / 1000 / 100)
+                    # break sleep into 5ms chunks so aborts will interrupt sleeps
+                    def time_ms():
+                        return time.time_ns() // 1_000_000
+                    expiry = time_ms() + command.parameter # milliseconds
+                    x = time_ms()
+                    while time_ms() < expiry:
+                        if self.state['aborting'] and not is_abort_sequence:
+                            is_abort_sequence = True
+                            self.state["current_sequence"] = [*self.abort_sequence]
+                            break
+                        await asyncio.sleep(0.005) # 5ms
+                    print(f"delta: {time_ms()-x}ms")
                 else:
                     if command.header == CommandString.OPEN:
                         print(f"[Sequence] opening {command.parameter}")
