@@ -2,7 +2,6 @@ from asyncio.tasks import wait
 import websockets
 import asyncio
 import time
-from timer import Timer
 import json
 from datalog import Datalog
 from LJCommands import *
