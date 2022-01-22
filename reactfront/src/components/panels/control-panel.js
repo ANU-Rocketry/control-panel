@@ -39,7 +39,7 @@ function ControlSwitch({ state, emit, ...props}) {
             {state.data && <div style={box} title={!props.enabled ? 'Please enable the arming and manual control switches to toggle' : ''}>
                 <Switch checked={value} onChange={() => setValue(!value)} disabled={!props.enabled} />
                 <label className={(value ? 'active' : 'inactive') + ' control-label ' + (props.enabled ? '':'disabled')}><br/>
-                {value ? "On" : "Off"}
+                {value ? "Open" : "Closed"}
                 </label>
             </div>}
             <h4 style={label}>
