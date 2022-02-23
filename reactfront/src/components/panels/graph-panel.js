@@ -2,17 +2,17 @@ import React from 'react';
 import { Panel } from '../index'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label, Brush } from 'recharts'
 import Switch from '@material-ui/core/Switch';
-import { voltsToPsi } from '../../utils';
+import { getPsi, sensorData } from '../../utils';
 
 function formatData(state, data) {
   return data.map(dict => {
     return {
       time: "t-" + ((parseInt(state.data.time) - parseInt(dict.time)) / 1000).toFixed(3),
       // Note: these bar max figures are also in the sensors list in control-panel.js
-      LOX_N2_Pressure: voltsToPsi(dict.LOX.analog["1"], 250 /* bar */),
-      LOX_Tank_Pressure: voltsToPsi(dict.LOX.analog["3"], 100 /* bar */),
-      ETH_N2_Pressure: voltsToPsi(dict.ETH.analog["1"], 250 /* bar */),
-      ETH_Tank_Pressure: voltsToPsi(dict.ETH.analog["3"], 100 /* bar */),
+      // LOX_N2_Pressure: getPsi(dict.LOX.analog["1"], 250, 4, 16),  // uncalibrated!!!
+      LOX_Tank_Pressure: getPsi(dict.LOX.analog["3"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
+      // ETH_N2_Pressure: getPsi(dict.ETH.analog["1"], 250, 4, 16),  // uncalibrated!!!
+      ETH_Tank_Pressure: getPsi(dict.ETH.analog["3"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
     }
   })
 }

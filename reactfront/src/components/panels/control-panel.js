@@ -1,6 +1,6 @@
 import { Switch } from '@material-ui/core';
 import React from 'react';
-import { voltsToPsi } from '../../utils';
+import { getPsi, sensorData } from '../../utils';
 import { Panel } from '../index'
 
 function normalisePosition (num) {
@@ -52,15 +52,16 @@ function ControlSwitch({ state, emit, ...props}) {
 function ControlCard({ state, emit, ...props }) {
 
     const box = controlWidgetStyle({ enabled: true, ...props });
-    let value = null;
+    let volts = null, psi = null;
     if (state.data) {
-        value = state.data[props.testEnd]["analog"][props.pin]
-        value = voltsToPsi(value, props.barMax)
+        volts = state.data[props.testEnd]["analog"][props.pin]
+        const sensor = sensorData[props.sensorName]
+        psi = getPsi(volts, sensor.barMax, sensor.zero, sensor.span)
     }
 
     const atmosphere = 14.6959 //psi
     // Display as pressurised if it's more than 2 atmospheres
-    const pressurised = value && value > atmosphere * 2
+    const pressurised = psi && psi > atmosphere * 2
     if (pressurised) {
         box.backgroundColor = 'tomato'
     }
@@ -71,7 +72,7 @@ function ControlCard({ state, emit, ...props }) {
                 {props.title}
             </div>
             <div style={{fontSize: "1rem"}}>
-                {value && value.toFixed(3)} PSI
+                {psi && psi.toFixed(1)} PSI ({volts && volts.toFixed(2)}V)
             </div>
         </div>
     );
@@ -108,7 +109,7 @@ export default function ControlPanel({ state, emit }) {
                         height={sensor.position.height}
                         x={sensor.position.x}
                         y={sensor.position.y}
-                        barMax={sensor.pin.maxPressure}
+                        sensorName={sensor.pin.sensorName}
                     />
                 )}
             </div>
@@ -182,20 +183,19 @@ const buttons = [
 
 const sensors = [
     {
-        // Note: these bar max figures are also in the formatData function in graph-panel.js
-        pin: {sensorNumber: 0, labJackPin: 'FIO1', labJackChanel: '1', testEnd: 'LOX', maxPressure: 250, name: 'LOX Nitrogen Pressurant Sensor', nameShort: '(N.L.O.P1)'},
+        pin: {sensorNumber: 0, labJackPin: 'FIO1', labJackChanel: '1', testEnd: 'LOX', sensorName: 'lox_n2', name: 'LOX Nitrogen Pressurant Sensor', nameShort: '(N.L.O.P1)'},
         position: {width: "5", height: "3", x: "25", y: "3"}
     },
     {
-        pin: {sensorNumber: 1, labJackPin: 'FIO3', labJackChanel: '3', testEnd: 'LOX', maxPressure: 100, name: 'LOX Tank Pressure Sensor', nameShort: '(O.L.P1)'},
+        pin: {sensorNumber: 1, labJackPin: 'FIO3', labJackChanel: '3', testEnd: 'LOX', sensorName: 'lox_tank', name: 'LOX Tank Pressure Sensor', nameShort: '(O.L.P1)'},
         position: {width: "3", height: "4.5", x: "17", y: "7.5"}
     },
     {
-        pin: {sensorNumber: 2, labJackPin: 'FIO1', labJackChanel: '1', testEnd: 'ETH', maxPressure: 250, name: 'Ethanol Nitrogen Pressurant Sensor', nameShort: '(N.L.E.P1)'},
+        pin: {sensorNumber: 2, labJackPin: 'FIO1', labJackChanel: '1', testEnd: 'ETH', sensorName: 'eth_n2', name: 'Ethanol Nitrogen Pressurant Sensor', nameShort: '(N.L.E.P1)'},
         position: {width: "5", height: "3", x: "1", y: "3"}
     },
     {
-        pin: {sensorNumber: 3, labJackPin: 'FIO3', labJackChanel: '3', testEnd: 'ETH', maxPressure: 100, name: 'Ethanol Tank Pressure Sensor', nameShort: '(E.L.P1)'},
+        pin: {sensorNumber: 3, labJackPin: 'FIO3', labJackChanel: '3', testEnd: 'ETH', sensorName: 'eth_tank', name: 'Ethanol Tank Pressure Sensor', nameShort: '(E.L.P1)'},
         position: {width: "3", height: "4.5", x: "11", y: "7.5"}
     }
 ]
