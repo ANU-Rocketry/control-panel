@@ -133,10 +133,14 @@ class LJWebSocketsServer:
             self.log_data(message, type="REQUEST")
             data = json.loads(message)
             if 'command' in data.keys():
-                await self.handle_command(ws, data['command']['header'],
-                                          data['command'].get('data', None), data['time'])
+                try:
+                    await self.handle_command(ws, data['command']['header'],
+                        data['command'].get('data', None), data['time'])
+                except Exception as e:
+                    print_exc()
+                    self.handleException(e)
             else:
-                raise Exception("#2069 Invalid Command Given: " + message)
+                assert False, f"Invalid command {message}"
 
     def run_abort_sequence(self):
         self.log_data(True, type="ABORTING")
@@ -153,82 +157,45 @@ class LJWebSocketsServer:
             str(e)
         )
 
-    """
-    Implementing logic for command executions...
-    """
+    def set_datalogging_enabled(self, enabled):
+        if enabled:
+            self.state.data_logging = True
+            self.datalog = Datalog(LOG_PATH)
+            self.log_data(True, type="DATA_LOGGING")
+        else:
+            self.log_data(False, type="DATA_LOGGING")
+            self.state.data_logging = False
+            self.datalog = None
+
     async def handle_command(self, ws, header, data, time):
-        if header != "PING": print(header)
-        #self.time_since_command = round(time.time()*1000)
-        try:
-            if header == "PING":
-                await self.emit(ws, 'PING', time)
-                return
-            if self.state.aborting:
-                return  # Aborting hard block
-            if header == CommandString.DATALOG:
-                if data:
-                    self.state.data_logging = True
-                    self.datalog = Datalog(LOG_PATH)
-                    self.log_data(True, type="DATA_LOGGING")
-                else:
-                    self.log_data(False, type="DATA_LOGGING")
-                    self.state.data_logging = False
-                    self.datalog = None
-            if header == CommandString.ARMINGSWITCH:
-                self.log_data(None, type="ARMING_SWITCH")
+        if header == 'PING':
+            await self.emit(ws, 'PING', time)
+            return
+
+        if self.state.aborting: return
+        print(header)
+
+        match header:
+            case CommandString.DATALOG:
+                self.set_datalogging_enabled(data)
+            case CommandString.ARMINGSWITCH:
+                self.log_data(data, type="ARMING_SWITCH")
                 self.state.arming_switch = data
-            elif header == CommandString.ABORTSEQUENCE:
+            case CommandString.ABORTSEQUENCE:
                 self.run_abort_sequence()
-            elif header == CommandString.GETDIGITALSTATES:
-                self.LJ_execute(
-                    Command(
-                        CommandString.GETDIGITALSTATES,
-                        data
-                    )
-                )
-            elif header == CommandString.GETANALOGSTATES:
-                self.LJ_execute(
-                    Command(
-                        CommandString.GETANALOGSTATES,
-                        data
-                    )
-                )
-            elif header == CommandString.SETSEQUENCE:
+            case CommandString.SETSEQUENCE:
                 command = Command(
                     CommandString.SETSEQUENCE, data)
                 self.state.current_sequence = command.data
-            elif header == CommandString.GETDIGITALSTATES:
-                await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
-                    digital=data["pins"]))
-            elif header == CommandString.GETANALOGSTATES:
-                await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
-                    analog=data["pins"]))
-            elif header == CommandString.MANUALSWITCH:
+            case CommandString.MANUALSWITCH:
+                self.log_data(data, type="MANUAL_SWITCH")
                 self.state.manual_switch = data
-
-            if not self.state.arming_switch:
-                return  # Arming switch hard block
-
-            if header == CommandString.BEGINSEQUENCE:
-                self.execute_sequence()
-            elif self.state.manual_switch:
-                if header == CommandString.OPEN:
-                    self.LJ_execute(
-                        Command(
-                            CommandString.OPEN,
-                            data
-                        )
-                    )
-                elif header == CommandString.CLOSE:
-                    self.LJ_execute(
-                        Command(
-                            CommandString.CLOSE,
-                            data
-                        )
-                    )
-        except Exception as e:
-            print_exc()
-            self.handleException(e)
+            case CommandString.BEGINSEQUENCE:
+                if self.state.arming_switch:
+                    self.execute_sequence()
+            case CommandString.OPEN | CommandString.CLOSE:
+                if self.state.arming_switch and self.state.manual_switch:
+                    self.LJ_execute(Command(header, data))
 
     async def producer_handler(self, ws, path):
         while True:
@@ -254,13 +221,11 @@ class LJWebSocketsServer:
             pin = command.data["pin"]
             self.labjacks[LJ].close_valve(pin)
         else:
-            raise Exception(
-                "#3104 execute() function was sent unknown command string: " + json.dumps(command.as_dict()))
+            assert False, "Unknown command string: " + json.dumps(command.as_dict())
 
     def execute_sequence(self):
         async def temp():
-            if self.state.sequence_running:
-                raise Exception("#3001 sequence is already running")
+            assert not self.state.sequence_running
 
             self.state.sequence_running = True
             is_abort_sequence = self.state.aborting

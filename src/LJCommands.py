@@ -10,8 +10,6 @@ class CommandString:
     SLEEP = 'SLEEP'
     OPEN = 'OPEN'
     CLOSE = 'CLOSE'
-    GETDIGITALSTATES = 'GETDIGITALSTATES'
-    GETANALOGSTATES = 'GETANALOGSTATES'
     SETSEQUENCE = 'SETSEQUENCE'
     BEGINSEQUENCE = 'BEGINSEQUENCE'
     ABORTSEQUENCE = 'ABORTSEQUENCE'
@@ -67,12 +65,6 @@ class Command:
                         data[i] = Command(**json.loads(cmd))
                     elif type(cmd) == dict:
                         data[i] = Command(**cmd)
-            case CommandString.GETANALOGSTATES | CommandString.GETDIGITALSTATES:
-                stand, pins = data['name'], data['pins']
-                assert stand in STANDSTRINGS, f"Invalid test stand '{stand}'"
-                assert type(pins) == list
-                for pin in pins:
-                    assert pin in ALLOWED_CHANNEL_NUMS, f"Invalid pin '{pin}' for getting digital/analog states"
             case CommandString.ARMINGSWITCH | CommandString.MANUALSWITCH | CommandString.DATALOG:
                 assert type(data) == bool
             case CommandString.BEGINSEQUENCE, CommandString.ABORTSEQUENCE:

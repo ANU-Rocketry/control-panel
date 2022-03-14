@@ -140,8 +140,6 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 | OPEN | {"name":labjack_name, "pin":pin} |
 | CLOSE | {"name":labjack_name, "pin":pin} |
 | SLEEP | {"milliseconds": time in ms} |
-| GETDIGITALSTATES | {"name":labjack_name, "pins":[pin1, pin2, ...]} |
-| GETANALOGSTATES | {"name":labjack_name, "pins":[pin1, pin2, ...]}|
 | BEGINSEQUENCE | (parameter is unimportant) |
 | ABORTSEQUENCE | (parameter is unimportant) |
 | ARMINGSWITCH | on_bool |
@@ -152,30 +150,6 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 A sequence is a list of multiple commands. These commands can only consist of `OPEN`, `CLOSE` and `SLEEP` commands.
 
 These commands can be represented and authorised by the `LJCommands.py/Command` object. They can also be represented as strings in the JSON TCP requests.
-
-# Error Handling
-
-Errors are categorised according to their importance by a system of numbering:
-  - 1000-level digits are overall importance
-  - 100-level digits partition errors according to subtype
-
-### Command Errors
-
-| error code | description |
-| - | - |
-| 2001 | Command header is not valid |
-| 2101 | Csv provided and no parameter without SETSEQUENCE header |
-| 2102 | Invalid first column command for sequence |
-| 2103 | Invalid second column command for sequence |
-| 2104 | With OPEN or CLOSE, PIN is not within allowed channel numbers |
-| 2105 | Sleep duration is not an integer |
-| 2201 | For single OPEN or CLOSE command, param dictionary is malformed |
-| 2202 | Digital or analogue state request is malformed |
-| 2203 | Pin is not an allowed numnber in digital or analog state read |
-| 2204 | SLEEP is not of integer type |
-| 2205 | ARMINGSWITCH or MANUALSWITCH is not of bool type |
-| 2206 | Begin/end sequence takes no parameters |
-| 2207 | Invalid sequence (not a list of JSON strings, dictionaries or Command objects) |
 
 # Project Overview
 
