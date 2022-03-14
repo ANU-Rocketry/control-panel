@@ -54,6 +54,9 @@ class SystemState:
     # Last time the labjacks field was updated (epoch milliseconds)
     time: int = 0
 
+    def as_dict(self):
+        return asdict(self)
+
 
 class LJWebSocketsServer:
 
@@ -113,7 +116,7 @@ class LJWebSocketsServer:
     async def sync_state(self):
         while True:
             if self.state.data_logging and self.datalog:
-                self.log_data(self.serialise_state(), type="STATE")
+                self.log_data(self.state.as_dict(), type="STATE")
             for stand in self.labjacks:
                 pin_data = self.labjacks[stand].get_state(
                     self.config['labjacks'][stand]["digital"], self.config['labjacks'][stand]["analog"])
@@ -180,20 +183,20 @@ class LJWebSocketsServer:
                 self.LJ_execute(
                     Command(
                         CommandString.GETDIGITALSTATES,
-                        parameter=data
+                        data
                     )
                 )
             elif header == CommandString.GETANALOGSTATES:
                 self.LJ_execute(
                     Command(
                         CommandString.GETANALOGSTATES,
-                        parameter=data
+                        data
                     )
                 )
             elif header == CommandString.SETSEQUENCE:
                 command = Command(
-                    CommandString.SETSEQUENCE, parameter=data)
-                self.state.current_sequence = command.parameter
+                    CommandString.SETSEQUENCE, data)
+                self.state.current_sequence = command.data
             elif header == CommandString.GETDIGITALSTATES:
                 await self.emit(ws, "PINVALUES", self.labjacks[data["name"]].get_state(
                     digital=data["pins"]))
@@ -213,14 +216,14 @@ class LJWebSocketsServer:
                     self.LJ_execute(
                         Command(
                             CommandString.OPEN,
-                            parameter=data
+                            data
                         )
                     )
                 elif header == CommandString.CLOSE:
                     self.LJ_execute(
                         Command(
                             CommandString.CLOSE,
-                            parameter=data
+                            data
                         )
                     )
         except Exception as e:
@@ -230,13 +233,7 @@ class LJWebSocketsServer:
     async def producer_handler(self, ws, path):
         while True:
             await asyncio.sleep(1/STATE_EMIT)
-            await self.emit(ws, 'STATE', self.serialise_state())
-
-    def serialise_state(self):
-        state = asdict(self.state)
-        # convert command objects to dictionaries
-        state['current_sequence'] = [x.toDict() for x in self.state.current_sequence]
-        return state
+            await self.emit(ws, 'STATE', self.state.as_dict())
 
     async def start_server(self):
         asyncio.create_task(self.sync_state())
@@ -245,20 +242,20 @@ class LJWebSocketsServer:
             await asyncio.Future()
 
     def LJ_execute(self, command: Command):
-        self.log_data(command.toDict(), "COMMAND_EXECUTED")
+        self.log_data(command.as_dict(), "COMMAND_EXECUTED")
         if type(command) == dict:
-            command = Command(command['header'], parameter=command['data'])
+            command = Command(command['header'], command['data'])
         if command.header == CommandString.OPEN:
-            LJ = command.parameter["name"]
-            pin = command.parameter["pin"]
+            LJ = command.data["name"]
+            pin = command.data["pin"]
             self.labjacks[LJ].open_valve(pin)
         elif command.header == CommandString.CLOSE:
-            LJ = command.parameter["name"]
-            pin = command.parameter["pin"]
+            LJ = command.data["name"]
+            pin = command.data["pin"]
             self.labjacks[LJ].close_valve(pin)
         else:
             raise Exception(
-                "#3104 execute() function was sent unknown command string: " + json.dumps(command.toDict()))
+                "#3104 execute() function was sent unknown command string: " + json.dumps(command.as_dict()))
 
     def execute_sequence(self):
         async def temp():
@@ -274,15 +271,15 @@ class LJWebSocketsServer:
                 if command.header == CommandString.SLEEP:
                     self.state.command_in_flight = {
                         "header": "SLEEP",
-                        "data": command.parameter,
-                        "time": round(time.time()*1000) + command.parameter
+                        "data": command.data,
+                        "time": round(time.time()*1000) + command.data
                     }
-                    self.log_data(command.toDict(), type="COMMAND_EXECUTED")
-                    print(f"[Sequence] sleeping for {command.parameter}ms")
+                    self.log_data(command.as_dict(), type="COMMAND_EXECUTED")
+                    print(f"[Sequence] sleeping for {command.data}ms")
                     # break sleep into 5ms chunks so aborts will interrupt sleeps
                     def time_ms():
                         return time.time_ns() // 1_000_000
-                    expiry = time_ms() + command.parameter # milliseconds
+                    expiry = time_ms() + command.data # milliseconds
                     x = time_ms()
                     while time_ms() < expiry:
                         if self.state.aborting and not is_abort_sequence:
@@ -293,9 +290,9 @@ class LJWebSocketsServer:
                     print(f"delta: {time_ms()-x}ms")
                 else:
                     if command.header == CommandString.OPEN:
-                        print(f"[Sequence] opening {command.parameter}")
+                        print(f"[Sequence] opening {command.data}")
                     elif command.header == CommandString.CLOSE:
-                        print(f"[Sequence] closing {command.parameter}")
+                        print(f"[Sequence] closing {command.data}")
                     self.LJ_execute(command)
                 self.state.command_in_flight = None
 
