@@ -6,7 +6,7 @@ import {SafetyCard} from './safety-panel'
 export default function Sequences({ state, emit }) {
 
     var sequences = (state.data && state.data.current_sequence) ?? []
-    var current_executing = state.data === null ? null : state.data.sequence_executing
+    var current_executing = state.data === null ? null : state.data.command_in_flight
 
     const [open, setOpen] = React.useState(false);
 

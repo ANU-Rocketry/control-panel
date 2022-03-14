@@ -22,8 +22,8 @@ function controlWidgetStyle({ x, y, width, height, enabled }) {
 
 function ControlSwitch({ state, emit, ...props}) {
 
-    const value = state.data === null ? false : state.data[props.testEnd]["digital"][props.pin]
-    const setValue =  x => state.data[props.testEnd]["digital"][props.pin] ? emit('CLOSE', { name: props.testEnd, pin: parseInt(props.pin) }) : emit('OPEN', { name: props.testEnd, pin: parseInt(props.pin) })
+    const value = state.data === null ? false : state.data.labjacks[props.testEnd]["digital"][props.pin]
+    const setValue =  x => state.data.labjacks[props.testEnd]["digital"][props.pin] ? emit('CLOSE', { name: props.testEnd, pin: parseInt(props.pin) }) : emit('OPEN', { name: props.testEnd, pin: parseInt(props.pin) })
 
     const box = controlWidgetStyle(props);
     const label = {
@@ -54,7 +54,7 @@ function ControlCard({ state, emit, ...props }) {
     const box = controlWidgetStyle({ enabled: true, ...props });
     let volts = null, psi = null;
     if (state.data) {
-        volts = state.data[props.testEnd]["analog"][props.pin]
+        volts = state.data.labjacks[props.testEnd]["analog"][props.pin]
         const sensor = sensorData[props.sensorName]
         psi = getPsi(volts, sensor.barMax, sensor.zero, sensor.span)
     }
