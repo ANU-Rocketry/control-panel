@@ -22,9 +22,8 @@ function controlWidgetStyle({ x, y, width, height, enabled }) {
 }
 
 function ControlSwitch({ state, emit, ...props}) {
-
-    const value = state.data === null ? false : state.data.labjacks[props.testEnd]["digital"][props.pin]
-    const setValue =  x => state.data.labjacks[props.testEnd]["digital"][props.pin] ? emit('CLOSE', { name: props.testEnd, pin: parseInt(props.pin) }) : emit('OPEN', { name: props.testEnd, pin: parseInt(props.pin) })
+    const value = state.data === null ? false : state.data.labjacks[props.test_stand]["digital"][props.labjack_pin]
+    const setValue = x => state.data.labjacks[props.test_stand]["digital"][props.labjack_pin] ? emit('CLOSE', { name: props.test_stand, pin: parseInt(props.labjack_pin) }) : emit('OPEN', { name: props.test_stand, pin: parseInt(props.labjack_pin) })
 
     const box = controlWidgetStyle(props);
     const label = {
@@ -51,11 +50,10 @@ function ControlSwitch({ state, emit, ...props}) {
 }
 
 function ControlCard({ state, emit, ...props }) {
-
     const box = controlWidgetStyle({ enabled: true, ...props });
     let volts = null, psi = null;
     if (state.data) {
-        volts = state.data.labjacks[props.testEnd]["analog"][props.pin]
+        volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin]
         const sensor = sensorData[props.sensorName]
         psi = getPsi(volts, sensor.barMax, sensor.zero, sensor.span)
     }
@@ -69,18 +67,15 @@ function ControlCard({ state, emit, ...props }) {
 
     return (
         <div style={box}>
-            <div style={{fontSize: "1rem"}}>
-                {props.title}
-            </div>
-            <div style={{fontSize: "1rem"}}>
-                {psi && psi.toFixed(1)} PSI ({volts && volts.toFixed(2)}V)
-            </div>
+            <div>{props.title}</div>
+            {psi && <div>{psi.toFixed(1)} PSI</div>}
+            {volts && <div>({volts.toFixed(2)}V)</div>}
         </div>
     );
 }
 
 export default function ControlPanel({ state, emit }) {
-    return (  
+    return (
         <Panel title="Control Panel" className='panel control'>
             <div className="control-panel">
                 {pins.buttons.map((button) =>
@@ -89,12 +84,8 @@ export default function ControlPanel({ state, emit }) {
                         key={button.pin.name}
                         state={state}
                         emit={emit}
-                        pin={button.pin.labjack_pin}
-                        testEnd={button.pin.test_stand}
-                        width={button.position.width}
-                        height={button.position.height}
-                        x={button.position.x}
-                        y={button.position.y}
+                        {...button.pin}
+                        {...button.position}
                         enabled={state.data && state.data.arming_switch && state.data.manual_switch}
                     />
                 )}
@@ -104,12 +95,8 @@ export default function ControlPanel({ state, emit }) {
                         key={sensor.pin.name}
                         state={state}
                         emit={emit}
-                        pin={sensor.pin.labjack_pin}
-                        testEnd={sensor.pin.test_stand}
-                        width={sensor.position.width}
-                        height={sensor.position.height}
-                        x={sensor.position.x}
-                        y={sensor.position.y}
+                        {...sensor.pin}
+                        {...sensor.position}
                         sensorName={sensor.pin.abbrev}
                     />
                 )}
