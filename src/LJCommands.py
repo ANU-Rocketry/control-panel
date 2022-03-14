@@ -1,57 +1,55 @@
 import json
 import csv
-from enum import Enum
-import ast
-import time
 
 # Could be wrong
 ALLOWED_CHANNEL_NUMS = [14, 12, 10, 8, 19, 17, 16, 18, 9, 11, 13, 15]
 
 
-class CommandString(str, Enum):
-    """
-    An enum to define command headers/names.
-    """
-    SLEEP = 'SLEEP',
-    OPEN = 'OPEN',
-    CLOSE = 'CLOSE',
-    GETDIGITALSTATES = 'GETDIGITALSTATES',
-    GETANALOGSTATES = 'GETANALOGSTATES',
-    SETSEQUENCE = 'SETSEQUENCE',
-    BEGINSEQUENCE = 'BEGINSEQUENCE',
-    ABORTSEQUENCE = 'ABORTSEQUENCE',
-    ARMINGSWITCH = 'ARMINGSWITCH',
-    MANUALSWITCH = 'MANUALSWITCH',
-    DATALOG = "DATALOG",
-
-
-"""
-Paras: take in a command string and a data value is the JSON
-"""
+class CommandString:
+    SLEEP = 'SLEEP'
+    OPEN = 'OPEN'
+    CLOSE = 'CLOSE'
+    GETDIGITALSTATES = 'GETDIGITALSTATES'
+    GETANALOGSTATES = 'GETANALOGSTATES'
+    SETSEQUENCE = 'SETSEQUENCE'
+    BEGINSEQUENCE = 'BEGINSEQUENCE'
+    ABORTSEQUENCE = 'ABORTSEQUENCE'
+    ARMINGSWITCH = 'ARMINGSWITCH'
+    MANUALSWITCH = 'MANUALSWITCH'
+    DATALOG = 'DATALOG'
 
 STANDSTRINGS = ['LOX', 'ETH']
 
+def parse_sequence_csv(file: str) -> list['Command']:
+    commands = []
+    with open(file, 'r') as in_file:
+        data = list(csv.reader(in_file, delimiter=','))
 
-class Command():
-    """
-    The Command object defines a command that is processable by the LJSocket.
-    """
+    for line in data:
+        command = line[0]
 
-    def __init__(self, header: CommandString, parameter=None, csv_file=None):
-        """ The constructor for a command object. Ensures a valid command is provided.
+        match command:
+            case CommandString.SLEEP:
+                duration = int(line[1])
+                assert type(duration) == int and duration >= 0, f"Sleep duration '{duration}' is invalid"
+                commands.append(Command(command, duration))
 
-        Outdated...
-        Args:
-            header (CommandString, optional): A command string defining the header of the command. Defaults to None.
-            parameter ([type], optional): The parameter of the command, the type is dependent on the header. Defaults to None.
-            csv_file ([type], optional): A csv to produce a sequence command from. Defaults to None.
-        """
+            case CommandString.OPEN | CommandString.CLOSE:
+                stand, pin = line[1], int(line[2])
+                assert stand in STANDSTRINGS, f"Invalid test stand '{stand}'"
+                assert pin in ALLOWED_CHANNEL_NUMS, f"Invalid pin '{pin}' for open/close in sequence"
+                commands.append(Command(command, { 'name': stand, 'pin': pin }))
 
+            case _:
+                assert False, f"Invalid command '{command}' for sequence"
+
+    return commands
+
+class Command:
+
+    def __init__(self, header: str, parameter=None, csv_file=None):
         self.parameter = parameter
         self.header = header
-
-        if (type(header) != CommandString):
-            raise Exception("#2001 command header is not valid")
 
         # If a csv is provided and no parameter create from csv
         if csv_file and not parameter:
@@ -61,39 +59,7 @@ class Command():
                 raise Exception(
                     "#2101 csv provided and no parameter without SETSEQUENCE header")
 
-            commands = []
-            with open(csv_file, 'r') as in_file:
-                data = csv.reader(in_file, delimiter=',')
-                for line in data:
-                    if not (line[0] == CommandString.OPEN
-                            or line[0] == CommandString.CLOSE
-                            or line[0] == CommandString.SLEEP):
-                        raise Exception(
-                            f"#2102 invalid first column command for sequence '{line[0]}'")
-
-                    if line[0] != CommandString.SLEEP:
-                        param_dict = {}
-                        if not (line[1] in STANDSTRINGS):
-                            raise Exception(
-                                f"#2103 invalid second column command for sequence '{line[1]}'")
-
-                        if not (int(line[2]) in ALLOWED_CHANNEL_NUMS):
-                            raise Exception(
-                                f"#2104 with OPEN or CLOSE, PIN is not within allowed channel numbers '{line[2]}'")
-
-                        param_dict["name"] = line[1]
-                        param_dict["pin"] = int(line[2])
-                        commands.append(
-                            Command(CommandString(line[0]), parameter=param_dict))
-                    else:
-                        if not (type(int(line[1])) == int):
-                            raise Exception(
-                                f"#2105 sleep duration is not an integer '{line[1]}'")
-                        param = int(line[1])
-                        commands.append(
-                            Command(CommandString(line[0]), parameter=param))
-
-                self.parameter = commands
+            self.parameter = parse_sequence_csv(csv_file)
 
         # Checks that parameter types are valid
         if self.header in [CommandString.OPEN, CommandString.CLOSE]:

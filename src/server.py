@@ -4,10 +4,11 @@ import asyncio
 import time
 import json
 from datalog import Datalog
-from LJCommands import *
+from LJCommands import CommandString, Command
 from traceback import print_exc
 import sys
 from labjack import get_class
+from utils import Path, get_local_ip
 
 # If you run `python3 server.py --dev` you get a simulated LabJack class
 # If you run `python3 server.py` it tries to connect properly
@@ -16,13 +17,15 @@ LabJack = get_class('--dev' in sys.argv)
 
 STATE_GRAB = 50  # Get state from labjacks 50 times per second
 STATE_EMIT = 10  # Emit the state to the front end 10 times per second
-CONNECTION_TIMEOUT = 600  # Second to timeout and run abort sequence after
-LOG_PATH = "./logs"
+CONNECTION_TIMEOUT = 600  # Second to timeout and run abort sequence after WHILE ARMED (front-end should disarm after inactivity)
+
+LOG_PATH = Path(__file__).folder('logs')
+CONFIG_FILE = Path(__file__).file('config.json')
 
 
 class LJWebSocketsServer:
 
-    def __init__(self, ip: str, port: int, config='config.json'):
+    def __init__(self, ip: str, port: int, config=CONFIG_FILE):
         self.config = {}
         self.state = {
             "sequence_executing": None,
@@ -305,15 +308,6 @@ def run_server(ip="192.168.1.5", port=8888):
     port = 8888
     socket = LJWebSocketsServer(ip, port)
     asyncio.run(socket.start_server())
-
-def get_local_ip():
-    # Source: https://stackoverflow.com/a/166589
-    import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("8.8.8.8", 80))
-    ret = s.getsockname()[0]
-    s.close()
-    return ret
 
 if __name__ == '__main__':
     run_server(get_local_ip())
