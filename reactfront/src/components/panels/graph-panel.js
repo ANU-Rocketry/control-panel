@@ -158,8 +158,9 @@ export default function GraphPanel({ state, emit }) {
       setWindow([Math.min(left, -0.01)])
     } else {
       // Scale both edges (zooming around the center)
-      const left = Math.max(window[0] * Math.pow(1.001, -d), points[0].time)
-      const right = Math.max(Math.min(window[1] * Math.pow(1.001, d), points[points.length - 1].time), points[0].time + 0.01)
+      const mid = (window[0] + window[1]) / 2
+      const left = Math.max(mid + (window[0] - mid) * Math.pow(1.001, -d), Math.min(points[0].time + 0.01, currentSeconds-10))
+      const right = Math.min(mid + (window[1] - mid) * Math.pow(1.001, -d), points[points.length - 1].time)
       setWindow([Math.min(left, right - 0.01), right])
     }
   }
