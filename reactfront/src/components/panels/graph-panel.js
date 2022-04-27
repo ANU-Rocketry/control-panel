@@ -205,10 +205,10 @@ export default function GraphPanel({ state, emit }) {
           </React.Fragment>
         ))}
         {/* Vertical labels (valve toggle indicators) */}
-        {verticalLabels.map(({x, label}) => (
+        {verticalLabels.map(({x, label}, i) => (
           <g key={x}>
             <line x1={x} y1={p2y(0)} x2={x} y2={p2y(1)} stroke="#333" strokeWidth='1' strokeDasharray='4' clipPath='url(#data-clip-path)' />
-            <text x={x+5} y={p2y(1)} textAnchor="start" alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{label}</text>
+            <text x={x+5} y={p2y(1)-(i%10)*10} textAnchor="start" alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{label}</text>
           </g>
         ))}
         {/* Series (plotting data curves as polylines) */}

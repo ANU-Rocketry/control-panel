@@ -184,6 +184,7 @@ class LJWebSocketsServer:
             case CommandString.ABORTSEQUENCE:
                 self.run_abort_sequence()
             case CommandString.SETSEQUENCE:
+                print(type(data))
                 command = Command(
                     CommandString.SETSEQUENCE, data)
                 self.state.current_sequence = command.data

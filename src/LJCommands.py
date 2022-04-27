@@ -60,10 +60,13 @@ class Command:
                 if type(data) == str:
                     data = parse_sequence_csv(data)
                 assert type(data) == list
-                for i, cmd in data:
+                for i, cmd in enumerate(data):
                     if type(cmd) == str:
-                        data[i] = Command(**json.loads(cmd))
-                    elif type(cmd) == dict:
+                        data[i] = json.loads(cmd)
+                    if type(cmd) == dict:
+                        if 'parameter' in cmd:
+                            cmd['data'] = cmd['parameter']
+                            del cmd['parameter']
                         data[i] = Command(**cmd)
             case CommandString.ARMINGSWITCH | CommandString.MANUALSWITCH | CommandString.DATALOG:
                 assert type(data) == bool
