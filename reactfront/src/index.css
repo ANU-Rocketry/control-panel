@@ -80,6 +80,7 @@ h2 { font-size: 1.2rem; }
 
 .panel.graphs {
   width: calc(100% - 850px);
+  height: 550px;
 }
 
 .control-panel .MuiSwitch-root {
