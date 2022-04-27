@@ -32,10 +32,10 @@ function formatData(state) {
 
 function reduceResolution(data) {
   // Reduce the resolution by taking every `decimation` points
-  // This decimation factor is chosen to keep the number of points bounded by 300
+  // This decimation factor is chosen to keep the number of points bounded by 100
   // We ensure that the start and end points are included
   const n = data.length
-  const decimation = Math.floor(n / 300) + 1
+  const decimation = Math.floor(n / 100) + 1
   return data.filter((_, i) => i % decimation === 0 || i === n - 1)
 }
 
@@ -67,6 +67,15 @@ function roundToNiceDecimalIncrement(num) {
   return nearest * 10 ** -power
 }
 
+// Formatted label including SI unit prefixes
+function formatUnit(val, unit) {
+  return Math.abs(val) > 1000 ? `${(val/1000).toFixed(1)} k${unit}`
+       : Math.abs(val) > 1 ? `${val.toFixed(1)} ${unit}`
+       : Math.abs(val) > 0.001 ? `${(val*1000).toFixed(1)} m${unit}`
+       : Math.abs(val) > 0.000001 ? `${(val*1000000).toFixed(1)} μ${unit}`
+       : `${val.toFixed(1)} ${unit}`
+}
+
 // Generate around a suggested number of nicely rounded decimal axis ticks with units
 // Returns a list of { tick: double, label: string } dicts
 function generateAxisTicks(min, max, suggested, unit) {
@@ -77,12 +86,7 @@ function generateAxisTicks(min, max, suggested, unit) {
   for (let tick = adjustedMin; tick <= adjustedMax; tick += increment) {
     ticks.push({
       tick,
-      // Formatted label including SI unit prefixes
-      label: Math.abs(tick) > 1000 ? `${(tick/1000).toFixed(1)} k${unit}`
-        : Math.abs(tick) > 1 ? `${tick.toFixed(1)} ${unit}`
-        : Math.abs(tick) > 0.001 ? `${(tick*1000).toFixed(1)} m${unit}`
-        : Math.abs(tick) > 0.000001 ? `${(tick*1000000).toFixed(1)} μ${unit}`
-        : '0.0 ' + unit
+      label: formatUnit(tick, unit)
     })
   }
   return ticks
@@ -95,9 +99,11 @@ function pinFromID(labjack_pin) {
 export default function GraphPanel({ state, emit }) {
   // Instead of using a cumbersome charting library, we use JSX with SVG to declaratively
   // and efficiently construct highly customisable graphs
+  const svgRef = React.useRef(null)
 
   // state.history is a list of dictionaries. Each dictionary is a snapshot of the app state at a given time
   // We accumulate a chronologically ordered list of dictionaries of sensor readings at each state history snapshot
+  // TODO: don't call formatData on everything every frame. Ideally call it on the decimated slice
   const [points, ymin, ymax] = formatData(state)
 
   // Window of points to display
@@ -112,7 +118,7 @@ export default function GraphPanel({ state, emit }) {
   const relativeTimeWindow = [effectiveTimeWindow[0] - currentSeconds, effectiveTimeWindow[1] - currentSeconds]
   const indexWindow = [
     indexOfLastPointBeforeTime(points, effectiveTimeWindow[0]),
-    Math.max(indexOfLastPointBeforeTime(points, effectiveTimeWindow[1]) + 1, points.length - 1)
+    Math.min(indexOfLastPointBeforeTime(points, effectiveTimeWindow[1]) + 1, points.length - 1)
   ]
 
   // Decimate the data in the selected window to reduce the number of points to display
@@ -124,9 +130,11 @@ export default function GraphPanel({ state, emit }) {
   // Conversion from decimal in [0,1] range to pixel
   const p2x = p => margin.l + p * (w - margin.l - margin.r)
   const p2y = p => margin.t + p * (h - margin.t - margin.b)
+  const x2p = x => (x - margin.l) / (w - margin.l - margin.r) // inverse
   // Conversion from t-minus time in seconds / pressure in psi to pixel
   const v2x = v => p2x((v - relativeTimeWindow[0]) / (relativeTimeWindow[1] - relativeTimeWindow[0]))
   const v2y = v => p2y((v - ymin) / (ymax - ymin))
+  const x2v = x => relativeTimeWindow[0] + x2p(x) * (relativeTimeWindow[1] - relativeTimeWindow[0]) // inverse
 
   // Horizontal axis ticks
   const xTicks = generateAxisTicks(...relativeTimeWindow, 4, 's')
@@ -137,6 +145,13 @@ export default function GraphPanel({ state, emit }) {
     ['LOX_Tank_Pressure', '#000000', 'LOX Tank'],
     ['ETH_Tank_Pressure', '#33dd66', 'ETH Tank'],
   ]
+
+  // Hover tooltip
+  // Mouse X position relative to the <svg>
+  const [mousePosX, setMousePosX] = React.useState(null)
+  const tooltipIndex = mousePosX && indexOfLastPointBeforeTime(points, currentSeconds + x2v(mousePosX))
+  // TODO: linear interpolation between adjacent values
+  const tooltipText = tooltipIndex && series.map(s => s[2] + ' ' + formatUnit(points[tooltipIndex][s[0]], 'psi'))
 
   const sliderChangeHandler = (_event, newTimeWindow) => {
     // Convert window to the appropriate time window representation
@@ -177,10 +192,24 @@ export default function GraphPanel({ state, emit }) {
     }
   })
 
+  const handleMouseMove = e => {
+    // Show tooltip on hover
+    setMousePosX(e.clientX - svgRef.current?.getBoundingClientRect().left)
+  }
+
+  const handleMouseOut = e => {
+    const rect = svgRef.current?.getBoundingClientRect()
+    if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+      enablePageScroll()
+      setMousePosX(null)
+    }
+  }
+
   return (
     <Panel title="Graphs" className='panel graphs' onWheel={wheelHandler}>
       <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h}
-        onMouseOver={() => disablePageScroll()} onMouseOut={() => enablePageScroll()}>
+        ref={svgRef}
+        onMouseOver={() => disablePageScroll()} onMouseOut={handleMouseOut} onMouseMove={handleMouseMove}>
         <defs>
           {/* Bounding box for data series rendering */}
           <clipPath id="data-clip-path">
@@ -224,6 +253,15 @@ export default function GraphPanel({ state, emit }) {
             <text fontSize="12" x={w-15} textAnchor="end" alignmentBaseline='middle' fill={color} y={15+i*20}>{label}</text>
           </g>
         ))}
+        {/* Tooltip */}
+        {tooltipIndex && mousePosX > p2x(0) && (
+          <g>
+            <line x1={mousePosX} y1={p2y(0)} x2={mousePosX} y2={p2y(1)} stroke="black" strokeWidth='1' clipPath='url(#data-clip-path)' />
+            {tooltipText.map((text, i) => (
+              <text key={i} x={mousePosX+5} y={p2y(0)+20+16*i} textAnchor="start" alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{text}</text>
+            ))}
+          </g>
+        )}
       </svg>
       {/* Time window selection slider */}
       <Slider
