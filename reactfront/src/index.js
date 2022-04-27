@@ -12,9 +12,12 @@ class App extends React.Component {
 
   constructor(props) {
     super(props);
-    this.state = { data: null, history: [], mostRecentWarning: {}, showWarning: false,
-    wsAddress: localStorage.getItem('wsaddr') || "127.0.0.1",
-    defaultWSAddress: "127.0.0.1" };
+    this.state = {
+      data: null, history: [], mostRecentWarning: {}, showWarning: false,
+      wsAddress: localStorage.getItem('wsaddr') || "127.0.0.1",
+      defaultWSAddress: "127.0.0.1",
+      valveHistory: []
+    }
     this.emit = this.emit.bind(this)
     this.connect()
   }
@@ -56,6 +59,10 @@ class App extends React.Component {
           break
         case 'PING':
           this.setState({ ping: new Date().getTime() - data.data })
+          break
+        case 'VALVE':
+          console.log(data.data)
+          this.setState({ valveHistory: [...this.state.valveHistory, { ...data.data, time: new Date().getTime() / 1000} ] })
           break
         default:
           console.error(data)

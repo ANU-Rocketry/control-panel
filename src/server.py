@@ -80,7 +80,7 @@ class LJWebSocketsServer:
 
         self.ip = ip
         self.port = port
-        self.clients = 0
+        self.clients = set()
 
         print(f"Hosting server on {ip}:{port}")
 
@@ -89,7 +89,7 @@ class LJWebSocketsServer:
         Going to have to go through the Labjack object and produce the state...
         This will be a separate asynchronous task on a concurrent timer
         """
-        self.clients += 1
+        self.clients.add(websocket)
         consumer_task = asyncio.ensure_future(
             self.consumer_handler(websocket, path))
         producer_task = asyncio.ensure_future(
@@ -100,13 +100,13 @@ class LJWebSocketsServer:
         )
         for task in pending:
             task.cancel()
-        self.clients -= 1
+        self.clients.remove(websocket)
 
     async def timeout_counter(self):
         lastConnection = time.time()
         timeSinceLast = 0
         while True:
-            if self.clients != 0 or not self.state.arming_switch:
+            if self.clients != set() or not self.state.arming_switch:
                 lastConnection = time.time()
             timeSinceLast = time.time() - lastConnection
             if timeSinceLast > (CONNECTION_TIMEOUT):
@@ -210,6 +210,7 @@ class LJWebSocketsServer:
 
     def LJ_execute(self, command: Command):
         self.log_data(command.as_dict(), "COMMAND_EXECUTED")
+        asyncio.ensure_future(self.broadcast('VALVE', command.as_dict()))
         if type(command) == dict:
             command = Command(command['header'], command['data'])
         if command.header == CommandString.OPEN:
@@ -273,6 +274,10 @@ class LJWebSocketsServer:
             "data": data
         }
         await ws.send(json.dumps(obj))
+
+    async def broadcast(self, msg_type, data):
+        for ws in self.clients:
+            await self.emit(ws, msg_type, data)
 
 
 if __name__ == '__main__':

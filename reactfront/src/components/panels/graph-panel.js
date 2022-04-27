@@ -3,6 +3,7 @@ import { Panel } from '../index'
 import { Slider } from '@material-ui/core'
 import { getPsi, sensorData } from '../../utils'
 import { disablePageScroll, enablePageScroll } from 'scroll-lock'
+import pins from '../../pins.json'
 
 function formatData(state) {
   let [dmin, dmax] = [0, 0]
@@ -38,6 +39,7 @@ function reduceResolution(data) {
   return data.filter((_, i) => i % decimation === 0 || i === n - 1)
 }
 
+// TODO: binary search
 function indexOfLastPointBeforeTime(points, time) {
   for (let i = points.length - 1; i >=0; i--) {
     if (points[i].time <= time) {
@@ -84,6 +86,10 @@ function generateAxisTicks(min, max, suggested, unit) {
     })
   }
   return ticks
+}
+
+function pinFromID(labjack_pin) {
+  return pins.buttons.filter(pin => pin.pin.labjack_pin === labjack_pin)[0]
 }
 
 export default function GraphPanel({ state, emit }) {
@@ -158,9 +164,22 @@ export default function GraphPanel({ state, emit }) {
     }
   }
 
+  // Vertical lines at times when valves were toggled
+  // state.valveHistory is a list of dicts like { "header": "CLOSE", "data": { "name": "ETH", "pin": 19 }, time: epoch_secs }
+  // This example corresponds to the button with labjack_pin=19 in pins.json
+  const verticalLabels = state.valveHistory.map(({header, data, time}) => {
+    const pin = pinFromID(data.pin).pin
+    const label = (header === 'CLOSE' ? 'Closed' : 'Opened') + ' ' + pin.test_stand + ' ' + pin.abbrev
+    return {
+      x: v2x(time - currentSeconds),
+      label
+    }
+  })
+
   return (
     <Panel title="Graphs" className='panel graphs' onWheel={wheelHandler}>
-      <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h} onMouseOver={disablePageScroll} onMouseOut={enablePageScroll}>
+      <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h}
+        onMouseOver={() => disablePageScroll()} onMouseOut={() => enablePageScroll()}>
         <defs>
           {/* Bounding box for data series rendering */}
           <clipPath id="data-clip-path">
@@ -184,6 +203,13 @@ export default function GraphPanel({ state, emit }) {
             <line x1={p2x(0)} y1={v2y(tick)} x2={p2x(0)-5} y2={v2y(tick)} stroke="black" />
             <text x={p2x(0)-7} y={v2y(tick)} textAnchor="end" alignmentBaseline="middle" fontSize="12">{label}</text>
           </React.Fragment>
+        ))}
+        {/* Vertical labels (valve toggle indicators) */}
+        {verticalLabels.map(({x, label}) => (
+          <g key={x}>
+            <line x1={x} y1={p2y(0)} x2={x} y2={p2y(1)} stroke="#333" strokeWidth='1' strokeDasharray='4' clipPath='url(#data-clip-path)' />
+            <text x={x+5} y={p2y(1)} textAnchor="start" alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{label}</text>
+          </g>
         ))}
         {/* Series (plotting data curves as polylines) */}
         {series.map(([key, color, label]) => (
