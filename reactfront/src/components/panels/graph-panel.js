@@ -2,6 +2,7 @@ import React from 'react';
 import { Panel } from '../index'
 import { Slider } from '@material-ui/core'
 import { getPsi, sensorData } from '../../utils'
+import { disablePageScroll, enablePageScroll } from 'scroll-lock'
 
 function formatData(state) {
   let [dmin, dmax] = [0, 0]
@@ -131,18 +132,35 @@ export default function GraphPanel({ state, emit }) {
     ['ETH_Tank_Pressure', '#33dd66', 'ETH Tank'],
   ]
 
-  const handleChange = (_event, newTimeWindow) => {
+  const sliderChangeHandler = (_event, newTimeWindow) => {
     // Convert window to the appropriate time window representation
     if (newTimeWindow[1] >= currentSeconds - (currentSeconds - points[0].time) * 0.01) {
       setWindow([newTimeWindow[0] - newTimeWindow[1]])
     } else {
       setWindow(newTimeWindow)
     }
-  };
+  }
+
+  const wheelHandler = e => {
+    // Annoyingly, using e.preventDefault() or e.stopPropagation() in the wheel or scroll events
+    // does not stop the scroll from also happening (tested on Chrome on an M1 Mac)
+    // So instead we use the scroll-lock library to disable scrolling when the mouse is over the graph view
+    const d = e.deltaX + e.deltaY
+    if (window.length === 1) {
+      // Scale the left edge
+      const left = Math.max(window[0] * Math.pow(1.001, -d), Math.min(points[0].t_minus_time, -10))
+      setWindow([Math.min(left, -0.01)])
+    } else {
+      // Scale both edges (zooming around the center)
+      const left = Math.max(window[0] * Math.pow(1.001, -d), points[0].time)
+      const right = Math.max(Math.min(window[1] * Math.pow(1.001, d), points[points.length - 1].time), points[0].time + 0.01)
+      setWindow([Math.min(left, right - 0.01), right])
+    }
+  }
 
   return (
-    <Panel title="Graphs" className='panel graphs'>
-      <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h}>
+    <Panel title="Graphs" className='panel graphs' onWheel={wheelHandler}>
+      <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h} onMouseOver={disablePageScroll} onMouseOut={enablePageScroll}>
         <defs>
           {/* Bounding box for data series rendering */}
           <clipPath id="data-clip-path">
@@ -183,7 +201,7 @@ export default function GraphPanel({ state, emit }) {
       {/* Time window selection slider */}
       <Slider
         value={effectiveTimeWindow}
-        onChange={handleChange}
+        onChange={sliderChangeHandler}
         valueLabelDisplay='off'
         min={points[0]?.time}
         max={points[points.length - 1]?.time}
