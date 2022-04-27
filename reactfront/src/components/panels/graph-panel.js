@@ -1,6 +1,7 @@
 import React from 'react';
 import { Panel } from '../index'
-import { getPsi, sensorData } from '../../utils';
+import { Slider } from '@material-ui/core'
+import { getPsi, sensorData } from '../../utils'
 
 function formatData(state) {
   let [dmin, dmax] = [0, 0]
@@ -95,7 +96,7 @@ export default function GraphPanel({ state, emit }) {
   // Window of points to display
   // Fixed representation: [start_epoch_seconds, end_epoch_seconds] (stays focused on a fixed time window)
   // Sliding representation: [t_minus_seconds] (stays focused on the current time, up to a fixed number of seconds before)
-  const [window, setWindow] = React.useState([-10]);
+  const [window, setWindow] = React.useState([-3]);
   // Window of point indices to display, with at least one on either side
   const currentSeconds = state.history.length ? parseInt(state.data.time) / 1000 : (new Date().getTime()) / 1000
   const effectiveTimeWindow = window.length === 1
@@ -130,6 +131,15 @@ export default function GraphPanel({ state, emit }) {
     ['ETH_Tank_Pressure', '#33dd66', 'ETH Tank'],
   ]
 
+  const handleChange = (_event, newTimeWindow) => {
+    // Convert window to the appropriate time window representation
+    if (newTimeWindow[1] >= currentSeconds - (currentSeconds - points[0].time) * 0.01) {
+      setWindow([newTimeWindow[0] - newTimeWindow[1]])
+    } else {
+      setWindow(newTimeWindow)
+    }
+  };
+
   return (
     <Panel title="Graphs" className='panel graphs'>
       <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h}>
@@ -157,9 +167,9 @@ export default function GraphPanel({ state, emit }) {
             <text x={p2x(0)-7} y={v2y(tick)} textAnchor="end" alignmentBaseline="middle" fontSize="12">{label}</text>
           </React.Fragment>
         ))}
-        {/* Series */}
+        {/* Series (plotting data curves as polylines) */}
         {series.map(([key, color, label]) => (
-          <polyline id='test' points={decimatedPoints.map(({ t_minus_time, ...point }) => ` ${v2x(t_minus_time)},${v2y(point[key])}`).join('')}
+          <polyline key={key} points={decimatedPoints.map(({ t_minus_time, ...point }) => ` ${v2x(t_minus_time)},${v2y(point[key])}`).join('')}
             fill="none" stroke={color} strokeWidth="1" clipPath='url(#data-clip-path)' />
         ))}
         {/* Key/Legend */}
@@ -170,6 +180,20 @@ export default function GraphPanel({ state, emit }) {
           </g>
         ))}
       </svg>
+      {/* Time window selection slider */}
+      <Slider
+        value={effectiveTimeWindow}
+        onChange={handleChange}
+        valueLabelDisplay='off'
+        min={points[0]?.time}
+        max={points[points.length - 1]?.time}
+        style={{width: w - 40, marginLeft: 50}}
+        step={0.01}
+        marks={[
+          { value: points[0]?.time, label: `${Math.round(points[points.length - 1]?.time-points[0]?.time)}s ago` },
+          { value: points[points.length - 1]?.time, label: 'now' },
+        ]}
+      />
     </Panel>
   )
 }
