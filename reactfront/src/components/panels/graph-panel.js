@@ -279,9 +279,20 @@ export default function GraphPanel({ state, emit }) {
     }
   }
 
+  const downloadSVG = () => {
+    const svg = svgRef.current
+    const svgData = new XMLSerializer().serializeToString(svg)
+    const blob = new Blob([svgData], {type: 'image/svg+xml'})
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'graph.svg'
+    link.click()
+  }
+
   return (
     <Panel title="Graphs" className='panel graphs' onWheel={wheelHandler}>
-      <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h} style={{ userSelect: 'none' }}
+      <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h} style={{ userSelect: 'none', fontFamily: 'sans-serif' }}
         ref={svgRef}
         onMouseOver={() => disablePageScroll()} onMouseOut={handleMouseOut} onMouseMove={handleMouseMove}
         onMouseDown={() => setMouseDown(true)} onMouseUp={() => setMouseDown(false)}
@@ -353,6 +364,7 @@ export default function GraphPanel({ state, emit }) {
           { value: fullTimeBounds[1], label: 'now' },
         ]}
       />
+      <button onClick={downloadSVG}>Download SVG</button>
     </Panel>
   )
 }

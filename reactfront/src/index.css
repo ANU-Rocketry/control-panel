@@ -80,7 +80,16 @@ h2 { font-size: 1.2rem; }
 
 .panel.graphs {
   width: calc(100% - 850px);
-  height: 570px;
+  height: 590px;
+}
+.graphs button {
+  margin-left: 1em;
+  outline: none;
+  border: 1px solid #666;
+  background-color: #eee;
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
 }
 
 .control-panel .MuiSwitch-root {
