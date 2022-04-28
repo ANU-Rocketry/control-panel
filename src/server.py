@@ -175,28 +175,27 @@ class LJWebSocketsServer:
         if self.state.aborting: return
         print(header)
 
-        match header:
-            case CommandString.DATALOG:
-                self.set_datalogging_enabled(data)
-            case CommandString.ARMINGSWITCH:
-                self.log_data(data, type="ARMING_SWITCH")
-                self.state.arming_switch = data
-            case CommandString.ABORTSEQUENCE:
-                self.run_abort_sequence()
-            case CommandString.SETSEQUENCE:
-                print(type(data))
-                command = Command(
-                    CommandString.SETSEQUENCE, data)
-                self.state.current_sequence = command.data
-            case CommandString.MANUALSWITCH:
-                self.log_data(data, type="MANUAL_SWITCH")
-                self.state.manual_switch = data
-            case CommandString.BEGINSEQUENCE:
-                if self.state.arming_switch:
-                    self.execute_sequence()
-            case CommandString.OPEN | CommandString.CLOSE:
-                if self.state.arming_switch and self.state.manual_switch:
-                    self.LJ_execute(Command(header, data))
+        if header == CommandString.DATALOG:
+            self.set_datalogging_enabled(data)
+        elif header == CommandString.ARMINGSWITCH:
+            self.log_data(data, type="ARMING_SWITCH")
+            self.state.arming_switch = data
+        elif header == CommandString.ABORTSEQUENCE:
+            self.run_abort_sequence()
+        elif header == CommandString.SETSEQUENCE:
+            print(type(data))
+            command = Command(
+                CommandString.SETSEQUENCE, data)
+            self.state.current_sequence = command.data
+        elif header == CommandString.MANUALSWITCH:
+            self.log_data(data, type="MANUAL_SWITCH")
+            self.state.manual_switch = data
+        elif header == CommandString.BEGINSEQUENCE:
+            if self.state.arming_switch:
+                self.execute_sequence()
+        elif header == CommandString.OPEN or header == CommandString.CLOSE:
+            if self.state.arming_switch and self.state.manual_switch:
+                self.LJ_execute(Command(header, data))
 
     async def producer_handler(self, ws, path):
         while True:
