@@ -27,16 +27,17 @@ def parse_sequence_csv(file: str) -> list['Command']:
     for line in data:
         command = line[0]
 
-        if command == CommandString.SLEEP:
-            duration = int(line[1])
-            commands.append(Command(command, duration))
+        match command:
+            case CommandString.SLEEP:
+                duration = int(line[1])
+                commands.append(Command(command, duration))
 
-        elif command == CommandString.OPEN or command == CommandString.CLOSE:
-            stand, pin = line[1], int(line[2])
-            commands.append(Command(command, { 'name': stand, 'pin': pin }))
+            case CommandString.OPEN | CommandString.CLOSE:
+                stand, pin = line[1], int(line[2])
+                commands.append(Command(command, { 'name': stand, 'pin': pin }))
 
-        else:
-            assert False, f"Invalid command '{command}' for sequence"
+            case _:
+                assert False, f"Invalid command '{command}' for sequence"
     return commands
 
 @dataclass
@@ -47,29 +48,30 @@ class Command:
     def __init__(self, header: str, data: object):
 
         # Validation
-        if header == CommandString.SLEEP:
-            duration = data
-            assert type(duration) == int and duration >= 0, f"Sleep duration '{duration}' is invalid"
-        elif header == CommandString.OPEN or header == CommandString.CLOSE:
-            stand, pin = data['name'], data['pin']
-            assert stand in STANDSTRINGS, f"Invalid test stand '{stand}'"
-            assert pin in ALLOWED_CHANNEL_NUMS, f"Invalid pin '{pin}' for open/close in sequence"
-        elif header == CommandString.SETSEQUENCE:
-            if type(data) == str:
-                data = parse_sequence_csv(data)
-            assert type(data) == list
-            for i, cmd in enumerate(data):
-                if type(cmd) == str:
-                    data[i] = json.loads(cmd)
-                if type(cmd) == dict:
-                    if 'parameter' in cmd:
-                        cmd['data'] = cmd['parameter']
-                        del cmd['parameter']
-                    data[i] = Command(**cmd)
-        elif header == CommandString.ARMINGSWITCH or header == CommandString.MANUALSWITCH or header == CommandString.DATALOG:
-            assert type(data) == bool
-        elif header == CommandString.BEGINSEQUENCE or header == CommandString.ABORTSEQUENCE:
-            assert data is None
+        match header:
+            case CommandString.SLEEP:
+                duration = data
+                assert type(duration) == int and duration >= 0, f"Sleep duration '{duration}' is invalid"
+            case CommandString.OPEN | CommandString.CLOSE:
+                stand, pin = data['name'], data['pin']
+                assert stand in STANDSTRINGS, f"Invalid test stand '{stand}'"
+                assert pin in ALLOWED_CHANNEL_NUMS, f"Invalid pin '{pin}' for open/close in sequence"
+            case CommandString.SETSEQUENCE:
+                if type(data) == str:
+                    data = parse_sequence_csv(data)
+                assert type(data) == list
+                for i, cmd in enumerate(data):
+                    if type(cmd) == str:
+                        data[i] = json.loads(cmd)
+                    if type(cmd) == dict:
+                        if 'parameter' in cmd:
+                            cmd['data'] = cmd['parameter']
+                            del cmd['parameter']
+                        data[i] = Command(**cmd)
+            case CommandString.ARMINGSWITCH | CommandString.MANUALSWITCH | CommandString.DATALOG:
+                assert type(data) == bool
+            case CommandString.BEGINSEQUENCE, CommandString.ABORTSEQUENCE:
+                assert data is None
 
         # Initialisation
         self.header = header
