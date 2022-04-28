@@ -23,8 +23,11 @@ Setting up the Raspberry Pi:
     1. Go to your home folder (`cd ~`)
     1. Clone this repository (`git clone https://github.com/pstefa1707/LJSoftware`)
     1. Go into the repository (`cd LJSoftware`)
-    1. Run `sudo pip install -r requirements.txt`
-      1. The sudo is VERY IMPORTANT. Otherwise the startup script will not be able to find the pip modules because they'll be locally installed otherwise
+1. Install Python 3.10 from source (based off this: https://itheo.tech/installing-python-310-on-raspberry-pi)
+    1. `wget -qO - https://raw.githubusercontent.com/tvdsluijs/sh-python-installer/main/python.sh | sudo bash -s 3.10.0` (this will take an hour)
+    1. `sudo python3.10 -m pip install --upgrade pip`
+    1. `sudo python3.10 -m pip install -r requirements.txt`
+        1. The sudo is VERY IMPORTANT. Otherwise the startup script will not be able to find the pip modules because they'll be locally installed otherwise
 1. Configure startup script
     1. `sudo nano /etc/rc.local`
     1. Replace the contents with:
@@ -51,9 +54,10 @@ How to run the backend on the Pi
     * If you have in-built wifi on your Pi, you'll just need a keyboard, mouse and monitor to set it up
 1. Connect the LabJacks via USB to the Pi
 1. `cd ~/LJSoftware/src`
-1. Run `python server.py` to start the backend server (on port 8888 if you're interested)
+1. Run `python3.10 server.py` (with `--dev` for testing without live LabJacks connected) to start the backend server (on port 8888 if you're interested)
 
 How to start the front-end on your laptop
+1. EASY OPTION: open `192.168.0.5:3000` in your browser and hope it's an up to date build
 1. Clone the LJSoftware repository as above (you'll need Git installed on your laptop for this, if you don't you can download it as a zip which is also fine)
 1. Open a terminal, run `cd reactfront/build` and then `python -m http.server` and open the link it comes up with
 1. Enter the IP address from the Raspberry Pi into the website
