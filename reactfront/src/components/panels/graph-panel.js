@@ -5,47 +5,82 @@ import { getPsi, sensorData } from '../../utils'
 import { disablePageScroll, enablePageScroll } from 'scroll-lock'
 import pins from '../../pins.json'
 
-function formatData(state) {
-  let [dmin, dmax] = [0, 0]
-  const newData = state.history.map(dict => {
-    const data = {
-      // Epoch time in fractional seconds
-      time: parseInt(dict.time) / 1000,
-      // Time in the past, in fractional seconds (it's never positive)
-      t_minus_time: (parseInt(dict.time) - parseInt(state.data.time)) / 1000,
-      // Note: these bar max figures are also in the sensors list in control-panel.js
-      // TODO: use the old code to calibrate these dodgy sensors poorly
-      // TODO: include them in the min/max calculation
-      // LOX_N2_Pressure: getPsi(dict.LOX.analog["1"], 250, 4, 16),  // uncalibrated!!!
-      LOX_Tank_Pressure: getPsi(dict.labjacks.LOX.analog["3"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
-      // ETH_N2_Pressure: getPsi(dict.ETH.analog["1"], 250, 4, 16),  // uncalibrated!!!
-      ETH_Tank_Pressure: getPsi(dict.labjacks.ETH.analog["3"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
-    }
-    if (data.LOX_Tank_Pressure < dmin) dmin = data.LOX_Tank_Pressure
-    if (data.ETH_Tank_Pressure < dmin) dmin = data.ETH_Tank_Pressure
-    if (data.LOX_Tank_Pressure > dmax) dmax = data.LOX_Tank_Pressure
-    if (data.ETH_Tank_Pressure > dmax) dmax = data.ETH_Tank_Pressure
-    return data
-  })
-  return [newData, dmin, dmax]
+function formatDataPoint(dict, time) {
+  return {
+    // Epoch time in fractional seconds
+    time: parseInt(dict.time) / 1000,
+    // Time in the past, in fractional seconds (it's never positive)
+    t_minus_time: (parseInt(dict.time) - parseInt(time)) / 1000,
+    // Note: these bar max figures are also in the sensors list in control-panel.js
+    // TODO: use the old code to calibrate these dodgy sensors poorly
+    // TODO: include them in the min/max calculation
+    // LOX_N2_Pressure: getPsi(dict.LOX.analog["1"], 250, 4, 16),  // uncalibrated!!!
+    LOX_Tank_Pressure: getPsi(dict.labjacks.LOX.analog["3"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
+    // ETH_N2_Pressure: getPsi(dict.ETH.analog["1"], 250, 4, 16),  // uncalibrated!!!
+    ETH_Tank_Pressure: getPsi(dict.labjacks.ETH.analog["3"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
+  }
+}
+
+function minMax(arr) {
+  let [dmin, dmax] = [Infinity, -Infinity]
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] < dmin) dmin = arr[i]
+    if (arr[i] > dmax) dmax = arr[i]
+  }
+  return [dmin, dmax]
+}
+
+// expandRange(0, 10, 0.2) will return [-2, 12]
+function expandRange(a, b, fraction) {
+  return [a - (b - a) * fraction, b + (b - a) * fraction]
+}
+
+function formatData(state, historySubset) {
+  const newData = historySubset?.map(dict => formatDataPoint(dict, state.data.time)) || []
+  let pressures = [...newData.map(x => x.LOX_Tank_Pressure), ...newData.map(x => x.ETH_Tank_Pressure)]
+  return [newData, expandRange(...minMax(pressures), 0.1)]
 }
 
 function reduceResolution(data) {
   // Reduce the resolution by taking every `decimation` points
-  // This decimation factor is chosen to keep the number of points bounded by 100
+  // This decimation factor is chosen to keep the number of points bounded by 300
   // We ensure that the start and end points are included
   const n = data.length
-  const decimation = Math.floor(n / 100) + 1
+  const decimation = Math.floor(n / 300) + 1
   return data.filter((_, i) => i % decimation === 0 || i === n - 1)
 }
 
-// TODO: binary search
-function indexOfLastPointBeforeTime(points, time) {
-  for (let i = points.length - 1; i >=0; i--) {
-    if (points[i].time <= time) {
-      return i
-    }
+// Binary search an array for the index of the last element that is lesser than or equal to `target`
+// The optional `map` transformation function is applied to the array elements before the search (but not to the target)
+// If no elements are <= target, it returns -1
+function binarySearch(arr, target, map) {
+  let left = 0
+  let right = arr.length - 1
+  let mid
+  if (map === null) map = x => x  // optional transformation function
+  while (left <= right) {
+      mid = Math.floor((left + right) / 2)
+      let mapped = map(arr[mid])
+      if (mapped === target) {
+          return mid
+      } else if (mapped < target) {
+          left = mid + 1
+      } else {
+          right = mid - 1
+      }
   }
+  return right
+}
+
+// Operates on the entire state
+function indexOfLastPointBeforeTimeInFullState(state, time) {
+  // Does a binary search over state.history until it finds the last point before time
+  return binarySearch(state.history, time, dict => parseInt(dict.time) / 1000)
+}
+
+// Operates on a dictionary of some subset of formatted points (from formatData)
+function indexOfLastPointBeforeTime(points, time) {
+  return binarySearch(points, time, dict => dict.time)
 }
 
 // Round a decimal to the nearest power of 1, 2 or 5 in log space
@@ -101,11 +136,6 @@ export default function GraphPanel({ state, emit }) {
   // and efficiently construct highly customisable graphs
   const svgRef = React.useRef(null)
 
-  // state.history is a list of dictionaries. Each dictionary is a snapshot of the app state at a given time
-  // We accumulate a chronologically ordered list of dictionaries of sensor readings at each state history snapshot
-  // TODO: don't call formatData on everything every frame. Ideally call it on the decimated slice
-  const [points, ymin, ymax] = formatData(state)
-
   // Window of points to display
   // Fixed representation: [start_epoch_seconds, end_epoch_seconds] (stays focused on a fixed time window)
   // Sliding representation: [t_minus_seconds] (stays focused on the current time, up to a fixed number of seconds before)
@@ -117,12 +147,19 @@ export default function GraphPanel({ state, emit }) {
     : window
   const relativeTimeWindow = [effectiveTimeWindow[0] - currentSeconds, effectiveTimeWindow[1] - currentSeconds]
   const indexWindow = [
-    indexOfLastPointBeforeTime(points, effectiveTimeWindow[0]),
-    Math.min(indexOfLastPointBeforeTime(points, effectiveTimeWindow[1]) + 1, points.length - 1)
+    Math.max(indexOfLastPointBeforeTimeInFullState(state, effectiveTimeWindow[0]), 0),
+    Math.min(indexOfLastPointBeforeTimeInFullState(state, effectiveTimeWindow[1]) + 2, state.history.length - 1)
   ]
 
+  // state.history is a list of dictionaries. Each dictionary is a snapshot of the app state at a given time
+  // We accumulate a chronologically ordered list of dictionaries of sensor readings at each state history snapshot
+  // We select a slice of visible points from this list and then decimate it before processing it
   // Decimate the data in the selected window to reduce the number of points to display
-  const decimatedPoints = reduceResolution(points.slice(indexWindow[0], indexWindow[1]))
+  const [points, [ymin, ymax]] = formatData(state, reduceResolution(state.history.slice(indexWindow[0], indexWindow[1] + 1)))
+
+  const fullTimeBounds = state.history && state.history.length > 0
+    ? [parseInt(state.history[0].time) / 1000, parseInt(state.history[state.history.length - 1].time) / 1000]
+    : [-1, 0]
 
   // Box model
   const w = 600, h = 450;
@@ -133,7 +170,7 @@ export default function GraphPanel({ state, emit }) {
   const x2p = x => (x - margin.l) / (w - margin.l - margin.r) // inverse
   // Conversion from t-minus time in seconds / pressure in psi to pixel
   const v2x = v => p2x((v - relativeTimeWindow[0]) / (relativeTimeWindow[1] - relativeTimeWindow[0]))
-  const v2y = v => p2y((v - ymin) / (ymax - ymin))
+  const v2y = v => p2y(1 - (v - ymin) / (ymax - ymin))
   const x2v = x => relativeTimeWindow[0] + x2p(x) * (relativeTimeWindow[1] - relativeTimeWindow[0]) // inverse
 
   // Horizontal axis ticks
@@ -151,11 +188,11 @@ export default function GraphPanel({ state, emit }) {
   const [mousePosX, setMousePosX] = React.useState(null)
   const tooltipIndex = mousePosX && indexOfLastPointBeforeTime(points, currentSeconds + x2v(mousePosX))
   // TODO: linear interpolation between adjacent values
-  const tooltipText = tooltipIndex && series.map(s => s[2] + ' ' + formatUnit(points[tooltipIndex][s[0]], 'psi'))
+  const tooltipText = tooltipIndex && tooltipIndex >= 0 && series.map(s => s[2] + ' ' + formatUnit(points[tooltipIndex][s[0]], 'psi'))
 
   const sliderChangeHandler = (_event, newTimeWindow) => {
     // Convert window to the appropriate time window representation
-    if (newTimeWindow[1] >= currentSeconds - (currentSeconds - points[0].time) * 0.01) {
+    if (newTimeWindow[1] >= currentSeconds - (currentSeconds - fullTimeBounds[0]) * 0.01) {
       setWindow([newTimeWindow[0] - newTimeWindow[1]])
     } else {
       setWindow(newTimeWindow)
@@ -169,13 +206,13 @@ export default function GraphPanel({ state, emit }) {
     const d = e.deltaX + e.deltaY
     if (window.length === 1) {
       // Scale the left edge
-      const left = Math.max(window[0] * Math.pow(1.001, -d), Math.min(points[0].t_minus_time, -10))
+      const left = Math.max(window[0] * Math.pow(1.001, -d), Math.min(fullTimeBounds[0] - currentSeconds, -10))
       setWindow([Math.min(left, -0.01)])
     } else {
       // Scale both edges (zooming around the center)
       const mid = (window[0] + window[1]) / 2
-      const left = Math.max(mid + (window[0] - mid) * Math.pow(1.001, -d), Math.min(points[0].time + 0.01, currentSeconds-10))
-      const right = Math.min(mid + (window[1] - mid) * Math.pow(1.001, -d), points[points.length - 1].time)
+      const left = Math.max(mid + (window[0] - mid) * Math.pow(1.001, -d), Math.min(fullTimeBounds[0] + 0.01, currentSeconds-10))
+      const right = Math.min(mid + (window[1] - mid) * Math.pow(1.001, -d), fullTimeBounds[1])
       setWindow([Math.min(left, right - 0.01), right])
     }
   }
@@ -199,8 +236,8 @@ export default function GraphPanel({ state, emit }) {
 
   const handleMouseOut = e => {
     const rect = svgRef.current?.getBoundingClientRect()
+    enablePageScroll()
     if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
-      enablePageScroll()
       setMousePosX(null)
     }
   }
@@ -243,7 +280,7 @@ export default function GraphPanel({ state, emit }) {
         ))}
         {/* Series (plotting data curves as polylines) */}
         {series.map(([key, color, label]) => (
-          <polyline key={key} points={decimatedPoints.map(({ t_minus_time, ...point }) => ` ${v2x(t_minus_time)},${v2y(point[key])}`).join('')}
+          <polyline key={key} points={points.map(({ t_minus_time, ...point }) => ` ${v2x(t_minus_time)},${v2y(point[key])}`).join('')}
             fill="none" stroke={color} strokeWidth="1" clipPath='url(#data-clip-path)' />
         ))}
         {/* Key/Legend */}
@@ -254,7 +291,7 @@ export default function GraphPanel({ state, emit }) {
           </g>
         ))}
         {/* Tooltip */}
-        {tooltipIndex && mousePosX > p2x(0) && (
+        {tooltipText && mousePosX > p2x(0) && (
           <g>
             <line x1={mousePosX} y1={p2y(0)} x2={mousePosX} y2={p2y(1)} stroke="black" strokeWidth='1' clipPath='url(#data-clip-path)' />
             {tooltipText.map((text, i) => (
@@ -268,13 +305,13 @@ export default function GraphPanel({ state, emit }) {
         value={effectiveTimeWindow}
         onChange={sliderChangeHandler}
         valueLabelDisplay='off'
-        min={points[0]?.time}
-        max={points[points.length - 1]?.time}
+        min={fullTimeBounds[0]}
+        max={fullTimeBounds[1]}
         style={{width: w - 40, marginLeft: 50}}
         step={0.01}
         marks={[
-          { value: points[0]?.time, label: `${Math.round(points[points.length - 1]?.time-points[0]?.time)}s ago` },
-          { value: points[points.length - 1]?.time, label: 'now' },
+          { value: fullTimeBounds[0], label: `${Math.round(fullTimeBounds[1] - fullTimeBounds[0])}s ago` },
+          { value: fullTimeBounds[1], label: 'now' },
         ]}
       />
     </Panel>
