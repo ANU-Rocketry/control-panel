@@ -199,6 +199,9 @@ export default function GraphPanel({ state, emit }) {
     }
   }
 
+  const [mouseDown, setMouseDown] = React.useState(false)
+  const [dragStartXAndTime, setDragStartXAndTime] = React.useState(null)
+
   const wheelHandler = e => {
     // Annoyingly, using e.preventDefault() or e.stopPropagation() in the wheel or scroll events
     // does not stop the scroll from also happening (tested on Chrome on an M1 Mac)
@@ -231,7 +234,27 @@ export default function GraphPanel({ state, emit }) {
 
   const handleMouseMove = e => {
     // Show tooltip on hover
-    setMousePosX(e.clientX - svgRef.current?.getBoundingClientRect().left)
+    const x = e.clientX - svgRef.current?.getBoundingClientRect().left
+    setMousePosX(x)
+    if (mouseDown && dragStartXAndTime === null) {
+      setDragStartXAndTime([x, effectiveTimeWindow])
+    }
+    if (mouseDown && dragStartXAndTime !== null) {
+      const [startX, startWindow] = dragStartXAndTime
+      const dt = x2v(startX) - x2v(x)
+      let newWindow = [
+        Math.max(startWindow[0] + dt, fullTimeBounds[0]),
+        Math.min(startWindow[1] + dt, fullTimeBounds[1])
+      ]
+      if (newWindow[1] === fullTimeBounds[1]) {
+        setWindow([newWindow[0] - newWindow[1]])
+      } else {
+        setWindow(newWindow)
+      }
+    }
+    if (!mouseDown && dragStartXAndTime !== null) {
+      setDragStartXAndTime(null)
+    }
   }
 
   const handleMouseOut = e => {
@@ -244,9 +267,11 @@ export default function GraphPanel({ state, emit }) {
 
   return (
     <Panel title="Graphs" className='panel graphs' onWheel={wheelHandler}>
-      <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h}
+      <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h} style={{ userSelect: 'none' }}
         ref={svgRef}
-        onMouseOver={() => disablePageScroll()} onMouseOut={handleMouseOut} onMouseMove={handleMouseMove}>
+        onMouseOver={() => disablePageScroll()} onMouseOut={handleMouseOut} onMouseMove={handleMouseMove}
+        onMouseDown={() => setMouseDown(true)} onMouseUp={() => setMouseDown(false)}
+      >
         <defs>
           {/* Bounding box for data series rendering */}
           <clipPath id="data-clip-path">
