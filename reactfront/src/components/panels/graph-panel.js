@@ -5,6 +5,15 @@ import { getPsi, sensorData } from '../../utils'
 import { disablePageScroll, enablePageScroll } from 'scroll-lock'
 import pins from '../../pins.json'
 
+// Calibration function for dodgy old sensors
+function voltsToPsi(volts, barMax) {
+  const resistance = 120; // ohm
+  const current1 = 0.004; // amps
+  const current2 = 0.02; // amps
+  const bar = barMax/(resistance * current2) * (volts - resistance * current1)
+  return bar * 14.504; // 1bar = 14.5psi
+}
+
 function formatDataPoint(dict, time) {
   return {
     // Epoch time in fractional seconds
@@ -12,12 +21,10 @@ function formatDataPoint(dict, time) {
     // Time in the past, in fractional seconds (it's never positive)
     t_minus_time: (parseInt(dict.time) - parseInt(time)) / 1000,
     // Note: these bar max figures are also in the sensors list in control-panel.js
-    // TODO: use the old code to calibrate these dodgy sensors poorly
-    // TODO: include them in the min/max calculation
-    // LOX_N2_Pressure: getPsi(dict.LOX.analog["1"], 250, 4, 16),  // uncalibrated!!!
     LOX_Tank_Pressure: getPsi(dict.labjacks.LOX.analog["3"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
-    // ETH_N2_Pressure: getPsi(dict.ETH.analog["1"], 250, 4, 16),  // uncalibrated!!!
+    LOX_N2_Pressure: voltsToPsi(dict.labjacks.LOX.analog["1"], 250 /* bar */),  // BADLY CALIBRATED!!!
     ETH_Tank_Pressure: getPsi(dict.labjacks.ETH.analog["3"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
+    ETH_N2_Pressure: voltsToPsi(dict.labjacks.ETH.analog["1"], 250 /* bar */),  // BADLY CALIBRATED!!!
   }
 }
 
@@ -37,7 +44,12 @@ function expandRange(a, b, fraction) {
 
 function formatData(state, historySubset) {
   const newData = historySubset?.map(dict => formatDataPoint(dict, state.data.time)) || []
-  let pressures = [...newData.map(x => x.LOX_Tank_Pressure), ...newData.map(x => x.ETH_Tank_Pressure)]
+  let pressures = [
+    ...newData.map(x => x.LOX_Tank_Pressure),
+    ...newData.map(x => x.LOX_N2_Pressure),
+    ...newData.map(x => x.ETH_Tank_Pressure),
+    ...newData.map(x => x.ETH_N2_Pressure),
+  ]
   return [newData, expandRange(...minMax(pressures), 0.1)]
 }
 
@@ -180,7 +192,9 @@ export default function GraphPanel({ state, emit }) {
   // [key, color, label] list
   const series = [
     ['LOX_Tank_Pressure', '#000000', 'LOX Tank'],
+    ['LOX_N2_Pressure', '#ff0000', 'LOX N2'],
     ['ETH_Tank_Pressure', '#33dd66', 'ETH Tank'],
+    ['ETH_N2_Pressure', '#0099ff', 'ETH N2'],
   ]
 
   // Hover tooltip
