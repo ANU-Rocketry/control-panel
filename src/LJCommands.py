@@ -70,7 +70,7 @@ class Command:
                         data[i] = Command(**cmd)
             case CommandString.ARMINGSWITCH | CommandString.MANUALSWITCH | CommandString.DATALOG:
                 assert type(data) == bool
-            case CommandString.BEGINSEQUENCE, CommandString.ABORTSEQUENCE:
+            case CommandString.BEGINSEQUENCE | CommandString.ABORTSEQUENCE:
                 assert data is None
 
         # Initialisation
