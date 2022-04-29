@@ -14,12 +14,12 @@ make a custom logging library and fix the datalogger code
 
 fix popup cursor not appearing sometimes, mainly at high zoom levels
 
-update README fully with new process
-
-duplicate vertical line bug is still there
-
 disable page scroll issue is still present
 
 set `R-Pi IP` to `192.168.0.5` in the browser by default
 
 make the vertical dashes smaller so they don't obscure the data
+
+back to now right arrow icon button to skip to [window[0]-window[1]] window
+
+drag, alt tab, alt tab back makes it think it's still dragging

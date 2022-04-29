@@ -345,7 +345,7 @@ export default function GraphPanel({ state, emit }) {
         ))}
         {/* Vertical labels (valve toggle indicators) */}
         {verticalLabels.map(({x, label}, i) => x >= p2x(0) - 100 && x <= p2x(1) && (
-          <g key={x}>
+          <g key={i}>
             <line x1={x} y1={p2y(0)} x2={x} y2={p2y(1)} stroke="#333" strokeWidth='1' strokeDasharray='4' clipPath='url(#data-clip-path)' />
             <text x={x+5} y={p2y(1)-(i%10)*10} textAnchor="start" alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{label}</text>
           </g>
@@ -367,7 +367,7 @@ export default function GraphPanel({ state, emit }) {
           <g>
             <line x1={mousePosX} y1={p2y(0)} x2={mousePosX} y2={p2y(1)} stroke="black" strokeWidth='1' clipPath='url(#data-clip-path)' />
             {tooltipText.map((text, i) => (
-              <text key={Math.random()} x={Math.min(mousePosX+(flipTooltip?-5:5), p2x(1)-70)} y={p2y(0)+20+16*i} textAnchor={flipTooltip?"end":"start"} alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{text}</text>
+              <text key={i} x={Math.min(mousePosX+(flipTooltip?-5:5), p2x(1)-70)} y={p2y(0)+20+16*i} textAnchor={flipTooltip?"end":"start"} alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{text}</text>
             ))}
           </g>
         )}
