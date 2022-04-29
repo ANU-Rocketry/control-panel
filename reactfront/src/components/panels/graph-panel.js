@@ -5,6 +5,9 @@ import { getPsi, sensorData } from '../../utils'
 import { disablePageScroll, enablePageScroll } from 'scroll-lock'
 import pins from '../../pins.json'
 
+window.enablePageScroll = enablePageScroll
+window.disablePageScroll = disablePageScroll
+
 // Calibration function for dodgy old sensors
 function voltsToPsi(volts, barMax) {
   const resistance = 120; // ohm
@@ -143,6 +146,10 @@ function pinFromID(labjack_pin) {
   return pins.buttons.filter(pin => pin.pin.labjack_pin === labjack_pin)[0]
 }
 
+// We store yBounds persistently to lerp between ranges smoothly
+let yBounds = null
+const minYBounds = [-10, 10]  // psi
+
 export default function GraphPanel({ state, emit }) {
   // Instead of using a cumbersome charting library, we use JSX with SVG to declaratively
   // and efficiently construct highly customisable graphs
@@ -153,6 +160,8 @@ export default function GraphPanel({ state, emit }) {
   // Sliding representation: [t_minus_seconds] (stays focused on the current time, up to a fixed number of seconds before)
   const [window, setWindow] = React.useState([-3]);
   // Window of point indices to display, with at least one on either side
+  // We use state.data.time where possible instead of new Date().getTime() because the devices can report epoch times off by a consistent
+  // several hour offset in extreme conditions it seems. We use state.data.time everywhere we can for the current time for consistency
   const currentSeconds = state.history.length ? parseInt(state.data.time) / 1000 : (new Date().getTime()) / 1000
   const effectiveTimeWindow = window.length === 1
     ? [currentSeconds + window[0], currentSeconds]
@@ -167,7 +176,12 @@ export default function GraphPanel({ state, emit }) {
   // We accumulate a chronologically ordered list of dictionaries of sensor readings at each state history snapshot
   // We select a slice of visible points from this list and then decimate it before processing it
   // Decimate the data in the selected window to reduce the number of points to display
-  const [points, [ymin, ymax]] = formatData(state, reduceResolution(state.history.slice(indexWindow[0], indexWindow[1] + 1)))
+  let [points, newYBounds] = formatData(state, reduceResolution(state.history.slice(indexWindow[0], indexWindow[1] + 1)))
+
+  // lerp the bounds over time
+  newYBounds = [Math.min(newYBounds[0], minYBounds[0]), Math.max(newYBounds[1], minYBounds[1])]
+  if (yBounds === null) yBounds = newYBounds
+  else yBounds = [yBounds[0] * 0.9 + newYBounds[0] * 0.1, yBounds[1] * 0.9 + newYBounds[1] * 0.1]
 
   const fullTimeBounds = state.history && state.history.length > 0
     ? [parseInt(state.history[0].time) / 1000, parseInt(state.history[state.history.length - 1].time) / 1000]
@@ -182,12 +196,12 @@ export default function GraphPanel({ state, emit }) {
   const x2p = x => (x - margin.l) / (w - margin.l - margin.r) // inverse
   // Conversion from t-minus time in seconds / pressure in psi to pixel
   const v2x = v => p2x((v - relativeTimeWindow[0]) / (relativeTimeWindow[1] - relativeTimeWindow[0]))
-  const v2y = v => p2y(1 - (v - ymin) / (ymax - ymin))
+  const v2y = v => p2y(1 - (v - yBounds[0]) / (yBounds[1] - yBounds[0]))
   const x2v = x => relativeTimeWindow[0] + x2p(x) * (relativeTimeWindow[1] - relativeTimeWindow[0]) // inverse
 
   // Horizontal axis ticks
   const xTicks = generateAxisTicks(...relativeTimeWindow, 4, 's')
-  const yTicks = generateAxisTicks(ymin, ymax, 10, 'psi')
+  const yTicks = generateAxisTicks(yBounds[0], yBounds[1], 10, 'psi')
 
   // [key, color, label] list
   const series = [

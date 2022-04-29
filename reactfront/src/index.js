@@ -62,7 +62,9 @@ class App extends React.Component {
           break
         case 'VALVE':
           console.log(data.data)
-          this.setState({ valveHistory: [...this.state.valveHistory, { ...data.data, time: new Date().getTime() / 1000} ] })
+          // We use this.state.data.time instead of new Date().getTime() because the devices can report epoch times off by a consistent
+          // several hour offset in extreme conditions it seems
+          this.setState({ valveHistory: [...this.state.valveHistory, { ...data.data, time: parseInt(this.state.data.time) / 1000 } ] })
           break
         default:
           console.error(data)
