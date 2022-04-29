@@ -17,6 +17,7 @@ class App extends React.Component {
       wsAddress: localStorage.getItem('wsaddr') || "127.0.0.1",
       defaultWSAddress: "127.0.0.1",
       // Example: { "header": "OPEN", "data": { "name": "LOX", "pin": 13 }, "time": 1651140990 }
+      // valveHistory: [{ "header": "OPEN", "data": { "name": "LOX", "pin": 13 }, "time": new Date().getTime() / 1000 + 3 }]
       valveHistory: []
     }
     this.emit = this.emit.bind(this)
@@ -76,7 +77,7 @@ class App extends React.Component {
     }
   }
   emit(commandHeader, parameter = null) {
-    if (this.socket.readyState !== WebSocket.OPEN) return;
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
     this.socket.send(JSON.stringify({
       command: {
         header: commandHeader,
