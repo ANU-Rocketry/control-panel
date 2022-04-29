@@ -217,6 +217,7 @@ export default function GraphPanel({ state, emit }) {
   const tooltipIndex = mousePosX && indexOfLastPointBeforeTime(points, currentSeconds + x2v(mousePosX))
   // TODO: linear interpolation between adjacent values
   const tooltipText = tooltipIndex && tooltipIndex >= 0 && series.map(s => s[2] + ' ' + formatUnit(points[tooltipIndex][s[0]], 'psi'))
+  const flipTooltip = tooltipIndex && mousePosX > p2x(1) - 160
 
   const sliderChangeHandler = (_event, newTimeWindow) => {
     // Convert window to the appropriate time window representation
@@ -359,7 +360,7 @@ export default function GraphPanel({ state, emit }) {
           <g>
             <line x1={mousePosX} y1={p2y(0)} x2={mousePosX} y2={p2y(1)} stroke="black" strokeWidth='1' clipPath='url(#data-clip-path)' />
             {tooltipText.map((text, i) => (
-              <text key={i} x={mousePosX+5} y={p2y(0)+20+16*i} textAnchor="start" alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{text}</text>
+              <text key={i} x={Math.min(mousePosX+(flipTooltip?-5:5), p2x(1)-70)} y={p2y(0)+20+16*i} textAnchor={flipTooltip?"end":"start"} alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{text}</text>
             ))}
           </g>
         )}
