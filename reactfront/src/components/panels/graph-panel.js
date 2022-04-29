@@ -312,12 +312,18 @@ export default function GraphPanel({ state, emit }) {
     link.click()
   }
 
+  const jumpToPresent = () => setWindow([window[0] - window[1]])
+
+  React.useEffect(() => {
+    document.body.addEventListener('mouseup', () => setMouseDown(false))
+  }, [])
+
   return (
     <Panel title="Graphs" className='panel graphs' onWheel={wheelHandler}>
       <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h} style={{ userSelect: 'none', fontFamily: 'sans-serif' }}
         ref={svgRef}
         onMouseOver={() => disablePageScroll()} onMouseOut={handleMouseOut} onMouseMove={handleMouseMove}
-        onMouseDown={() => setMouseDown(true)} onMouseUp={() => setMouseDown(false)}
+        onMouseDown={() => setMouseDown(true)}
       >
         <defs>
           {/* Bounding box for data series rendering */}
@@ -346,7 +352,7 @@ export default function GraphPanel({ state, emit }) {
         {/* Vertical labels (valve toggle indicators) */}
         {verticalLabels.map(({x, label}, i) => x >= p2x(0) - 100 && x <= p2x(1) && (
           <g key={i}>
-            <line x1={x} y1={p2y(0)} x2={x} y2={p2y(1)} stroke="#333" strokeWidth='1' strokeDasharray='4' clipPath='url(#data-clip-path)' />
+            <line x1={x} y1={p2y(0)} x2={x} y2={p2y(1)} stroke="#333" strokeWidth='1' strokeDasharray='2 4' clipPath='url(#data-clip-path)' />
             <text x={x+5} y={p2y(1)-(i%10)*10} textAnchor="start" alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{label}</text>
           </g>
         ))}
@@ -372,6 +378,8 @@ export default function GraphPanel({ state, emit }) {
           </g>
         )}
       </svg>
+      {/* Jump to present button */}
+      <button className={'jump-to-present ' + (window.length !== 1 ? 'active' : '')} onClick={jumpToPresent}>&gt;</button>
       {/* Time window selection slider */}
       <Slider
         value={effectiveTimeWindow}

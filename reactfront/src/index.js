@@ -14,10 +14,9 @@ class App extends React.Component {
     super(props);
     this.state = {
       data: null, history: [], mostRecentWarning: {}, showWarning: false,
-      wsAddress: localStorage.getItem('wsaddr') || "127.0.0.1",
-      defaultWSAddress: "127.0.0.1",
+      wsAddress: localStorage.getItem('wsaddr') || "192.168.0.5",
+      defaultWSAddress: "192.168.0.5",
       // Example: { "header": "OPEN", "data": { "name": "LOX", "pin": 13 }, "time": 1651140990 }
-      // valveHistory: [{ "header": "OPEN", "data": { "name": "LOX", "pin": 13 }, "time": new Date().getTime() / 1000 + 3 }]
       valveHistory: []
     }
     this.emit = this.emit.bind(this)

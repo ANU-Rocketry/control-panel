@@ -125,3 +125,16 @@ input[type='file'] {
 .control-label.disabled {
   cursor:help;
 }
+
+.jump-to-present {
+  position: relative;
+  top: -50px;
+  right: 10px;
+  opacity: 0;
+  z-index: -10;
+}
+.jump-to-present.active {
+  opacity: 1;
+  z-index: 0;
+}
+
