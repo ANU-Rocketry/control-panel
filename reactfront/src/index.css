@@ -80,7 +80,7 @@ h2 { font-size: 1.2rem; }
 
 .panel.graphs {
   width: calc(100% - 850px);
-  height: 590px;
+  height: 640px;
 }
 .graphs button {
   margin-left: 1em;

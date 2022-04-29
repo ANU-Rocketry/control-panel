@@ -119,10 +119,10 @@ function roundToNiceDecimalIncrement(num) {
 
 // Formatted label including SI unit prefixes
 function formatUnit(val, unit) {
-  return Math.abs(val) > 1000 ? `${(val/1000).toFixed(1)} k${unit}`
-       : Math.abs(val) > 1 ? `${val.toFixed(1)} ${unit}`
-       : Math.abs(val) > 0.001 ? `${(val*1000).toFixed(1)} m${unit}`
-       : Math.abs(val) > 0.000001 ? `${(val*1000000).toFixed(1)} μ${unit}`
+  return Math.abs(val) >= 1000 ? `${(val/1000).toFixed(1)} k${unit}`
+       : Math.abs(val) >= 1 ? `${val.toFixed(1)} ${unit}`
+       : Math.abs(val) >= 0.001 ? `${(val*1000).toFixed(1)} m${unit}`
+       : Math.abs(val) >= 0.000001 ? `${(val*1000000).toFixed(1)} μ${unit}`
        : `${val.toFixed(1)} ${unit}`
 }
 
@@ -183,6 +183,13 @@ export default function GraphPanel({ state, emit }) {
   if (yBounds === null) yBounds = newYBounds
   else yBounds = [yBounds[0] * 0.9 + newYBounds[0] * 0.1, yBounds[1] * 0.9 + newYBounds[1] * 0.1]
 
+  // Percentage start/end of the y bounds we see (for primitive vertical zoom functionality)
+  const [ySubset, setYSubset] = React.useState([0, 1])
+  const ySliderChangeHandler = (_event, newYSubset) => {
+    setYSubset([Math.min(...newYSubset), Math.max(...newYSubset)])
+  }
+  const effectiveYBounds = [yBounds[0] + (yBounds[1] - yBounds[0]) * ySubset[0], yBounds[1] - (yBounds[1] - yBounds[0]) * (1 - ySubset[1])]
+
   const fullTimeBounds = state.history && state.history.length > 0
     ? [parseInt(state.history[0].time) / 1000, parseInt(state.history[state.history.length - 1].time) / 1000]
     : [-1, 0]
@@ -196,12 +203,12 @@ export default function GraphPanel({ state, emit }) {
   const x2p = x => (x - margin.l) / (w - margin.l - margin.r) // inverse
   // Conversion from t-minus time in seconds / pressure in psi to pixel
   const v2x = v => p2x((v - relativeTimeWindow[0]) / (relativeTimeWindow[1] - relativeTimeWindow[0]))
-  const v2y = v => p2y(1 - (v - yBounds[0]) / (yBounds[1] - yBounds[0]))
+  const v2y = v => p2y(1 - (v - effectiveYBounds[0]) / (effectiveYBounds[1] - effectiveYBounds[0]))
   const x2v = x => relativeTimeWindow[0] + x2p(x) * (relativeTimeWindow[1] - relativeTimeWindow[0]) // inverse
 
   // Horizontal axis ticks
   const xTicks = generateAxisTicks(...relativeTimeWindow, 4, 's')
-  const yTicks = generateAxisTicks(yBounds[0], yBounds[1], 10, 'psi')
+  const yTicks = generateAxisTicks(effectiveYBounds[0], effectiveYBounds[1], 10, 'psi')
 
   // [key, color, label] list
   const series = [
@@ -377,6 +384,19 @@ export default function GraphPanel({ state, emit }) {
         marks={[
           { value: fullTimeBounds[0], label: `${Math.round(fullTimeBounds[1] - fullTimeBounds[0])}s ago` },
           { value: fullTimeBounds[1], label: 'now' },
+        ]}
+      />
+      {/* Y scale range slider (low effort way to zoom in vertically) */}
+      <Slider
+        value={ySubset}
+        onChange={ySliderChangeHandler}
+        valueLabelDisplay='off'
+        min={0} max={1}
+        style={{width: w - 40, marginLeft: 50}}
+        step={0.005}
+        marks={[
+          { value: 0, label: "Bottom" },
+          { value: 1, label: "Top" },
         ]}
       />
       <button onClick={downloadSVG}>Download SVG</button>
