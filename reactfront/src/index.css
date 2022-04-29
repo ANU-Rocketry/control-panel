@@ -80,6 +80,16 @@ h2 { font-size: 1.2rem; }
 
 .panel.graphs {
   width: calc(100% - 850px);
+  height: 640px;
+}
+.graphs button {
+  margin-left: 1em;
+  outline: none;
+  border: 1px solid #666;
+  background-color: #eee;
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
 }
 
 .control-panel .MuiSwitch-root {
@@ -115,3 +125,16 @@ input[type='file'] {
 .control-label.disabled {
   cursor:help;
 }
+
+.jump-to-present {
+  position: relative;
+  top: -50px;
+  right: 10px;
+  opacity: 0;
+  z-index: -10;
+}
+.jump-to-present.active {
+  opacity: 1;
+  z-index: 0;
+}
+

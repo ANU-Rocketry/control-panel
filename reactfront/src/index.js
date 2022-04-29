@@ -12,9 +12,13 @@ class App extends React.Component {
 
   constructor(props) {
     super(props);
-    this.state = { data: null, history: [], mostRecentWarning: {}, showWarning: false,
-    wsAddress: localStorage.getItem('wsaddr') || "127.0.0.1",
-    defaultWSAddress: "127.0.0.1" };
+    this.state = {
+      data: null, history: [], mostRecentWarning: {}, showWarning: false,
+      wsAddress: localStorage.getItem('wsaddr') || "192.168.0.5",
+      defaultWSAddress: "192.168.0.5",
+      // Example: { "header": "OPEN", "data": { "name": "LOX", "pin": 13 }, "time": 1651140990 }
+      valveHistory: []
+    }
     this.emit = this.emit.bind(this)
     this.connect()
   }
@@ -57,6 +61,12 @@ class App extends React.Component {
         case 'PING':
           this.setState({ ping: new Date().getTime() - data.data })
           break
+        case 'VALVE':
+          console.log(data.data)
+          // We use this.state.data.time instead of new Date().getTime() because the devices can report epoch times off by a consistent
+          // several hour offset in extreme conditions it seems
+          this.setState({ valveHistory: [...this.state.valveHistory, { ...data.data, time: parseInt(this.state.data.time) / 1000 } ] })
+          break
         default:
           console.error(data)
       }
@@ -66,7 +76,7 @@ class App extends React.Component {
     }
   }
   emit(commandHeader, parameter = null) {
-    if (this.socket.readyState !== WebSocket.OPEN) return;
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
     this.socket.send(JSON.stringify({
       command: {
         header: commandHeader,

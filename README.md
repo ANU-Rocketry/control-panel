@@ -10,7 +10,12 @@ This project consists of two parts: a backend that runs on a Raspberry Pi writte
 
 You'll need a Raspberry Pi and your laptop, and some way of putting them on the same network. You can network with point-to-point ethernet or a hotspot + Linux compatible wifi dongle (don't need wifi dongle on newer Pi's). You cannot use ResNet as they block the ports we need.
 
-Setting up the Raspberry Pi:
+# Setting up a Raspberry Pi for the first time
+
+1. Start up the Raspberry Pi and get internet access and a terminal
+    * Option 1: If you have two ethernet cables and the router we use, plug the Pi into a LAN slot on the router, plug the external ethernet (eg ResNet) into the WAN slot, connect your laptop to the router's wifi, and SSH into `192.168.0.5`
+    * Option 2: If you have a monitor, mouse, keyboard, and ethernet cable+port / wifi dongle / onboard wifi, you can just use those and open a terminal in the Raspbian desktop
+    * Option 3: if you have a micro SD card reader and onboard wifi / a wifi dongle and a wifi network (hotspots are easy), you can configure it to connect to that wifi network by changing a config file on the SD card. See [this tutorial](https://www.raspberrypi-spy.co.uk/2017/04/manually-setting-up-pi-wifi-using-wpa_supplicant-conf/)
 1. Open a terminal
 1. Build the LabJack Exodrvier
     1. Go to your home folder (type `cd ~` in the terminal)
@@ -23,8 +28,11 @@ Setting up the Raspberry Pi:
     1. Go to your home folder (`cd ~`)
     1. Clone this repository (`git clone https://github.com/pstefa1707/LJSoftware`)
     1. Go into the repository (`cd LJSoftware`)
-    1. Run `sudo pip install -r requirements.txt`
-      1. The sudo is VERY IMPORTANT. Otherwise the startup script will not be able to find the pip modules because they'll be locally installed otherwise
+1. Install Python 3.10 from source (based off this: https://itheo.tech/installing-python-310-on-raspberry-pi)
+    1. `wget -qO - https://raw.githubusercontent.com/tvdsluijs/sh-python-installer/main/python.sh | sudo bash -s 3.10.0` (this will take an hour)
+    1. `sudo python3.10 -m pip install --upgrade pip`
+    1. `sudo python3.10 -m pip install -r requirements.txt`
+        1. The sudo is VERY IMPORTANT. Otherwise the startup script will not be able to find the pip modules because they'll be locally installed otherwise
 1. Configure startup script
     1. `sudo nano /etc/rc.local`
     1. Replace the contents with:
@@ -33,41 +41,68 @@ Setting up the Raspberry Pi:
      sudo sh /home/pi/LJSoftware/startup.sh &
      exit 0
      ```
-1. Set up Ubiquity point-to-point wifi
+1. Set up static IP
     1. `sudo nano /etc/dhcpcd.conf` and paste this at the bottom:
       ```
       interface eth0
-      static ip_address=192.168.1.5/24
-      static routers=192.168.1.2
-      static domain_name_servers=192.168.1.2
+      static ip_address=192.168.0.5/24
+      static routers=192.168.0.1
+      static domain_name_servers=192.168.0.1
       ```
-      Then it will have the IP `192.168.1.5`. This assumes the gateway (the router-y thing you plug the Pi into via ethernet) has the IP `192.168.1.2` and has no DCHP (so you need to manually set the IP). If you need to use another ethernet connection you'll have to comment out these lines with `#` at the start of each line temporarily.
+      Then it will have the IP `192.168.0.5`. This assumes the router has the IP `192.168.0.1`.
+      
+      If you need to use another ethernet connection you have two options: plug the outside network into the WAN port of the router you normally use, or connect directly and comment out these lines with `#` at the start of each line temporarily if you need to.
+1. Run `ssh-copy-id pi@192.168.0.5` in a terminal on your laptop to copy your SSH key so you don't need a password when using `ssh pi@192.168.0.5`
 
-How to run the backend on the Pi
-1. If you used the Ubiquity and startup script steps, plug the LabJacks via USB to the Pi, connect one end of the Ubiquity to the ethernet port, then power the Pi. Configure your laptop to use a manual IP for ethernet (eg 192.168.1.4) plugged into the other Ubiquity and then open the front-end as above. If you aren't using this setup follow the remaining instructions
-1. Connect the Pi to the same network as your laptop (cannot be ResNet) via point-to-point wifi, ethernet or a mobile hotspot
-    * If you have a USB wifi dongle with Linux support, you can connect manually to a fixed wifi network with [this tutorial](https://www.raspberrypi-spy.co.uk/2017/04/manually-setting-up-pi-wifi-using-wpa_supplicant-conf/). You'll just need a laptop with an SD card reader OR a keyboard and monitor and HDMI cable to edit the files on the Pi
-    * If you have an ethernet cable you just need your laptop to have an ethernet port
-    * If you have in-built wifi on your Pi, you'll just need a keyboard, mouse and monitor to set it up
-1. Connect the LabJacks via USB to the Pi
-1. `cd ~/LJSoftware/src`
-1. Run `python server.py` to start the backend server (on port 8888 if you're interested)
+# Setting up the Pi at the testing site
 
-How to start the front-end on your laptop
-1. Clone the LJSoftware repository as above (you'll need Git installed on your laptop for this, if you don't you can download it as a zip which is also fine)
-1. Open a terminal, run `cd reactfront/build` and then `python -m http.server` and open the link it comes up with
-1. Enter the IP address from the Raspberry Pi into the website
-1. You should see data coming in, and if you enable the manual and arming switches you should be able to control valves. If it stops showing data it's not connected.
+Whenever the pi is turned on from now on, the startup script will automatically host the frontend on `http://192.168.0.5:3000` and the backend on `http://192.168.0.5:8888`. The backend will fail to run if the Pi is powered before the LabJack USBs are plugged in. If this happens, you can SSH into it and `sudo reboot` when it should be ready
+
+Ground site:
+* Plug the test stand LabJack USBs into the Pi (don't power the Pi before the LabJacks otherwise you'll need to `sudo reboot` it later!)
+
+Range/control site:
+* Plug the other Ubiquity into the router
+    * The Ubiquity needs power over ethernet. Use the black POE to power outlet cable to power it, and plug the non-POE second ethernet cable into one of the router's LAN slots
+* Connect to the wifi on your laptop using the password on the box and navigate to `http://192.168.0.5:3000`. Set `R-Pi IP` to `192.168.0.5` in the browser.
+
+# How to debug
+
+To run the processes manually so you can see their output, SSH in and `pkill python3.10`. Then just use `python3.10 server.py` in the `src` folder to run a WebSockets Python server on port 8888. If you want to test without LabJacks connected, you can get a simulated LabJack with sine wave pressure data by using `python3.10 server.py --dev`.
+
+The front end is written using Node and React, but the version in the `build` folder is static and already built and just needs to be locally hosted. `python http.server` is one way of doing this, but there are others. When pushing front-end changes, make sure to run `npm run build` to make sure the static already built version is kept up to date. You'll also need to pull/`scp` the new version on the Pi.
+
+For developing and debugging the front-end, you do need Node.js installed. To develop the front-end, you need nodejs. Run `npm ci` in the `reactfront` folder to install dependencies. Run `npm run build` to generate the `reactfront/build` folder which is what the Pi hosts on `http:192.168.0.5:3000`. To go into a local interactive debugging mode with hot reloading, run `npm start` and set `R-Pi IP` to `192.168.0.5` in the browser.
+
+Whenever you make changes on your laptop, you need to copy them over to the Pi via `scp` (if you're on a test site on the same network without internet) or push to git and pull on the Pi (if the Pi has internet access).
+
+To test the server locally, run `python3 server.py --dev` on your laptop. In the frontend, you'll need to change `R-Pi IP` to your local IP address. You should see simulated sine wave pressure data.
 
 If you have any problems, just file a GitHub Issue, contact us on Microsoft Teams or email our student emails.
-
-Note: the front end is written using Node and React, but the version in the `build` folder is static and already built and just needs to be locally hosted. `python http.server` is one way of doing this, but there are others. For developing and debugging the front-end, you do need Node.js installed (see below).
 
 # Development
 
 To run the dev build of the front-end, you will need to install Node.js on the computer you're running the front-end on. Then download this repository on that computer, go into the `reactfront` folder in a terminal / command prompt, run `npm install` and then `npm start`. After a short wait this will open a browser tab with the front end in it. When you're done make sure to `npm run build` so the `reactfront/build` folder is updated.
 
 The backend Pi server has an optional `dev` flag (ie `python server.py --dev`) that lets you use a fake simulated LabJack for testing.
+
+## Pushing new builds on the fly
+
+The startup script on the Pi runs a static server with `reactfront/build`, so you can update these files with `scp` and then reload the page to update the front end on any device:
+
+```sh
+# delete old build (on the raspberry pi!)
+ssh pi@192.168.0.5
+cd ~/LJSoftware/reactfront
+rm -r build
+logout
+
+# scp over new build (on your machine!)
+cd reactfront
+npm run build
+scp -r build pi@192.168.0.5:/home/pi/LJSoftware/reactfront
+# Reload http://192.168.0.5:3000 in your browser
+```
 
 # Data Schema
 
@@ -140,8 +175,6 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 | OPEN | {"name":labjack_name, "pin":pin} |
 | CLOSE | {"name":labjack_name, "pin":pin} |
 | SLEEP | {"milliseconds": time in ms} |
-| GETDIGITALSTATES | {"name":labjack_name, "pins":[pin1, pin2, ...]} |
-| GETANALOGSTATES | {"name":labjack_name, "pins":[pin1, pin2, ...]}|
 | BEGINSEQUENCE | (parameter is unimportant) |
 | ABORTSEQUENCE | (parameter is unimportant) |
 | ARMINGSWITCH | on_bool |
@@ -152,30 +185,6 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 A sequence is a list of multiple commands. These commands can only consist of `OPEN`, `CLOSE` and `SLEEP` commands.
 
 These commands can be represented and authorised by the `LJCommands.py/Command` object. They can also be represented as strings in the JSON TCP requests.
-
-# Error Handling
-
-Errors are categorised according to their importance by a system of numbering:
-  - 1000-level digits are overall importance
-  - 100-level digits partition errors according to subtype
-
-### Command Errors
-
-| error code | description |
-| - | - |
-| 2001 | Command header is not valid |
-| 2101 | Csv provided and no parameter without SETSEQUENCE header |
-| 2102 | Invalid first column command for sequence |
-| 2103 | Invalid second column command for sequence |
-| 2104 | With OPEN or CLOSE, PIN is not within allowed channel numbers |
-| 2105 | Sleep duration is not an integer |
-| 2201 | For single OPEN or CLOSE command, param dictionary is malformed |
-| 2202 | Digital or analogue state request is malformed |
-| 2203 | Pin is not an allowed numnber in digital or analog state read |
-| 2204 | SLEEP is not of integer type |
-| 2205 | ARMINGSWITCH or MANUALSWITCH is not of bool type |
-| 2206 | Begin/end sequence takes no parameters |
-| 2207 | Invalid sequence (not a list of JSON strings, dictionaries or Command objects) |
 
 # Project Overview
 
