@@ -229,8 +229,9 @@ export default function GraphPanel({ state, emit }) {
   const sliderChangeHandler = (_event, newTimeWindow) => {
     // Convert window to the appropriate time window representation
     if (newTimeWindow[1] >= currentSeconds - (currentSeconds - fullTimeBounds[0]) * 0.01) {
-      setWindow([newTimeWindow[0] - newTimeWindow[1]])
+      setWindow([Math.min(newTimeWindow[0] - newTimeWindow[1], -0.01)])
     } else {
+      if (newTimeWindow[1] - newTimeWindow[0] < 0.01) newTimeWindow[0] = newTimeWindow[1] - 0.01
       setWindow(newTimeWindow)
     }
   }
@@ -277,11 +278,17 @@ export default function GraphPanel({ state, emit }) {
     }
     if (mouseDown && dragStartXAndTime !== null) {
       const [startX, startWindow] = dragStartXAndTime
-      const dt = x2v(startX) - x2v(x)
-      let newWindow = [
-        Math.max(startWindow[0] + dt, fullTimeBounds[0]),
-        Math.min(startWindow[1] + dt, fullTimeBounds[1])
-      ]
+      let dt = x2v(startX) - x2v(x)
+      let newWindow = [startWindow[0] + dt, startWindow[1] + dt]
+      if (newWindow[0] < fullTimeBounds[0] && newWindow[1] > fullTimeBounds[1]) {
+        newWindow = fullTimeBounds
+      } else if (newWindow[0] < fullTimeBounds[0]) {
+        dt = fullTimeBounds[0] - newWindow[0]
+        newWindow = [newWindow[0] + dt, newWindow[1] + dt]
+      } else if (newWindow[1] > fullTimeBounds[1]) {
+        dt = fullTimeBounds[1] - newWindow[1]
+        newWindow = [newWindow[0] + dt, newWindow[1] + dt]
+      }
       if (newWindow[1] === fullTimeBounds[1]) {
         setWindow([newWindow[0] - newWindow[1]])
       } else {

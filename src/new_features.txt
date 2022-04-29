@@ -15,5 +15,3 @@ make a custom logging library and fix the datalogger code
 fix popup cursor not appearing sometimes, mainly at high zoom levels
 
 disable page scroll issue is still present
-
-back to now right arrow icon button to skip to [window[0]-window[1]] window
