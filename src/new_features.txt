@@ -1,0 +1,25 @@
+New CSV format:
+close eth vent
+wait 15s
+store on the server rather than choose file, and edit inline
+remove pin numbers from the control panel pane
+
+Y zoom feature - zoom vertically around cursor when the axis is under the mouse
+
+green light when connected
+
+print statements aren't in the log, only tracebacks
+for some reason the logging is only for stderr
+make a custom logging library and fix the datalogger code
+
+fix popup cursor not appearing sometimes, mainly at high zoom levels
+
+update README fully with new process
+
+duplicate vertical line bug is still there
+
+disable page scroll issue is still present
+
+set `R-Pi IP` to `192.168.0.5` in the browser by default
+
+make the vertical dashes smaller so they don't obscure the data
