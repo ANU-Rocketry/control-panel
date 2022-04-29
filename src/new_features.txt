@@ -1,8 +1,11 @@
-New CSV format:
-close eth vent
-wait 15s
-store on the server rather than choose file, and edit inline
-remove pin numbers from the control panel pane
+
+Rethink sequences:
+ New CSV format:
+  close eth vent
+  wait 15s
+  download svg (high res/no decimation)
+ store on the server rather than choose file, and edit inline
+ remove pin numbers from the control panel pane
 
 Y zoom feature - zoom vertically around cursor when the axis is under the mouse
 
@@ -15,3 +18,12 @@ make a custom logging library and fix the datalogger code
 fix popup cursor not appearing sometimes, mainly at high zoom levels
 
 disable page scroll issue is still present
+
+disable auto abort sequence? dangerous at this point
+
+operation modes
+
+jump to present button is ugly and sometimes appears on the left
+graph panel sizing is incorrect
+
+datalogging
