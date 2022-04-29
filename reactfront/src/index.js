@@ -16,6 +16,7 @@ class App extends React.Component {
       data: null, history: [], mostRecentWarning: {}, showWarning: false,
       wsAddress: localStorage.getItem('wsaddr') || "127.0.0.1",
       defaultWSAddress: "127.0.0.1",
+      // Example: { "header": "OPEN", "data": { "name": "LOX", "pin": 13 }, "time": 1651140990 }
       valveHistory: []
     }
     this.emit = this.emit.bind(this)

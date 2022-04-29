@@ -360,7 +360,7 @@ export default function GraphPanel({ state, emit }) {
           <g>
             <line x1={mousePosX} y1={p2y(0)} x2={mousePosX} y2={p2y(1)} stroke="black" strokeWidth='1' clipPath='url(#data-clip-path)' />
             {tooltipText.map((text, i) => (
-              <text key={i} x={Math.min(mousePosX+(flipTooltip?-5:5), p2x(1)-70)} y={p2y(0)+20+16*i} textAnchor={flipTooltip?"end":"start"} alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{text}</text>
+              <text key={Math.random()} x={Math.min(mousePosX+(flipTooltip?-5:5), p2x(1)-70)} y={p2y(0)+20+16*i} textAnchor={flipTooltip?"end":"start"} alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{text}</text>
             ))}
           </g>
         )}
