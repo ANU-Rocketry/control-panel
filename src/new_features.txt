@@ -27,3 +27,13 @@ jump to present button is ugly and sometimes appears on the left
 graph panel sizing is incorrect
 
 datalogging
+* use an append only sqlite database for each session?
+
+the frontend doesn't seem to reconnect if the backend is stopped and restarted
+
+more obvious indicator if the frontend loses network connection
+
+second RPi that isn't on the UPS which we ping to check if the power is still on?
+* We want an indicator of whether the power is on on the front-end
+* This requires that the pi and all networking equipment is on the UPS
+* What happens if the LabJacks lose power but not the pi? Or are they powered by the pi

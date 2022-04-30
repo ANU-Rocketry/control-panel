@@ -17,7 +17,7 @@ from typing import List, Mapping, Tuple, Optional
 LabJack = get_class('--dev' in sys.argv)
 
 STATE_BROADCAST_FREQUENCY = 20  # Get the LabJack state and broadcast it to all connected clients at 20Hz
-CONNECTION_TIMEOUT = 600  # Second to timeout and run abort sequence after WHILE ARMED (front-end should disarm after inactivity)
+ABORT_SEQUENCE_TIMEOUT = 900 # Seconds without any active connections before the abort sequence automatically fires
 
 LOG_PATH = Path(__file__).folder('logs')
 CONFIG_FILE = Path(__file__).file('config.json')
@@ -63,7 +63,8 @@ class LJWebSocketsServer:
         self.config = {}
         self.state = SystemState()
         self.datalog = None
-        self.abort_timer = None
+        self.time_of_last_disconnect = time.time()
+        self.inactive_abort_fired = False
 
         with open(config, "r") as in_file:
             data = json.loads(in_file.read())
@@ -84,14 +85,17 @@ class LJWebSocketsServer:
         print(f"Hosting server on {ip} port {port}")
 
     async def timeout_counter(self):
-        lastConnection = time.time()
-        timeSinceLast = 0
+        # run the abort sequence once when no devices have been connected for `ABORT_SEQUENCE_TIMOUT` seconds
         while True:
-            if self.clients != set() or not self.state.arming_switch:
-                lastConnection = time.time()
-            timeSinceLast = time.time() - lastConnection
-            if timeSinceLast > (CONNECTION_TIMEOUT):
+            # seconds since last disconnect
+            dt = time.time() - self.time_of_last_disconnect
+            # are any clients active?
+            connected = len(self.clients) > 0
+
+            if dt > ABORT_SEQUENCE_TIMEOUT and not connected and not self.inactive_abort_fired:
+                self.inactive_abort_fired = True
                 self.run_abort_sequence()
+
             await asyncio.sleep(1)
 
     async def sync_state(self):
@@ -113,19 +117,29 @@ class LJWebSocketsServer:
 
     async def event_handler(self, ws, path):
         self.clients.add(ws)
-        async for message in ws:
-            self.log_data(message, type="REQUEST")
-            data = json.loads(message)
-            if 'command' in data.keys():
-                try:
-                    await self.handle_command(ws, data['command']['header'],
-                        data['command'].get('data', None), data['time'])
-                except Exception as e:
-                    print_exc()
-                    self.handleException(e)
-            else:
-                assert False, f"Invalid command {message}"
-        self.clients.remove(ws)
+        try:
+            async for message in ws:
+                # reset inactivity measure
+                self.inactive_abort_fired = False
+
+                self.log_data(message, type="REQUEST")
+                data = json.loads(message)
+                if 'command' in data.keys():
+                    try:
+                        await self.handle_command(ws, data['command']['header'],
+                            data['command'].get('data', None), data['time'])
+                    except Exception as e:
+                        print_exc()
+                        self.state.latest_warning = (
+                            int(time.time()*1000),
+                            str(e)
+                        )
+
+                else:
+                    assert False, f"Invalid command {message}"
+        finally:
+            self.clients.remove(ws)
+            self.time_of_last_disconnect = time.time()
 
     def run_abort_sequence(self):
         self.log_data(True, type="ABORTING")
@@ -135,12 +149,6 @@ class LJWebSocketsServer:
             self.execute_sequence()
         self.state.arming_switch = False
         self.state.manual_switch = False
-
-    def handleException(self, e):
-        self.state.latest_warning = (
-            int(time.time()*1000),
-            str(e)
-        )
 
     def set_datalogging_enabled(self, enabled):
         if enabled:
@@ -184,8 +192,8 @@ class LJWebSocketsServer:
                     self.LJ_execute(Command(header, data))
 
     async def start_server(self):
-        asyncio.create_task(self.sync_state())
-        asyncio.create_task(self.timeout_counter())
+        asyncio.ensure_future(self.sync_state())
+        asyncio.ensure_future(self.timeout_counter())
         async with websockets.serve(self.event_handler, self.ip, self.port):
             await asyncio.Future()
 
