@@ -16,8 +16,7 @@ from typing import List, Mapping, Tuple, Optional
 # (To connect properly we need LabJackPython's u3.py and the Exodriver, see README)
 LabJack = get_class('--dev' in sys.argv)
 
-STATE_GRAB = 50  # Get state from labjacks 50 times per second
-STATE_EMIT = 10  # Emit the state to the front end 10 times per second
+STATE_BROADCAST_FREQUENCY = 20  # Get the LabJack state and broadcast it to all connected clients at 20Hz
 CONNECTION_TIMEOUT = 600  # Second to timeout and run abort sequence after WHILE ARMED (front-end should disarm after inactivity)
 
 LOG_PATH = Path(__file__).folder('logs')
@@ -82,25 +81,7 @@ class LJWebSocketsServer:
         self.port = port
         self.clients = set()
 
-        print(f"Hosting server on {ip}:{port}")
-
-    async def event_handler(self, websocket, path):
-        """
-        Going to have to go through the Labjack object and produce the state...
-        This will be a separate asynchronous task on a concurrent timer
-        """
-        self.clients.add(websocket)
-        consumer_task = asyncio.ensure_future(
-            self.consumer_handler(websocket, path))
-        producer_task = asyncio.ensure_future(
-            self.producer_handler(websocket, path))
-        _, pending = await asyncio.wait(
-            [consumer_task, producer_task],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        for task in pending:
-            task.cancel()
-        self.clients.remove(websocket)
+        print(f"Hosting server on {ip} port {port}")
 
     async def timeout_counter(self):
         lastConnection = time.time()
@@ -122,13 +103,16 @@ class LJWebSocketsServer:
                     self.config['labjacks'][stand]["digital"], self.config['labjacks'][stand]["analog"])
                 self.state.labjacks[stand] = pin_data
             self.state.time = int(time.time() * 1000)
-            await asyncio.sleep(1/STATE_GRAB)
+            # broadcast new state to all clients
+            asyncio.ensure_future(self.broadcast('STATE', self.state.as_dict()))
+            await asyncio.sleep(1 / STATE_BROADCAST_FREQUENCY)
 
     def log_data(self, data, type="MISC"):
         if self.datalog and self.state.data_logging:
             self.datalog.log_data(data, type)
 
-    async def consumer_handler(self, ws, path):
+    async def event_handler(self, ws, path):
+        self.clients.add(ws)
         async for message in ws:
             self.log_data(message, type="REQUEST")
             data = json.loads(message)
@@ -141,6 +125,7 @@ class LJWebSocketsServer:
                     self.handleException(e)
             else:
                 assert False, f"Invalid command {message}"
+        self.clients.remove(ws)
 
     def run_abort_sequence(self):
         self.log_data(True, type="ABORTING")
@@ -197,11 +182,6 @@ class LJWebSocketsServer:
             case CommandString.OPEN | CommandString.CLOSE:
                 if self.state.arming_switch and self.state.manual_switch:
                     self.LJ_execute(Command(header, data))
-
-    async def producer_handler(self, ws, path):
-        while True:
-            await asyncio.sleep(1/STATE_EMIT)
-            await self.emit(ws, 'STATE', self.state.as_dict())
 
     async def start_server(self):
         asyncio.create_task(self.sync_state())
@@ -284,5 +264,5 @@ class LJWebSocketsServer:
 if __name__ == '__main__':
     ip = get_local_ip()
     port = 8888
-    socket = LJWebSocketsServer(ip, port)
-    asyncio.run(socket.start_server())
+    server = LJWebSocketsServer(ip, port)
+    asyncio.run(server.start_server())
