@@ -36,6 +36,7 @@ class App extends React.Component {
     this.socket = new WebSocket(`ws://${this.state.wsAddress}:8888`)
     this.socket.onopen = e => console.log('websocket connection established')
     this.socket.onclose = e => {
+      this.socket = null
       setTimeout(() => {
         if (!this.socket) {
           this.connect()
