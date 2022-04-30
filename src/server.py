@@ -8,8 +8,8 @@ from LJCommands import CommandString, Command, parse_sequence_csv
 from traceback import print_exc
 import sys
 from labjack import get_class
-from utils import Path, get_local_ip
 from typing import List, Mapping, Tuple, Optional
+from pathlib import Path
 
 # If you run `python3 server.py --dev` you get a simulated LabJack class
 # If you run `python3 server.py` it tries to connect properly
@@ -19,8 +19,8 @@ LabJack = get_class('--dev' in sys.argv)
 STATE_BROADCAST_FREQUENCY = 20  # Get the LabJack state and broadcast it to all connected clients at 20Hz
 ABORT_SEQUENCE_TIMEOUT = 900 # Seconds without any active connections before the abort sequence automatically fires
 
-LOG_PATH = Path(__file__).folder('logs')
-CONFIG_FILE = Path(__file__).file('config.json')
+LOG_PATH = Path(__file__).parent / 'logs'
+CONFIG_FILE = Path(__file__).parent / 'config.json'
 
 
 @dataclass
@@ -267,6 +267,16 @@ class LJWebSocketsServer:
     async def broadcast(self, msg_type, data):
         for ws in self.clients:
             await self.emit(ws, msg_type, data)
+
+
+def get_local_ip():
+    # Source: https://stackoverflow.com/a/166589
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ret = s.getsockname()[0]
+    s.close()
+    return ret
 
 
 if __name__ == '__main__':
