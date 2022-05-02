@@ -3,8 +3,9 @@ import { Panel } from '../index'
 import { Slider } from '@material-ui/core'
 import { disablePageScroll, enablePageScroll } from 'scroll-lock'
 import {
-  minMax, reduceResolution, generateAxisTicks, binarySearch,
+  minMax, reduceResolution, generateAxisTicks, binarySearch, formatUnit,
   zip, intervalUnion, expandInterval, shrinkInterval, interpolateInterval,
+  lerp,
 } from '../graph-utils'
 import pins from '../../pins.json'
 
@@ -21,14 +22,12 @@ let yBounds = null
 const minYBounds = [-10, 10]  // psi
 
 
-// newData({ time: epoch_secs, 'LOX Tank': pressure_level, ... })
+// newData({ time: epoch_secs, series1: value1, ... })
 // You can update the data for any combination of series across any combination of dataloggers
 export const newData = detail => document.dispatchEvent(new CustomEvent('datalogger-new-data', { detail }))
 
 // newEvent({ time: epoch_secs, label: text })
 export const newEvent = detail => document.dispatchEvent(new CustomEvent('datalogger-new-event', { detail }))
-
-
 
 /*
  * Packed, typed array of floating point (time, value) pairs
@@ -56,14 +55,14 @@ class DecimatedMinMaxSeries {
   sample(startTime, endTime) {
     const indexWindow = [
       Math.max(binarySearch(i => this.array[i*2], startTime, this.size >> 1), 0),
-      Math.min(binarySearch(i => this.array[i*2], endTime, this.size >> 1) + 1, this.size >> 1)
+      Math.min(binarySearch(i => this.array[i*2], endTime, this.size >> 1) + 2, this.size >> 1)
     ]
     // We don't have decimation or min/max just yet, so we'll just return the raw data
     // In future we'll do [times, min, max] with decimation
-    // TODO: if we return Float64Arrays then the map method coerces the result to a Float64Array
+    // If we return Float64Arrays then the map method coerces the result to a Float64Array
     // we don't want to expose this thorny behaviour so we return a normal array
-    const times = new /*Float64*/Array(indexWindow[1] - indexWindow[0])
-    const values = new /*Float64*/Array(indexWindow[1] - indexWindow[0])
+    const times = new Array(indexWindow[1] - indexWindow[0])
+    const values = new Array(indexWindow[1] - indexWindow[0])
     for (let i = 0; i < times.length; i++) {
       times[i] = this.array[(indexWindow[0] + i) * 2]
       values[i] = this.array[(indexWindow[0] + i) * 2 + 1]
@@ -72,9 +71,8 @@ class DecimatedMinMaxSeries {
   }
 }
 
-
 export function Datalogger({
-  series
+  series, unit, label
 }) {
   const seriesKeys = Array.from(Object.keys(series))
 
@@ -156,7 +154,7 @@ export function Datalogger({
     const p2x = p => margin.l + p * (w - margin.l - margin.r)
     const p2y = p => margin.t + p * (h - margin.t - margin.b)
     const x2p = x => (x - margin.l) / (w - margin.l - margin.r) // inverse
-    // Conversion from t-minus time in seconds / pressure in psi to pixel
+    // Conversion from t-minus time in seconds / value in unit to pixel
     const v2x = v => p2x((v - relativeTimeWindow[0]) / (relativeTimeWindow[1] - relativeTimeWindow[0]))
     const v2y = v => p2y(1 - (v - effectiveYBounds[0]) / (effectiveYBounds[1] - effectiveYBounds[0]))
     const x2v = x => relativeTimeWindow[0] + x2p(x) * (relativeTimeWindow[1] - relativeTimeWindow[0]) // inverse
@@ -166,13 +164,25 @@ export function Datalogger({
     const yTicks = generateAxisTicks(effectiveYBounds[0], effectiveYBounds[1], 10, 'psi')
 
     // TODO: re-add hover tooltip (this is at odds with being able to add new data to series independently. we should make it interpolate values for each series and be careful of nan gaps)
-    // // Hover tooltip
-    // // Mouse X position relative to the <svg>
-    // const [mousePosX, setMousePosX] = React.useState(null)
-    // const tooltipIndex = mousePosX && indexOfLastPointBeforeTime(points, currentSeconds + x2v(mousePosX))
-    // // TODO: linear interpolation between adjacent values
-    // const tooltipText = tooltipIndex && tooltipIndex >= 0 && series.map(s => s[2] + ' ' + formatUnit(points[tooltipIndex][s[0]], 'psi'))
-    // const flipTooltip = tooltipIndex && mousePosX > p2x(1) - 160
+    // Hover tooltip
+    // Mouse X position relative to the <svg>
+    const [mousePosX, setMousePosX] = React.useState(null)
+    // Index of the closest point left of the mouse, for each series (-1 if it's NaN or outside the window)
+    const tooltipIndices = seriesKeys.map(key => {
+      const [times, values] = points[key]
+      const t = currentSeconds + x2v(mousePosX)
+      const i = binarySearch(i => times[i], t, times.length - 1)
+      if (isNaN(values[i]) || i >= values.length - 1 || isNaN(values[i+1])) return -1
+      return i
+    })
+    // Hover tooltip text
+    const tooltipText = tooltipIndices.map((valIndex, seriesIndex) => {
+      if (valIndex === -1) return ''
+      const [times, values] = points[seriesKeys[seriesIndex]]
+      const val = lerp(times[valIndex], values[valIndex], times[valIndex+1], values[valIndex+1], currentSeconds + x2v(mousePosX))
+      return `${seriesKeys[seriesIndex]}: ${formatUnit(val, unit)}`
+    }).filter(text => text.length)
+    const flipTooltip = mousePosX > p2x(1) - 160
 
     const sliderChangeHandler = (_event, newTimeWindow) => {
       // Convert window to the appropriate time window representation
@@ -208,8 +218,7 @@ export function Datalogger({
     const handleMouseMove = e => {
       // Show tooltip on hover
       const x = e.clientX - svgRef.current?.getBoundingClientRect().left
-      // TODO tooltips
-      // setMousePosX(x)
+      setMousePosX(x)
       if (mouseDown && dragStartXAndTime === null) {
         setDragStartXAndTime([x, effectiveTimeWindow])
       }
@@ -241,8 +250,7 @@ export function Datalogger({
       const rect = svgRef.current?.getBoundingClientRect()
       enablePageScroll()
       if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
-        // TODO tooltips
-        // setMousePosX(null)
+        setMousePosX(null)
       }
     }
 
@@ -291,7 +299,7 @@ export function Datalogger({
           ))}
           {/* Vertical axis */}
           <line x1={p2x(0)} y1={p2y(0)} x2={p2x(0)} y2={p2y(1)} stroke="black" strokeWidth='2' />
-          <text y={20} x={-p2y(0.5)} textAnchor="middle" fontSize="12" fontWeight="bold" transform="rotate(-90)" dy="-0.5em">Pressure (psi)</text>
+          <text y={20} x={-p2y(0.5)} textAnchor="middle" fontSize="12" fontWeight="bold" transform="rotate(-90)" dy="-0.5em">{label} ({unit})</text>
           {yTicks.map(({ tick, label }) => (
             <React.Fragment key={tick}>
               <line x1={p2x(0)} y1={v2y(tick)} x2={p2x(0)-5} y2={v2y(tick)} stroke="black" />
@@ -318,14 +326,15 @@ export function Datalogger({
             </g>
           ))}
           {/* Tooltip */}
-          {/* {tooltipText && mousePosX > p2x(0) && (
+          {tooltipText.length && mousePosX > p2x(0) && (
             <g>
               <line x1={mousePosX} y1={p2y(0)} x2={mousePosX} y2={p2y(1)} stroke="black" strokeWidth='1' clipPath='url(#data-clip-path)' />
               {tooltipText.map((text, i) => (
-                <text key={i} x={Math.min(mousePosX+(flipTooltip?-5:5), p2x(1)-70)} y={p2y(0)+20+16*i} textAnchor={flipTooltip?"end":"start"} alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{text}</text>
+                <text key={i} x={Math.min(mousePosX+(flipTooltip?-5:5), p2x(1)-70)} y={p2y(0)+20+16*i} textAnchor={flipTooltip?"end":"start"}
+                  alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{text}</text>
               ))}
             </g>
-          )} */}
+          )}
         </svg>
         {/* Jump to present button */}
         <button className={'jump-to-present ' + (window.length !== 1 ? 'active' : '')} onClick={jumpToPresent}>&gt;</button>
@@ -364,10 +373,9 @@ export function Datalogger({
   return Component
 }
 
-
-
 const PressureDatalogger = Datalogger({
   unit: 'psi',
+  label: 'Pressure',
   series: {
     'LOX Tank': { color: '#000' },
     'LOX N2': { color: '#f00' },

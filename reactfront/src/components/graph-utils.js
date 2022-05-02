@@ -37,7 +37,7 @@ function roundToNiceDecimalIncrement(num) {
 }
 
 // Formatted label including SI unit prefixes
-function formatUnit(val, unit) {
+export function formatUnit(val, unit) {
   return Math.abs(val) >= 1000 ? `${(val/1000).toFixed(1)} k${unit}`
        : Math.abs(val) >= 1 ? `${val.toFixed(1)} ${unit}`
        : Math.abs(val) >= 0.001 ? `${(val*1000).toFixed(1)} m${unit}`
@@ -107,3 +107,6 @@ export function interpolateInterval(a, b, fraction) {
   return [a[0] + (b[0] - a[0]) * fraction, a[1] + (b[1] - a[1]) * fraction]
 }
 
+export function lerp(x1, y1, x2, y2, x) {
+  return y1 + (y2 - y1) * (x - x1) / (x2 - x1)
+}
