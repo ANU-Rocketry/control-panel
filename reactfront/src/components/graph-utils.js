@@ -36,13 +36,17 @@ function roundToNiceDecimalIncrement(num) {
   return nearest * 10 ** -power
 }
 
+function roundToSigFigs(x, sigFigs) {
+  return parseFloat(x.toPrecision(sigFigs))
+}
+
 // Formatted label including SI unit prefixes
 export function formatUnit(val, unit) {
-  return Math.abs(val) >= 1000 ? `${(val/1000).toFixed(1)} k${unit}`
-       : Math.abs(val) >= 1 ? `${val.toFixed(1)} ${unit}`
-       : Math.abs(val) >= 0.001 ? `${(val*1000).toFixed(1)} m${unit}`
-       : Math.abs(val) >= 0.000001 ? `${(val*1000000).toFixed(1)} μ${unit}`
-       : `${val.toFixed(1)} ${unit}`
+  return Math.abs(val) >= 1000 ? `${roundToSigFigs(val/1000, 3)} k${unit}`
+       : Math.abs(val) >= 1 ? `${roundToSigFigs(val, 3)} ${unit}`
+       : Math.abs(val) >= 0.001 ? `${roundToSigFigs((val*1000), 3)} m${unit}`
+       : Math.abs(val) >= 0.000001 ? `${roundToSigFigs((val*1000000), 3)} μ${unit}`
+       : `${roundToSigFigs(val, 3)} ${unit}`
 }
 
 // Generate around a suggested number of nicely rounded decimal axis ticks with units
@@ -50,9 +54,10 @@ export function formatUnit(val, unit) {
 export function generateAxisTicks(min, max, suggested, unit) {
   const increment = roundToNiceDecimalIncrement((max - min) / suggested)
   const ticks = []
-  const adjustedMin = Math.ceil(min / increment) * increment
-  const adjustedMax = Math.floor(max / increment) * increment
+  let adjustedMin = Math.ceil(min / increment) * increment
+  let adjustedMax = Math.floor(max / increment) * increment
   for (let tick = adjustedMin; tick <= adjustedMax; tick += increment) {
+    if (Math.abs(tick) < 1e-10) tick = 0
     ticks.push({
       tick,
       label: formatUnit(tick, unit)

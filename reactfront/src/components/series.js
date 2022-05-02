@@ -5,21 +5,41 @@ class DoubleArray {
   constructor(capacity) {
     this.array = new Float64Array(capacity)
     this.size = 0
+    this.chunks = 0
   }
   push(...values) {
     this.array.set(values, this.size)
     this.size += values.length
+    this.chunks++
   }
 }
 
 class MinMaxArray extends DoubleArray {
+  constructor(points) {
+    super(points * 4)
+  }
   time(i) { return this.array[i*4] }
   mean(i) { return this.array[i*4+1] }
   min(i) { return this.array[i*4+2] }
   max(i) { return this.array[i*4+3] }
+  updateDecimation(source) {
+    // Apply 4x decimation to the source MinMaxArray
+    if (source.chunks % 4 === 0 && source.chunks > 0) {
+      const i = source.chunks - 4
+      this.push(
+        (source.time(i) + source.time(i+1) + source.time(i+2) + source.time(i+3)) / 4,
+        (source.mean(i) + source.mean(i+1) + source.mean(i+2) + source.mean(i+3)) / 4,
+        Math.min(source.min(i), source.min(i+1), source.min(i+2), source.min(i+3)),
+        Math.max(source.max(i), source.max(i+1), source.max(i+2), source.max(i+3))
+      )
+    }
+  }
 }
 
 class FullResolutionMinMaxArray extends MinMaxArray {
+  constructor(points) {
+    super(points >> 1)
+  }
   time(i) { return this.array[i*2] }
   mean(i) { return this.array[i*2+1] }
   min(i) { return this.array[i*2+1] }
@@ -34,101 +54,51 @@ class FullResolutionMinMaxArray extends MinMaxArray {
  */
 export default class DecimatedMinMaxSeries {
   constructor() {
-    // This is by default a 4MiB array of floats. It's enough to store 20 samples a second for ~24 hours straight (500k points)
-    // For now we don't even bother with resizing
-    this.capacity = 1_048_576  // Must be a power of 2 which is at least 1024
-    this.array = new Float64Array(this.capacity)
-    // Number of slots used in the array because array.length refers to the maximum capacity
-    this.size = 0
-
-    // Decimated arrays
-    // this.decimated[1] is a 4x decimated version of this.array with stride 4; each chunk is of the form [time1, mean1, min1, max1, ...]
-    // this.decimated[n] is a (4^n)x decimated version of this.decimated[n-1] with stride 4
+    // We use an (TODO incorrect) 8MiB array of floats for the raw data. This is enough to store 20 samples a second for 48 hours straight (1M points)
+    // We don't worry about overflowing this buffer, because we're only ever going to be storing a few hours of data
+    // this.arrays[0] is the raw data with stride 2; FullResolutionMinMaxArray provides a min/max view into it
+    // this.arrays[1] is a 4x decimated version of this.arrays[0] with stride 4; each chunk is of the form [time1, mean1, min1, max1, ...]
+    // this.arrays[n] is a (4^n)x decimated version of this.arrays[n-1] with stride 4
     this.n_bound = 4
-    this.decimated = {}
+    this.arrays = {}
+    this.capacity = 1_048_576
+    this.arrays[0] = new FullResolutionMinMaxArray(this.capacity)
     for (let n = 1; n <= this.n_bound; n++) {
-      this.decimated[n] = new Float64Array(this.capacity >> (2*n-1))
+      this.arrays[n] = new MinMaxArray(this.capacity >> (2*n))
     }
   }
   push(time, value) {
-    this.array[this.size++] = time
-    this.array[this.size++] = value
-    // If the number of stride 2 points is a multiple of 4, we compute the next 4x decimation point
-    if ((this.size & (2*4-1)) === 0) {
-      const s = this.size - 4 // offset in this.array with stride 2 and length 4
-      const i = s >> 1 // offset in this.decimated[1] with stride 4 and length 1
-      this.decimated[1][i]   =         (this.array[s+0] + this.array[s+2] + this.array[s+4] + this.array[s+6]) / 4
-      this.decimated[1][i+1] =         (this.array[s+1] + this.array[s+3] + this.array[s+5] + this.array[s+7]) / 4
-      this.decimated[1][i+2] = Math.min(this.array[s+1],  this.array[s+3],  this.array[s+5],  this.array[s+7])
-      this.decimated[1][i+3] = Math.max(this.array[s+1],  this.array[s+3],  this.array[s+5],  this.array[s+7])
-      // If the number of stride 2 points is a multiple of 4^2, we compute the next 16x decimation point
-      if ((this.size & (2*16-1)) === 0) {
-        const j = i >> 2 // offset in this.decimated[2] with stride 4 and length 1
-        this.decimated[2][j]   =         (this.decimated[1][i+0] + this.decimated[1][i+2] + this.decimated[1][i+4] + this.decimated[1][i+6]) / 4
-        this.decimated[2][j+1] =         (this.decimated[1][i+1] + this.decimated[1][i+3] + this.decimated[1][i+5] + this.decimated[1][i+7]) / 4
-        this.decimated[2][j+2] = Math.min(this.decimated[1][i+1],  this.decimated[1][i+3],  this.decimated[1][i+5],  this.decimated[1][i+7])
-        this.decimated[2][j+3] = Math.max(this.decimated[1][i+1],  this.decimated[1][i+3],  this.decimated[1][i+5],  this.decimated[1][i+7])
-        // If the number of stride 2 points is a multiple of 4^3, we compute the next 64x decimation point
-        if ((this.size & (2*64-1)) === 0) {
-          const k = j >> 2 // offset in this.decimated[3] with stride 4 and length 1
-          this.decimated[3][k]   =         (this.decimated[2][j+0] + this.decimated[2][j+2] + this.decimated[2][j+4] + this.decimated[2][j+6]) / 4
-          this.decimated[3][k+1] =         (this.decimated[2][j+1] + this.decimated[2][j+3] + this.decimated[2][j+5] + this.decimated[2][j+7]) / 4
-          this.decimated[3][k+2] = Math.min(this.decimated[2][j+1],  this.decimated[2][j+3],  this.decimated[2][j+5],  this.decimated[2][j+7])
-          this.decimated[3][k+3] = Math.max(this.decimated[2][j+1],  this.decimated[2][j+3],  this.decimated[2][j+5],  this.decimated[2][j+7])
-          // If the number of stride 2 points is a multiple of 4^4, we compute the next 256x decimation point
-          if ((this.size & (2*256-1)) === 0) {
-            const l = k >> 2 // offset in this.decimated[4] with stride 4 and length 1
-            this.decimated[4][l]   =         (this.decimated[3][k+0] + this.decimated[3][k+2] + this.decimated[3][k+4] + this.decimated[3][k+6]) / 4
-            this.decimated[4][l+1] =         (this.decimated[3][k+1] + this.decimated[3][k+3] + this.decimated[3][k+5] + this.decimated[3][k+7]) / 4
-            this.decimated[4][l+2] = Math.min(this.decimated[3][k+1],  this.decimated[3][k+3],  this.decimated[3][k+5],  this.decimated[3][k+7])
-            this.decimated[4][l+3] = Math.max(this.decimated[3][k+1],  this.decimated[3][k+3],  this.decimated[3][k+5],  this.decimated[3][k+7])
-          }
-        }
-      }
+    this.arrays[0].push(time, value)
+    for (let n = 1; n <= this.n_bound; n++) {
+      this.arrays[n].updateDecimation(this.arrays[n-1])
     }
   }
-  sample(startTime, endTime, k = 400) {
+  sample(startTime, endTime, k = 200) {
     const indexWindow = [
-      Math.max(binarySearch(i => this.array[i*2], startTime, this.size >> 1), 0),
-      Math.min(binarySearch(i => this.array[i*2], endTime, this.size >> 1) + 2, this.size >> 1)
+      Math.max(binarySearch(i => this.arrays[0].time(i), startTime, this.arrays[0].chunks), 0),
+      Math.min(binarySearch(i => this.arrays[0].time(i), endTime,   this.arrays[0].chunks) + 1, this.arrays[0].chunks)
     ]
     // We want the 4^n times decimated sample to have a length `x` in the interval [k/2, 2k] where `k` might be the pixel width of the graph
     // (unless of course x < k/2 in which case we return as many points as we have)
     // n = max(0, floor(log_4(2x/k)))
     const x = (indexWindow[1] - indexWindow[0])
-    const n = Math.max(0, Math.floor(Math.log(2 * x / k + 0.01) / Math.log(4)))
+    const n = Math.min(this.n_bound, Math.max(0, Math.floor(Math.log(2 * x / k + 0.01) / Math.log(4))))
+    // const decimatedWindow = [indexWindow[0] >> (2*n-1), indexWindow[1] >> (2*n-1)]
+    const decimatedWindow = [0, this.arrays[n].chunks]
+    const size = decimatedWindow[1] - decimatedWindow[0]
+    const result = new Array(size)
 
-    if (n === 0) {
-      // No decimation
-      const result = new Array(x)
-      for (let i = 0; i < x; i++) {
-        const t = this.array[(indexWindow[0]+i)*2+0]
-        const v = this.array[(indexWindow[0]+i)*2+1]
-        result[i] = [ t, v, v, v ]
-      }
-      return result
-    } else {
-      const numPoints = Math.floor(x / 4**n)
-      const result = new Array(numPoints)
-      // Given an index `i` in the normal array with stride 2, `i/indexDecimationFactor` is the index with stride 4 in the `4^n` decimated array
-      const indexDecimationFactor = Math.floor(2 * 4**(n-1))
-      const decimatedIndexWindow = [
-        Math.floor(indexWindow[0] / indexDecimationFactor),
-        Math.ceil(indexWindow[1] / indexDecimationFactor)
+    // TODO: decimation of the last point will be here I guess
+    // because the range of the window may not equal x
+    // This is equivalent to copying a slice of the array and chunking every 4 elements into subarrays
+    for (let i = 0; i < size; i++) {
+      result[i] = [
+        this.arrays[n].time(decimatedWindow[0] + i),
+        this.arrays[n].mean(decimatedWindow[0] + i),
+        this.arrays[n].min(decimatedWindow[0] + i),
+        this.arrays[n].max(decimatedWindow[0] + i)
       ]
-      // TODO: decimation of the last point will be here I guess
-      // because the range of the window may not equal numPoints
-      // This is equivalent to copying a slice of the array and chunking every 4 elements into subarrays
-      for (let i = 0; i < numPoints; i++) {
-        result[i] = [
-          this.decimated[n][(decimatedIndexWindow[0]+i)*4+0],
-          this.decimated[n][(decimatedIndexWindow[0]+i)*4+1],
-          this.decimated[n][(decimatedIndexWindow[0]+i)*4+2],
-          this.decimated[n][(decimatedIndexWindow[0]+i)*4+3]
-        ]
-      }
-      console.log(this)
-      return result
     }
+    return result
   }
 }

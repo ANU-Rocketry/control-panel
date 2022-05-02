@@ -99,7 +99,7 @@ export function Datalogger({
     const effectiveYBounds = expandInterval(shrinkInterval(yBounds, ySubset), 0.2)
 
     const startSeconds = seriesKeys.reduce((acc, key) => {
-      const t = seriesArrays[key].array?.[0]
+      const t = seriesArrays[key].arrays[0].time(0)
       if (t) acc = Math.min(acc, t)
       return acc
     }, currentSeconds)
@@ -274,8 +274,13 @@ export function Datalogger({
           ))}
           {/* Series (plotting data curves as polylines) */}
           {seriesKeys.map(key => (
-            <polyline key={key} points={points[key].map(([ time, value ]) => ` ${v2x(time - currentSeconds)},${v2y(value)}`).join('')}
-              fill="none" stroke={series[key].color} strokeWidth="1" clipPath='url(#data-clip-path)' />
+            <g key={key}>
+              <polygon points={points[key].map(([ time, mean, min, max ]) => `${v2x(time - currentSeconds)},${v2y(max)}`).join(' ') + ' ' +
+                points[key].slice(0).reverse().map(([ time, mean, min, max ]) => `${v2x(time - currentSeconds)},${v2y(min)}`).join(' ')}
+                fill={series[key].color} opacity='0.3' stroke="none" strokeWidth="1" clipPath='url(#data-clip-path)' />
+              <polyline points={points[key].map(([ time, mean ]) => `${v2x(time - currentSeconds)},${v2y(mean)}`).join(' ')}
+                fill="none" stroke={series[key].color} strokeWidth="1" clipPath='url(#data-clip-path)' />
+            </g>
           ))}
           {/* Key/Legend */}
           {seriesKeys.map((key, i) => (

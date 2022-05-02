@@ -169,5 +169,5 @@ class LabJackFake(LabJackBase):
             return self.get_valve_state(pin_number)
 
     def get_voltage(self, pin_number: int) -> float:
-        spike = 1 if random.random() > 0.995 else -1
-        return math.sin(time.time() + pin_number + self.serial_number) + 1 + spike
+        spike = 1 if random.random() > 0.995 else 0
+        return math.sin(time.time() + pin_number + self.serial_number) + 1 + (random.random() - 0.5) * 0.1 + spike
