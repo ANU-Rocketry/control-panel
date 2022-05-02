@@ -334,12 +334,12 @@ export function Datalogger({
           value={effectiveTimeWindow}
           onChange={sliderChangeHandler}
           valueLabelDisplay='off'
-          min={fullTimeBounds[0]}
+          min={Math.min(fullTimeBounds[0], fullTimeBounds[1] - 1)}
           max={fullTimeBounds[1]}
           style={{width: w - 40, marginLeft: 50}}
           step={0.01}
           marks={[
-            { value: fullTimeBounds[0], label: `${Math.round(fullTimeBounds[1] - fullTimeBounds[0])}s ago` },
+            { value: Math.min(fullTimeBounds[0], fullTimeBounds[1] - 1), label: `${Math.round(fullTimeBounds[1] - fullTimeBounds[0])}s ago` },
             { value: fullTimeBounds[1], label: 'now' },
           ]}
         />

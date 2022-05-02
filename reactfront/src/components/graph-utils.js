@@ -93,7 +93,7 @@ export function intervalUnion(a, b) {
 
 // shrinkInterval([0, 10], [0.1, 0.8]) will return [1, 8]
 export function shrinkInterval([a, b], [sa, sb]) {
-  return [a + (b - a) * sa, b + (b - a) * sb]
+  return [a + (b - a) * sa, b - (b - a) * (1 - sb)]
 }
 
 // expandInterval([0, 10], 0.2) will return [-2, 12]
