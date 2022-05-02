@@ -16,7 +16,7 @@ from pathlib import Path
 # (To connect properly we need LabJackPython's u3.py and the Exodriver, see README)
 LabJack = get_class('--dev' in sys.argv)
 
-STATE_BROADCAST_FREQUENCY = 20  # Get the LabJack state and broadcast it to all connected clients at 20Hz
+STATE_BROADCAST_FREQUENCY = 100 if '--dev' in sys.argv else 20  # Get the LabJack state and broadcast it to all connected clients at 20Hz
 ABORT_SEQUENCE_TIMEOUT = 900 # Seconds without any active connections before the abort sequence automatically fires
 
 LOG_PATH = Path(__file__).parent / 'logs'

@@ -5,6 +5,7 @@ import sys
 from typing import Optional, Type
 import time
 import math
+import random
 
 def get_class(dev: bool) -> Type:
     return LabJackFake if dev else LabJack
@@ -168,4 +169,5 @@ class LabJackFake(LabJackBase):
             return self.get_valve_state(pin_number)
 
     def get_voltage(self, pin_number: int) -> float:
-        return math.sin(time.time() + pin_number + self.serial_number)
+        spike = 1 if random.random() > 0.995 else -1
+        return math.sin(time.time() + pin_number + self.serial_number) + 1 + spike

@@ -37,6 +37,7 @@ class App extends React.Component {
     this.socket.onopen = e => console.log('websocket connection established')
     this.socket.onclose = e => {
       this.socket = null
+      console.log('websocket connection lost. reconnecting...')
       setTimeout(() => {
         if (!this.socket) {
           this.connect()

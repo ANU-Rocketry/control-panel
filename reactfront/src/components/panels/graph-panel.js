@@ -7,6 +7,7 @@ import {
   zip, intervalUnion, expandInterval, shrinkInterval, interpolateInterval,
   lerp,
 } from '../graph-utils'
+import DecimatedMinMaxSeries from '../series'
 import pins from '../../pins.json'
 
 window.enablePageScroll = enablePageScroll
@@ -28,48 +29,6 @@ export const newData = detail => document.dispatchEvent(new CustomEvent('datalog
 
 // newEvent({ time: epoch_secs, label: text })
 export const newEvent = detail => document.dispatchEvent(new CustomEvent('datalogger-new-event', { detail }))
-
-/*
- * Packed, typed array of floating point (time, value) pairs
- * which computes min/max data at various decimations (4x, 16x, 64x, etc; computation is amortized)
- * and provides a way to get min/max values for a given time window at an appropriate decimation
- * It doesn't matter what units the time is, so long as it's consistent
- */
-class DecimatedMinMaxSeries {
-  constructor(capacity = 1_048_576) {
-    // This is by default a 4MiB array of floats. It's enough to store 20 samples a second for ~24 hours straight
-    // For now we don't even think about resizing
-    this.capacity = capacity
-    this.array = new Float64Array(this.capacity)
-    // number of slots used in the array because array.length refers to the maximum capacity
-    this.size = 0
-  }
-  push(time, value) {
-    this.array[this.size++] = time
-    this.array[this.size++] = value
-  }
-  pushArray(array) {
-    array.set(array, this.size)
-    this.size += array.length
-  }
-  sample(startTime, endTime) {
-    const indexWindow = [
-      Math.max(binarySearch(i => this.array[i*2], startTime, this.size >> 1), 0),
-      Math.min(binarySearch(i => this.array[i*2], endTime, this.size >> 1) + 2, this.size >> 1)
-    ]
-    // We don't have decimation or min/max just yet, so we'll just return the raw data
-    // In future we'll do [times, min, max] with decimation
-    // If we return Float64Arrays then the map method coerces the result to a Float64Array
-    // we don't want to expose this thorny behaviour so we return a normal array
-    const times = new Array(indexWindow[1] - indexWindow[0])
-    const values = new Array(indexWindow[1] - indexWindow[0])
-    for (let i = 0; i < times.length; i++) {
-      times[i] = this.array[(indexWindow[0] + i) * 2]
-      values[i] = this.array[(indexWindow[0] + i) * 2 + 1]
-    }
-    return [times, values]
-  }
-}
 
 export function Datalogger({
   series, unit, label
@@ -123,9 +82,8 @@ export function Datalogger({
 
     let newYBounds = null
     const points = seriesKeys.reduce((acc, key) => {
-      const [times, values] = seriesArrays[key].sample(...effectiveTimeWindow)
-      acc[key] = [times, values]
-      newYBounds = intervalUnion(newYBounds, minMax(values))
+      acc[key] = seriesArrays[key].sample(...effectiveTimeWindow)
+      newYBounds = intervalUnion(newYBounds, [Math.min(...acc[key].map(x => x[2])), Math.max(...acc[key].map(x => x[3]))])
       return acc
     }, {})
 
@@ -169,17 +127,18 @@ export function Datalogger({
     const [mousePosX, setMousePosX] = React.useState(null)
     // Index of the closest point left of the mouse, for each series (-1 if it's NaN or outside the window)
     const tooltipIndices = seriesKeys.map(key => {
-      const [times, values] = points[key]
+      if (!points[key].length) return -1
       const t = currentSeconds + x2v(mousePosX)
-      const i = binarySearch(i => times[i], t, times.length - 1)
-      if (isNaN(values[i]) || i >= values.length - 1 || isNaN(values[i+1])) return -1
+      const i = binarySearch(i => points[key][i][0], t, points[key].length - 1)
+      if (i === -1) return -1
+      if (isNaN(points[key][i][1]) || i >= points[key].length - 1 || isNaN(points[key][i+1][1])) return -1
       return i
     })
     // Hover tooltip text
     const tooltipText = tooltipIndices.map((valIndex, seriesIndex) => {
       if (valIndex === -1) return ''
-      const [times, values] = points[seriesKeys[seriesIndex]]
-      const val = lerp(times[valIndex], values[valIndex], times[valIndex+1], values[valIndex+1], currentSeconds + x2v(mousePosX))
+      const data = points[seriesKeys[seriesIndex]]
+      const val = lerp(data[valIndex][0], data[valIndex][1], data[valIndex+1][0], data[valIndex+1][1], currentSeconds + x2v(mousePosX))
       return `${seriesKeys[seriesIndex]}: ${formatUnit(val, unit)}`
     }).filter(text => text.length)
     const flipTooltip = mousePosX > p2x(1) - 160
@@ -315,7 +274,7 @@ export function Datalogger({
           ))}
           {/* Series (plotting data curves as polylines) */}
           {seriesKeys.map(key => (
-            <polyline key={key} points={zip(...points[key]).map(([ time, value ]) => ` ${v2x(time - currentSeconds)},${v2y(value)}`).join('')}
+            <polyline key={key} points={points[key].map(([ time, value ]) => ` ${v2x(time - currentSeconds)},${v2y(value)}`).join('')}
               fill="none" stroke={series[key].color} strokeWidth="1" clipPath='url(#data-clip-path)' />
           ))}
           {/* Key/Legend */}
