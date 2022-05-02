@@ -39,3 +39,24 @@ export const sensorData = {
         span: 16,
     },
 }
+
+// Calibration function for dodgy old sensors
+export function voltsToPsi(volts, barMax) {
+    const resistance = 120; // ohm
+    const current1 = 0.004; // amps
+    const current2 = 0.02; // amps
+    const bar = barMax/(resistance * current2) * (volts - resistance * current1)
+    return bar * 14.504; // 1bar = 14.5psi
+}
+
+export function formatDataPoint(dict) {
+    return {
+        // Epoch time in fractional seconds
+        time: parseInt(dict.time) / 1000,
+        // Note: these bar max figures are also in the sensors list in control-panel.js
+        'LOX Tank': getPsi(dict.labjacks.LOX.analog["3"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
+        'LOX N2': voltsToPsi(dict.labjacks.LOX.analog["1"], 250 /* bar */),  // BADLY CALIBRATED!!!
+        'ETH Tank': getPsi(dict.labjacks.ETH.analog["3"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
+        'ETH N2': voltsToPsi(dict.labjacks.ETH.analog["1"], 250 /* bar */),  // BADLY CALIBRATED!!!
+    }
+}

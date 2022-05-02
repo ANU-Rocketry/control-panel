@@ -7,8 +7,6 @@ Rethink sequences:
  store on the server rather than choose file, and edit inline
  remove pin numbers from the control panel pane
 
-Y zoom feature - zoom vertically around cursor when the axis is under the mouse
-
 green light when connected
 
 print statements aren't in the log, only tracebacks
@@ -19,8 +17,6 @@ fix popup cursor not appearing sometimes, mainly at high zoom levels
 
 disable page scroll issue is still present
 
-disable auto abort sequence? dangerous at this point
-
 operation modes
 
 jump to present button is ugly and sometimes appears on the left
@@ -28,8 +24,6 @@ graph panel sizing is incorrect
 
 datalogging
 * use an append only sqlite database for each session?
-
-the frontend doesn't seem to reconnect if the backend is stopped and restarted
 
 more obvious indicator if the frontend loses network connection
 

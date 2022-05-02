@@ -3,21 +3,21 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import { TopBar } from "./components/index"
 import SafetyPanel from './components/panels/safety-panel';
-import GraphPanel from './components/panels/graph-panel'
+import GraphPanel, { newData, newEvent, pinFromID } from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';
 import ControlPanel from './components/panels/control-panel';
 import Alert from '@material-ui/lab/Alert';
+import { formatDataPoint } from './utils';
 
 class App extends React.Component {
 
   constructor(props) {
     super(props);
     this.state = {
-      data: null, history: [], mostRecentWarning: {}, showWarning: false,
+      data: null, mostRecentWarning: {}, showWarning: false,
       wsAddress: localStorage.getItem('wsaddr') || "192.168.0.5",
       defaultWSAddress: "192.168.0.5",
-      // Example: { "header": "OPEN", "data": { "name": "LOX", "pin": 13 }, "time": 1651140990 }
-      valveHistory: []
+      events: []
     }
     this.emit = this.emit.bind(this)
     this.connect()
@@ -48,25 +48,21 @@ class App extends React.Component {
       const data = JSON.parse(e.data);
       switch (data.type) {
         case 'STATE':
-          // React state is not meant to be mutated but we don't want to copy
-          // huge lists all the time and it won't cause us any problems in
-          // this specific case
-          // The history list is stored as [oldest, ..., newest]
-          this.state.history.push(data.data);
-          // Anything beyond 10 000 items is a bit extreme, halve it
-          if (this.state.history.length > 10000)
-            // eslint-disable-next-line
-            this.state.history = this.state.history.slice(5000, -1);
-          this.setState({ data: data.data, history: this.state.history })
+          newData(formatDataPoint(data.data))
+          this.setState({ data: data.data })
           break
         case 'PING':
           this.setState({ ping: new Date().getTime() - data.data })
           break
         case 'VALVE':
-          console.log(data.data)
           // We use this.state.data.time instead of new Date().getTime() because the devices can report epoch times off by a consistent
           // several hour offset in extreme conditions it seems
-          this.setState({ valveHistory: [...this.state.valveHistory, { ...data.data, time: parseInt(this.state.data.time) / 1000 } ] })
+          // Example: { "header": "OPEN", "data": { "name": "LOX", "pin": 13 }, "time": 1651140990 }
+          const time = parseInt(this.state.data.time) / 1000
+          const pin = pinFromID(data.data.pin).pin
+          const label = (data.header === 'CLOSE' ? 'Closed' : 'Opened') + ' ' + pin.test_stand + ' ' + pin.abbrev
+          newEvent({ time, label })
+          this.setState({ events: [...this.state.events, { ...data.data, label, time }] })
           break
         default:
           console.error(data)
@@ -104,12 +100,11 @@ class App extends React.Component {
             <ControlPanel state={this.state} emit={this.emit} />
             <GraphPanel state={this.state} emit={this.emit} />
           </div>
-          {
-          this.state.showWarning 
-            ? <Alert onClose={()=>{this.setState({ showWarning: false })}} severity="error" className='alert'>
+          {this.state.showWarning && (
+            <Alert onClose={()=>{this.setState({ showWarning: false })}} severity="error" className='alert'>
               {this.state.mostRecentWarning.message}
-              </Alert> 
-            : null}
+            </Alert> 
+          )}
         </div>
       </div>
     )
@@ -121,4 +116,4 @@ ReactDOM.render(
     <App />
   </React.StrictMode>,
   document.getElementById('root')
-);
+)
