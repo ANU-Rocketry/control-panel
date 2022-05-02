@@ -275,9 +275,12 @@ export function Datalogger({
           {/* Series (plotting data curves as polylines) */}
           {seriesKeys.map(key => (
             <g key={key}>
-              <polygon points={points[key].map(([ time, mean, min, max ]) => `${v2x(time - currentSeconds)},${v2y(max)}`).join(' ') + ' ' +
-                points[key].slice(0).reverse().map(([ time, mean, min, max ]) => `${v2x(time - currentSeconds)},${v2y(min)}`).join(' ')}
-                fill={series[key].color} opacity='0.3' stroke="none" strokeWidth="1" clipPath='url(#data-clip-path)' />
+              {/* Min/max shading polygons, these should be O(n log n) to partition into triangles and render */}
+              {points[key].decimated && (
+                <polygon points={points[key].map(([ time, mean, min, max ]) => `${v2x(time - currentSeconds)},${v2y(max)}`).join(' ') + ' ' +
+                  points[key].slice(0).reverse().map(([ time, mean, min, max ]) => `${v2x(time - currentSeconds)},${v2y(min)}`).join(' ')}
+                  fill={series[key].color} opacity='0.3' stroke="none" strokeWidth="0" clipPath='url(#data-clip-path)' />
+              )}
               <polyline points={points[key].map(([ time, mean ]) => `${v2x(time - currentSeconds)},${v2y(mean)}`).join(' ')}
                 fill="none" stroke={series[key].color} strokeWidth="1" clipPath='url(#data-clip-path)' />
             </g>

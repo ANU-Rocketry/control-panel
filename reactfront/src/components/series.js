@@ -8,9 +8,15 @@ class DoubleArray {
     this.chunks = 0
   }
   push(...values) {
+    try {
     this.array.set(values, this.size)
     this.size += values.length
     this.chunks++
+    } catch (e) {
+      console.error(this, values)
+      console.error(e)
+    }
+    //console.log(this.size)
   }
 }
 
@@ -99,6 +105,7 @@ export default class DecimatedMinMaxSeries {
         this.arrays[n].max(decimatedWindow[0] + i)
       ]
     }
+    result.decimated = n > 0
     return result
   }
 }
