@@ -5,42 +5,22 @@ import { withStyles } from '@material-ui/core/styles';
 import Switch from '@material-ui/core/Switch';
 
 export function SectionTitle({ children }) {
-    return (
-        <div style={{width:"100%", padding: "6px", height:"40px"}}>
-            <h1>
-                {children}
-            </h1>
-        </div>
-    );
-}
-
-const useStyles = makeStyles((theme) => ({
-  root: {
-    flexGrow: 1,
-  },
-  menuButton: {
-    marginRight: theme.spacing(2),
-  },
-  title: {
-    flexGrow: 1,
-    paddingLeft: theme.spacing(2),
-  },
-}));
-
-export function TopBar() {
-  const classes = useStyles();
-
   return (
-    <div className={classes.root}>
-      <AppBar position="static">
-        <Toolbar>
-          <h1 className={classes.title}>
-            Test Stand Control Software
-          </h1>
-        </Toolbar>
-      </AppBar>
+    <div style={{width:"100%", padding: "6px", height:"40px"}}>
+      <h1>
+        {children}
+      </h1>
     </div>
   );
+}
+
+export function TopBar() {
+  return (
+    <div className='top-bar'>
+      <img src='./logo.png' alt='logo' />
+      <h1>Test Stand Control Panel</h1>
+    </div>
+  )
 }
 
 export function Panel({ children, title, ...props }) {

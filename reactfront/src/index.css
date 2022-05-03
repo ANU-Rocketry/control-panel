@@ -1,10 +1,19 @@
-body {
+
+:root {
+  --top-bar-height: 54px;
+  --top-bar-color: rgba(18, 43, 81);
+  --background-color: rgba(18, 43, 81, 0.1);
+  background-color: var(--background-color);
+}
+
+:root, body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  height: 100%;
 }
 
 code {
@@ -17,6 +26,8 @@ html, body, #root, #root > div {
 }
 
 .panels-root {
+  position: absolute;
+  top: var(--top-bar-height);
   height: calc(100% - 64px);
 }
 
@@ -136,5 +147,29 @@ input[type='file'] {
 .jump-to-present.active {
   opacity: 1;
   z-index: 0;
+}
+
+.top-bar {
+  width: 100%;
+  height: var(--top-bar-height);
+  display: flex;
+  align-items: left;
+  background-color: var(--top-bar-color);
+  color: white;
+  padding: 0 10px;
+  gap: 6px;
+  margin: 0;
+  position: fixed;
+  top: 0;
+  border-bottom: 1px solid black;
+  box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+}
+
+.top-bar h1 {
+  height: var(--top-bar-height);
+  margin: 0;
+  padding: 0;
+  line-height: var(--top-bar-height);
 }
 
