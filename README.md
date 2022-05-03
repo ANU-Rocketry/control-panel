@@ -52,6 +52,13 @@ You'll need a Raspberry Pi and your laptop, and some way of putting them on the 
       Then it will have the IP `192.168.0.5`. This assumes the router has the IP `192.168.0.1`.
       
       If you need to use another ethernet connection you have two options: plug the outside network into the WAN port of the router you normally use, or connect directly and comment out these lines with `#` at the start of each line temporarily if you need to.
+1. Set up `apcupsd` daemon to get UPS battery messages
+    1. The Pi is plugged into a UPS to make it resistant to power cuts. This daemon lets us tell whether we're running on line power or UPS battery power so we can indicate this on the front-end. This only works if the Pi has a serial connection to the UPS using a USB-A to USB-B cable (labelled "PowerChute USB Port" on the UPS)
+    1. `sudo apt-get install apcupsd`
+    1. `sudo nano /etc/default/apcupsd` and change `no` to `yes`
+    1. `sudo nano  /etc/apcupsd/apcupsd.conf` and set `UPSNAME rock-ups` (because it's an 8 char limit), `UPSCABLE usb`, `UPSTYPE usb`, `MINUTES 0` (avoid auto-shutdown), `DEVICE` (without the `/dev/tty*` part so it searches all serial connections)
+    1. `sudo apcupsd restart` or `sudo /etc/init.d/apcupsd restart` or `sudo reboot` - whichever works
+    1. Confirm `apcaccess status` comes up with a status other than `COMMLOST` (it should say `STATUS   : ONBATT` or `STATUS   : ONLINE`)
 1. Run `ssh-copy-id pi@192.168.0.5` in a terminal on your laptop to copy your SSH key so you don't need a password when using `ssh pi@192.168.0.5`
 
 # Setting up the Pi at the testing site
@@ -59,7 +66,10 @@ You'll need a Raspberry Pi and your laptop, and some way of putting them on the 
 Whenever the pi is turned on from now on, the startup script will automatically host the frontend on `http://192.168.0.5:3000` and the backend on `http://192.168.0.5:8888`. The backend will fail to run if the Pi is powered before the LabJack USBs are plugged in. If this happens, you can SSH into it and `sudo reboot` when it should be ready
 
 Ground site:
+* Plug all power cables into the UPS except the camera system, these don't need to be power-cut resilient
 * Plug the test stand LabJack USBs into the Pi (don't power the Pi before the LabJacks otherwise you'll need to `sudo reboot` it later!)
+* Plug the Pi into the UPS using a USB-A to USB-B cable (labelled "PowerChute USB Port" on the UPS)
+* Network everything with the switch and Ubiquiti P2P wifi card
 
 Range/control site:
 * Plug the other Ubiquity into the router

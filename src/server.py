@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field, asdict
+from enum import Enum
 import websockets
 import asyncio
 import time
@@ -10,6 +11,8 @@ import sys
 from labjack import get_class
 from typing import List, Mapping, Tuple, Optional
 from pathlib import Path
+import os
+import subprocess
 
 # If you run `python3 server.py --dev` you get a simulated LabJack class
 # If you run `python3 server.py` it tries to connect properly
@@ -22,6 +25,19 @@ ABORT_SEQUENCE_TIMEOUT = 900 # Seconds without any active connections before the
 LOG_PATH = Path(__file__).parent / 'logs'
 CONFIG_FILE = Path(__file__).parent / 'config.json'
 
+def get_output(cmd):
+    """
+    Get the STDOUT of a shell command as a string, suppressing STDERR.
+    If there is only an error (including command not found), the return will be an empty string.
+    """
+    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    return proc.communicate()[0].decode("utf-8")
+
+class UPSStatus(str, Enum):
+    "Enum for the status of the UPS"
+    LINE_POWERED = 'LINE_POWERED'
+    BATTERY_POWERED = 'BATTERY_POWERED'
+    UNKNOWN = 'UNKNOWN'
 
 @dataclass
 class SystemState:
@@ -52,6 +68,7 @@ class SystemState:
     labjacks: Mapping[str, dict] = field(default_factory=dict)
     # Last time the labjacks field was updated (epoch milliseconds)
     time: int = 0
+    UPS_status: UPSStatus = UPSStatus.UNKNOWN
 
     def as_dict(self):
         return asdict(self)
@@ -114,6 +131,21 @@ class LJWebSocketsServer:
     def log_data(self, data, type="MISC"):
         if self.datalog and self.state.data_logging:
             self.datalog.log_data(data, type)
+
+    def get_UPS_status(self):
+        status = get_output('apcaccess status').split("\n")
+        # if there's a connection, it should say "STATUS   : ONBATT" or "STATUS   : ONLINE" on one of the lines
+        if "STATUS   : ONBATT" in status:
+            return UPSStatus.BATTERY_POWERED
+        elif "STATUS   : ONLINE" in status:
+            return UPSStatus.LINE_POWERED
+        else:
+            return UPSStatus.UNKNOWN
+
+    async def update_UPS_status(self):
+        while True:
+            self.state.UPS_status = self.get_UPS_status()
+            await asyncio.sleep(1)
 
     async def event_handler(self, ws, path):
         self.clients.add(ws)
@@ -194,6 +226,7 @@ class LJWebSocketsServer:
     async def start_server(self):
         asyncio.ensure_future(self.sync_state())
         asyncio.ensure_future(self.timeout_counter())
+        asyncio.ensure_future(self.update_UPS_status())
         async with websockets.serve(self.event_handler, self.ip, self.port):
             await asyncio.Future()
 

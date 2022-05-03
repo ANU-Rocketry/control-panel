@@ -16,7 +16,6 @@ class DoubleArray {
       console.error(this, values)
       console.error(e)
     }
-    //console.log(this.size)
   }
 }
 
@@ -44,7 +43,15 @@ class MinMaxArray extends DoubleArray {
 
 class FullResolutionMinMaxArray extends MinMaxArray {
   constructor(points) {
-    super(points >> 1)
+    // TODO: undo
+    super(0)
+    this.array = []
+  }
+  push(...values) {
+    // TODO: undo
+    this.array.push(...values)
+    this.size += values.length
+    this.chunks++
   }
   time(i) { return this.array[i*2] }
   mean(i) { return this.array[i*2+1] }
@@ -65,7 +72,8 @@ export default class DecimatedMinMaxSeries {
     // this.arrays[0] is the raw data with stride 2; FullResolutionMinMaxArray provides a min/max view into it
     // this.arrays[1] is a 4x decimated version of this.arrays[0] with stride 4; each chunk is of the form [time1, mean1, min1, max1, ...]
     // this.arrays[n] is a (4^n)x decimated version of this.arrays[n-1] with stride 4
-    this.n_bound = 4
+    // TODO: undo
+    this.n_bound = 0
     this.arrays = {}
     this.capacity = 1_048_576
     this.arrays[0] = new FullResolutionMinMaxArray(this.capacity)

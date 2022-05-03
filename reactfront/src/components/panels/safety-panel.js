@@ -31,6 +31,8 @@ export default function SafetyPanel({ state, emit, that }) {
   const dataLoggingActive = state.data === null ? false : state.data.data_logging
   const toggleDataLogging = x => emit('DATALOG', x)
 
+  const UPSStatus = state.data === null ? false : state.data.UPS_status
+
   return (
     <Panel title="Safety" className='panel safety'>
       <div className="flex" style={{ justifyContent: 'flex-start' }}>
@@ -66,6 +68,12 @@ export default function SafetyPanel({ state, emit, that }) {
           label="Time delay to reach the server">
           {state.ping ? state.ping : '0'}ms
         </SafetyCard>
+
+        {UPSStatus && (
+          <SafetyCard title="UPS Status">
+            {UPSStatus}
+          </SafetyCard>
+        )}
       </div>
     </Panel>
   )
