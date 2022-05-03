@@ -170,6 +170,6 @@ class LabJackFake(LabJackBase):
 
     def get_voltage(self, pin_number: int) -> float:
         spike = 1 if random.random() > 0.995 else 0
-        high = math.sin(time.time() + pin_number + self.serial_number)
-        low = math.sin(time.time() / 10 + pin_number + 7)
+        high = math.sin(time.time() + pin_number + self.serial_number) * 0.4
+        low = math.sin(time.time() / 10 + pin_number + 7) * 2
         return high + low + 1 + (random.random() - 0.5) * 0.2 + spike

@@ -60,8 +60,8 @@ class App extends React.Component {
           // several hour offset in extreme conditions it seems
           // Example: { "header": "OPEN", "data": { "name": "LOX", "pin": 13 }, "time": 1651140990 }
           const time = parseInt(this.state.data.time) / 1000
-          const pin = pinFromID(data.data.pin).pin
-          const label = (data.header === 'CLOSE' ? 'Closed' : 'Opened') + ' ' + pin.test_stand + ' ' + pin.abbrev
+          const pin = pinFromID(data.data.data.pin).pin
+          const label = (data.data.header === 'CLOSE' ? 'Closed' : 'Opened') + ' ' + pin.test_stand + ' ' + pin.abbrev
           newEvent({ time, label })
           this.setState({ events: [...this.state.events, { ...data.data, label, time }] })
           break

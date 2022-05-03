@@ -227,7 +227,7 @@ export function Datalogger({
 
     const verticalLabels = events
       .map(({ time, ...e }) => ({ x: v2x(time - currentSeconds), ...e }))
-      .filter(({ x }) => x >= p2x(0) - 100 && x <= p2x(1))
+      .filter(({ x }) => x >= p2x(0) - 10 && x <= p2x(1))
 
     const jumpToPresent = () => setWindow([window[0] - window[1]])
 
