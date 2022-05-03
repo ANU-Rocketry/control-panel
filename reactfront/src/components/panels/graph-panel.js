@@ -3,9 +3,8 @@ import { Panel } from '../index'
 import { Slider } from '@material-ui/core'
 import { disablePageScroll, enablePageScroll } from 'scroll-lock'
 import {
-  minMax, reduceResolution, generateAxisTicks, binarySearch, formatUnit,
-  zip, intervalUnion, expandInterval, shrinkInterval, interpolateInterval,
-  lerp,
+  generateAxisTicks, binarySearch, formatUnit, lerp,
+  intervalUnion, expandInterval, shrinkInterval, interpolateInterval,
 } from '../graph-utils'
 import DecimatedMinMaxSeries from '../series'
 import pins from '../../pins.json'
@@ -61,10 +60,13 @@ export function Datalogger({
     events.push({ ...detail, key: events.length })
     forceUpdate()
   })
-  
+
   function Component({ currentSeconds }) {
     const svgRef = React.useRef(null)
     forceUpdate = React.useReducer(x => x + 1, 0)[1]
+
+    // Box model
+    const w = 600, h = 450;
 
     // Window of points to display
     // Fixed representation: [start_epoch_seconds, end_epoch_seconds] (stays focused on a fixed time window)
@@ -82,7 +84,7 @@ export function Datalogger({
 
     let newYBounds = null
     const points = seriesKeys.reduce((acc, key) => {
-      acc[key] = seriesArrays[key].sample(...effectiveTimeWindow)
+      acc[key] = seriesArrays[key].sample(...effectiveTimeWindow, w / 3)
       newYBounds = intervalUnion(newYBounds, [Math.min(...acc[key].map(x => x[2])), Math.max(...acc[key].map(x => x[3]))])
       return acc
     }, {})
@@ -106,8 +108,7 @@ export function Datalogger({
     const fullTimeBounds = [startSeconds, currentSeconds]
 
     // Box model
-    const w = 600, h = 450;
-    const margin = { l: 90, r: 16, t: 10, b: 35 }   // margin around the graph (between SVG bounding box and axes)
+    const margin = { l: 90, r: 16, t: 10, b: 35 }   // margin around the graph (between SVG bounding box and axes)    
     // Conversion from decimal in [0,1] range to pixel
     const p2x = p => margin.l + p * (w - margin.l - margin.r)
     const p2y = p => margin.t + p * (h - margin.t - margin.b)

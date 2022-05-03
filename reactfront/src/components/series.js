@@ -3,7 +3,8 @@ import { binarySearch } from './graph-utils'
 
 class DoubleArray {
   constructor(capacity) {
-    this.array = new Float64Array(capacity)
+    this.capacity = capacity
+    this.array = new Float64Array(this.capacity)
     this.size = 0
     this.chunks = 0
   }
@@ -35,20 +36,24 @@ class MinMaxArray extends DoubleArray {
     // When the source chunk finishes, we move on to the next destination entry
     // This way we have in-flight decimated data for the latest data points
     const c = source.chunks
+    this.chunks = Math.ceil(c / 4)
+    this.size = this.chunks * 4
     let s = this.size
     if (c === 0) return
     switch (c % 4) {
       case 0:
         // Finalising the decimation of the now-finished source chunk
-        this.array[s-4] = (source.time(c-4) + source.time(c-3) + source.time(c-2) + source.time(c-1)) / 4
+        // Note that we use the final time of the source chunk as the time of the destination chunk
+        // instead of an average: this is so that when the window touches t=0, the data is flush with the right
+        // and it doesn't look like the data is missing. This is not problematic as long as the number of decimated
+        // chunks is close to the number of pixels, so the error is small.
+        this.array[s-4] = source.time(c-1)
         this.array[s-3] = (source.mean(c-4) + source.mean(c-3) + source.mean(c-2) + source.mean(c-1)) / 4
         this.array[s-2] = Math.min(source.min(c-4), source.min(c-3), source.min(c-2), source.min(c-1))
         this.array[s-1] = Math.max(source.max(c-4), source.max(c-3), source.max(c-2), source.max(c-1))
         break
       case 1:
         // Starting the decimation of the new in-progress source chunk with only one point
-        this.size += 4; s = this.size
-        this.chunks++
         this.array[s-4] = source.time(c-1)
         this.array[s-3] = source.mean(c-1)
         this.array[s-2] = source.min(c-1)
@@ -56,17 +61,19 @@ class MinMaxArray extends DoubleArray {
         break
       case 2:
         // Updating the decimation of the in-progress source chunk to reflect the new second point
-        this.array[s-4] = (source.time(c-2) + source.time(c-1)) / 2
+        this.array[s-4] = source.time(c-1)
         this.array[s-3] = (source.mean(c-2) + source.mean(c-1)) / 2
         this.array[s-2] = Math.min(source.min(c-2), source.min(c-1))
         this.array[s-1] = Math.max(source.max(c-2), source.max(c-1))
         break
       case 3:
         // Updating the decimation of the in-progress source chunk to reflect the new third point
-        this.array[s-4] = (source.time(c-3) + source.time(c-2) + source.time(c-1)) / 3
+        this.array[s-4] = source.time(c-1)
         this.array[s-3] = (source.mean(c-3) + source.mean(c-2) + source.mean(c-1)) / 3
         this.array[s-2] = Math.min(source.min(c-3), source.min(c-2), source.min(c-1))
         this.array[s-1] = Math.max(source.max(c-3), source.max(c-2), source.max(c-1))
+        break
+      default:
         break
     }
   }
@@ -76,10 +83,10 @@ class FullResolutionMinMaxArray extends MinMaxArray {
   constructor(points) {
     super(points >> 1)
   }
-  time(i) { return this.array[i*2] }
+  time(i) { return this.array[i*2+0] }
   mean(i) { return this.array[i*2+1] }
-  min(i) { return this.array[i*2+1] }
-  max(i) { return this.array[i*2+1] }
+  min(i)  { return this.array[i*2+1] }
+  max(i)  { return this.array[i*2+1] }
 }
 
 /*
@@ -112,24 +119,22 @@ export default class DecimatedMinMaxSeries {
   sample(startTime, endTime, k = 200) {
     const indexWindow = [
       Math.max(binarySearch(i => this.arrays[0].time(i), startTime, this.arrays[0].chunks), 0),
-      Math.min(binarySearch(i => this.arrays[0].time(i), endTime,   this.arrays[0].chunks) + 1, this.arrays[0].chunks)
+      Math.min(binarySearch(i => this.arrays[0].time(i), endTime,   this.arrays[0].chunks) + 2, this.arrays[0].chunks)
     ]
     // We want the 4^n times decimated sample to have a length `x` in the interval [k/2, 2k] where `k` might be the pixel width of the graph
     // (unless of course x < k/2 in which case we return as many points as we have)
     // n = max(0, floor(log_4(2x/k)))
     const x = (indexWindow[1] - indexWindow[0])
-    const n = Math.min(this.n_bound, Math.max(0, Math.floor(Math.log(2 * x / k + 0.01) / Math.log(4))))
+    const n = Math.min(this.n_bound, Math.max(0, Math.floor(Math.log(2 * x / k + 0.01) / Math.log(4)))) || 0
 
     const decimatedWindow = [
       Math.max(binarySearch(i => this.arrays[n].time(i), startTime, this.arrays[n].chunks), 0),
-      Math.min(binarySearch(i => this.arrays[n].time(i), endTime,   this.arrays[n].chunks) + 1, this.arrays[n].chunks)
+      Math.min(binarySearch(i => this.arrays[n].time(i), endTime,   this.arrays[n].chunks) + 2, this.arrays[n].chunks)
     ]
     const size = decimatedWindow[1] - decimatedWindow[0]
     const result = new Array(size)
 
-    // TODO: decimation of the last point will be here I guess
-    // because the range of the window may not equal x
-    // This is equivalent to copying a slice of the array and chunking every 4 elements into subarrays
+    // This is equivalent to copying a slice of the array and chunking every 4 elements into subarrays (if it's not a FullResolutionMinMaxArray)
     for (let i = 0; i < size; i++) {
       result[i] = [
         this.arrays[n].time(decimatedWindow[0] + i),

@@ -1,22 +1,4 @@
 
-export function minMax(arr) {
-  let [dmin, dmax] = [Infinity, -Infinity]
-  for (let i = 0; i < arr.length; i++) {
-    if (arr[i] < dmin) dmin = arr[i]
-    if (arr[i] > dmax) dmax = arr[i]
-  }
-  return [dmin, dmax]
-}
-
-export function reduceResolution(data) {
-  // Reduce the resolution by taking every `decimation` points
-  // This decimation factor is chosen to keep the number of points bounded by 300
-  // We ensure that the start and end points are included
-  const n = data.length
-  const decimation = Math.floor(n / 300) + 1
-  return data.filter((_, i) => i % decimation === 0 || i === n - 1)
-}
-
 // Round a decimal to the nearest power of 1, 2 or 5 in log space
 function roundToNiceDecimalIncrement(num) {
   if (num < 0) return roundToNiceDecimalIncrement(-num)
@@ -84,10 +66,6 @@ export function binarySearch(f, target, length) {
     }
   }
   return right
-}
-
-export function zip(a, b) {
-  return a.map((v, i) => [v, b[i]])
 }
 
 export function intervalUnion(a, b) {
