@@ -133,7 +133,7 @@ class LJWebSocketsServer:
             self.datalog.log_data(data, type)
 
     def get_UPS_status(self):
-        status = get_output('apcaccess status').split("\n")
+        status = get_output('apcaccess status')
         # if there's a connection, it should say "STATUS   : ONBATT" or "STATUS   : ONLINE" on one of the lines
         if "STATUS   : ONBATT" in status:
             return UPSStatus.BATTERY_POWERED
