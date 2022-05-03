@@ -84,7 +84,7 @@ export function Datalogger({
 
     let newYBounds = null
     const points = seriesKeys.reduce((acc, key) => {
-      acc[key] = seriesArrays[key].sample(...effectiveTimeWindow, w / 3)
+      acc[key] = seriesArrays[key].sample(...effectiveTimeWindow, w / 2)
       newYBounds = intervalUnion(newYBounds, [Math.min(...acc[key].map(x => x[2])), Math.max(...acc[key].map(x => x[3]))])
       return acc
     }, {})
