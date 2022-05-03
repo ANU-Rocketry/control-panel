@@ -23,12 +23,17 @@ function roundToSigFigs(x, sigFigs) {
 }
 
 // Formatted label including SI unit prefixes
-export function formatUnit(val, unit) {
-  return Math.abs(val) >= 1000 ? `${roundToSigFigs(val/1000, 3)} k${unit}`
-       : Math.abs(val) >= 1 ? `${roundToSigFigs(val, 3)} ${unit}`
-       : Math.abs(val) >= 0.001 ? `${roundToSigFigs((val*1000), 3)} m${unit}`
-       : Math.abs(val) >= 0.000001 ? `${roundToSigFigs((val*1000000), 3)} μ${unit}`
-       : `${roundToSigFigs(val, 3)} ${unit}`
+export function formatUnit(val, unit, sigFigs = 3) {
+  return Math.abs(val) >= 1_000_000_000_000  ? `${roundToSigFigs(val / 1_000_000_000_000, sigFigs)} T${unit}`
+       : Math.abs(val) >= 1_000_000_000      ? `${roundToSigFigs(val / 1_000_000_000,     sigFigs)} G${unit}`
+       : Math.abs(val) >= 1_000_000          ? `${roundToSigFigs(val / 1_000_000,         sigFigs)} M${unit}`
+       : Math.abs(val) >= 1_000              ? `${roundToSigFigs(val / 1_000,             sigFigs)} k${unit}`
+       : Math.abs(val) >= 1                  ? `${roundToSigFigs(val,                     sigFigs)} ${unit}`
+       : Math.abs(val) >= 0.001              ? `${roundToSigFigs(val * 1_000,             sigFigs)} m${unit}`
+       : Math.abs(val) >= 0.000_001          ? `${roundToSigFigs(val * 1_000_000,         sigFigs)} μ${unit}`
+       : Math.abs(val) >= 0.000_000_001      ? `${roundToSigFigs(val * 1_000_000_000,     sigFigs)} n${unit}`
+       : Math.abs(val) >= 0.000_000_000_001  ? `${roundToSigFigs(val * 1_000_000_000_000, sigFigs)} p${unit}`
+       : `0 ${unit}`
 }
 
 // Generate around a suggested number of nicely rounded decimal axis ticks with units

@@ -7,7 +7,7 @@ import GraphPanel, { newData, newEvent, pinFromID } from './components/panels/gr
 import Sequences from './components/panels/sequence-panel';
 import ControlPanel from './components/panels/control-panel';
 import Alert from '@material-ui/lab/Alert';
-import { formatDataPoint } from './utils';
+import { formatDataPoint, emptyDataPoint } from './utils';
 
 class App extends React.Component {
 
@@ -38,6 +38,7 @@ class App extends React.Component {
     this.socket.onclose = e => {
       this.socket = null
       console.log('websocket connection lost. reconnecting...')
+      newData(emptyDataPoint)
       setTimeout(() => {
         if (!this.socket) {
           this.connect()

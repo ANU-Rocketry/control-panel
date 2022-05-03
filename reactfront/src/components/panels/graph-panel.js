@@ -6,7 +6,7 @@ import {
   generateAxisTicks, binarySearch, formatUnit, lerp,
   intervalUnion, expandInterval, shrinkInterval, interpolateInterval,
 } from '../graph-utils'
-import DecimatedMinMaxSeries from '../series'
+import Series from '../series'
 import pins from '../../pins.json'
 
 window.enablePageScroll = enablePageScroll
@@ -37,7 +37,7 @@ export function Datalogger({
   // We'll store the data in a series of arrays, one for each series
   // These arrays compute decimated min/max values in an amortized fashion
   const seriesArrays = seriesKeys.reduce((acc, key) => {
-    acc[key] = new DecimatedMinMaxSeries()
+    acc[key] = new Series()
     return acc
   }, {})
 
@@ -85,7 +85,7 @@ export function Datalogger({
     let newYBounds = null
     const points = seriesKeys.reduce((acc, key) => {
       acc[key] = seriesArrays[key].sample(...effectiveTimeWindow, w / 2)
-      newYBounds = intervalUnion(newYBounds, [Math.min(...acc[key].map(x => x[2])), Math.max(...acc[key].map(x => x[3]))])
+      newYBounds = intervalUnion(newYBounds, [acc[key].min, acc[key].max])
       return acc
     }, {})
 
@@ -101,7 +101,7 @@ export function Datalogger({
     const effectiveYBounds = expandInterval(shrinkInterval(yBounds, ySubset), 0.2)
 
     const startSeconds = seriesKeys.reduce((acc, key) => {
-      const t = seriesArrays[key].arrays[0].time(0)
+      const t = seriesArrays[key].series[0].arrays[0].time(0)
       if (t) acc = Math.min(acc, t)
       return acc
     }, currentSeconds)
@@ -128,18 +128,23 @@ export function Datalogger({
     const [mousePosX, setMousePosX] = React.useState(null)
     // Index of the closest point left of the mouse, for each series (-1 if it's NaN or outside the window)
     const tooltipIndices = seriesKeys.map(key => {
-      if (!points[key].length) return -1
+      if (!points[key].length) return null
       const t = currentSeconds + x2v(mousePosX)
-      const i = binarySearch(i => points[key][i][0], t, points[key].length - 1)
-      if (i === -1) return -1
-      if (isNaN(points[key][i][1]) || i >= points[key].length - 1 || isNaN(points[key][i+1][1])) return -1
-      return i
+      // Search through the entire sequence of segments for the closest point before the cursor
+      const i = binarySearch(i => points[key].fromPointIndex(i)[0], t, points[key].totalLength - 1)
+      if (i === -1) return null
+      // Get the segment index and the index of the point in the segment
+      const [seg, point] = points[key].splitPointIndex(i)
+      // If the point is at the end of the segment, the cursor is between segments
+      if (point >= points[key][seg].length - 1 || seg < 0 || point < 0) return null
+      return [seg, point]
     })
     // Hover tooltip text
     const tooltipText = tooltipIndices.map((valIndex, seriesIndex) => {
-      if (valIndex === -1) return ''
+      if (valIndex === null) return ''
+      const [seg, point] = valIndex
       const data = points[seriesKeys[seriesIndex]]
-      const val = lerp(data[valIndex][0], data[valIndex][1], data[valIndex+1][0], data[valIndex+1][1], currentSeconds + x2v(mousePosX))
+      const val = lerp(data[seg][point][0], data[seg][point][1], data[seg][point+1][0], data[seg][point+1][1], currentSeconds + x2v(mousePosX))
       return `${seriesKeys[seriesIndex]}: ${formatUnit(val, unit)}`
     }).filter(text => text.length)
     const flipTooltip = mousePosX > p2x(1) - 160
@@ -277,13 +282,15 @@ export function Datalogger({
           {seriesKeys.map(key => (
             <g key={key}>
               {/* Min/max shading polygons, these should be O(n log n) to partition into triangles and render */}
-              {points[key].decimated && (
-                <polygon points={points[key].map(([ time, mean, min, max ]) => `${v2x(time - currentSeconds)},${v2y(max)}`).join(' ') + ' ' +
-                  points[key].slice(0).reverse().map(([ time, mean, min, max ]) => `${v2x(time - currentSeconds)},${v2y(min)}`).join(' ')}
+              {points[key].map((segment, i) => segment.length && segment.decimated && (
+                <polygon key={i} points={segment.getMinMaxPoints(v2x, v2y, currentSeconds)}
                   fill={series[key].color} opacity='0.3' stroke="none" strokeWidth="0" clipPath='url(#data-clip-path)' />
-              )}
-              <polyline points={points[key].map(([ time, mean ]) => `${v2x(time - currentSeconds)},${v2y(mean)}`).join(' ')}
-                fill="none" stroke={series[key].color} strokeWidth="1" clipPath='url(#data-clip-path)' />
+              ))}
+              {/* Data points */}
+              {points[key].map((segment, i) => segment.length && (
+                <polyline key={i} points={segment.getPoints(v2x, v2y, currentSeconds)}
+                  fill="none" stroke={series[key].color} strokeWidth="1" clipPath='url(#data-clip-path)' />
+              ))}
             </g>
           ))}
           {/* Key/Legend */}
@@ -311,12 +318,15 @@ export function Datalogger({
           value={effectiveTimeWindow}
           onChange={sliderChangeHandler}
           valueLabelDisplay='off'
-          min={Math.min(fullTimeBounds[0], fullTimeBounds[1] - 1)}
+          min={Math.min(fullTimeBounds[0], fullTimeBounds[1] - 10)}
           max={fullTimeBounds[1]}
           style={{width: w - 40, marginLeft: 50}}
           step={0.01}
           marks={[
-            { value: Math.min(fullTimeBounds[0], fullTimeBounds[1] - 1), label: `${Math.round(fullTimeBounds[1] - fullTimeBounds[0])}s ago` },
+            {
+              value: Math.min(fullTimeBounds[0], fullTimeBounds[1] - 10),
+              label: `${Math.max(10, Math.round(fullTimeBounds[1] - fullTimeBounds[0]))}s ago`
+            },
             { value: fullTimeBounds[1], label: 'now' },
           ]}
         />

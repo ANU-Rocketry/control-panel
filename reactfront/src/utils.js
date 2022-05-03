@@ -60,3 +60,11 @@ export function formatDataPoint(dict) {
         'ETH N2': voltsToPsi(dict.labjacks.ETH.analog["1"], 250 /* bar */),  // BADLY CALIBRATED!!!
     }
 }
+
+export const emptyDataPoint = {
+    time: NaN,
+    'LOX Tank': NaN,
+    'LOX N2': NaN,
+    'ETH Tank': NaN,
+    'ETH N2': NaN,
+}

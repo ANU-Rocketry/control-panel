@@ -18,6 +18,13 @@ class DoubleArray {
       console.error(e)
     }
   }
+  shrink() {
+    // Shrinks the array to fit its contents; used when we know we don't need to store more data
+    // so we can free up some memory
+    const newArray = new Float64Array(this.size)
+    newArray.set(this.array.subarray(0, this.size))
+    this.array = newArray
+  }
 }
 
 class MinMaxArray extends DoubleArray {
@@ -82,7 +89,7 @@ class FullResolutionMinMaxArray extends DoubleArray {
  * and provides a way to get min/max values for a given time window at an appropriate decimation
  * It doesn't matter what the time is, so long as it's a consistent unit / reference time and monotonic
  */
-export default class DecimatedMinMaxSeries {
+class DecimatedMinMaxSeries {
   constructor() {
     // We can store up to 500k points in a series. This is enough to store 20 samples a second for 7 hours straight.
     // 2*2**19 + 4*2**18 + 4*2**17 + ... + 4*2**7 64bit doubles is approx 12MiB of arrays in total for this series
@@ -122,6 +129,8 @@ export default class DecimatedMinMaxSeries {
     const result = new Array(size)
 
     // This is equivalent to copying a slice of the array and chunking every 4 elements into subarrays (if it's not a FullResolutionMinMaxArray)
+    result.min = Infinity
+    result.max = -Infinity
     for (let i = 0; i < size; i++) {
       result[i] = [
         this.arrays[n].time(decimatedWindow[0] + i),
@@ -129,8 +138,74 @@ export default class DecimatedMinMaxSeries {
         this.arrays[n].min(decimatedWindow[0] + i),
         this.arrays[n].max(decimatedWindow[0] + i)
       ]
+      result.min = Math.min(result.min, result[i][2])
+      result.max = Math.max(result.max, result[i][3])
     }
     result.decimated = n > 0
+    result.getPoints = (v2x, v2y, currentSeconds) => {
+      let acc = ''
+      for (let i = 0; i < size; i++) {
+        acc += `${v2x(result[i][0] - currentSeconds)},${v2y(result[i][1])} `
+      }
+      return acc
+    }
+    result.getMinMaxPoints = (v2x, v2y, currentSeconds) => {
+      let acc = ''
+      for (let i = 0; i < size; i++) {
+        acc += `${v2x(result[i][0] - currentSeconds)},${v2y(result[i][2])} `
+      }
+      for (let i = size - 1; i >= 0; i--) {
+        acc += `${v2x(result[i][0] - currentSeconds)},${v2y(result[i][3])} `
+      }
+      return acc
+    }
+    return result
+  }
+  shrink() {
+    // Shrink all the arrays to fit their contents
+    for (let n = 0; n <= this.n_bound; n++) {
+      this.arrays[n].shrink()
+    }
+  }
+}
+
+// A Series is a sequence of DecimatedMinMaxSeries, one for each segment of the time series
+// (each NaN causes a separation)
+export default class Series {
+  constructor() {
+    this.series = [new DecimatedMinMaxSeries()]
+  }
+  push(time, value) {
+    if (isNaN(time) || isNaN(value)) {
+      if (this.series[this.series.length-1].arrays[0].chunks > 0) {
+        this.series[this.series.length-1].shrink()
+        this.series.push(new DecimatedMinMaxSeries())
+      }
+    } else {
+      this.series[this.series.length-1].push(time, value)
+    }
+  }
+  // Returns a list of lists of [time, mean, min, max] values
+  // Each sublist is a segment of the line, each sub-sublist is a single point within the segment
+  sample(startTime, endTime, k) {
+    // We don't cull empty lists so we can use the list index as a React key
+    const result = this.series.map(s => s.sample(startTime, endTime, k))
+    result.totalLength = result.reduce((acc, cur) => acc + cur.length, 0)
+    result.splitPointIndex = i => {
+      // Find the index of the segment and the index within the segment of the `i`th point
+      for (let j = 0; j < result.length; j++) {
+        if (i < result[j].length)
+          return [j, i]
+        i -= result[j].length
+        if (i < 0) return [-1, -1]
+      }
+    }
+    result.fromPointIndex = i => {
+      const [segmentIndex, pointIndex] = result.splitPointIndex(i)
+      return result[segmentIndex][pointIndex]
+    }
+    result.min = Math.min(...result.map(s => s.min))
+    result.max = Math.max(...result.map(s => s.max))
     return result
   }
 }
