@@ -9,9 +9,9 @@ class DoubleArray {
   }
   push(...values) {
     try {
-    this.array.set(values, this.size)
-    this.size += values.length
-    this.chunks++
+      this.array.set(values, this.size)
+      this.size += values.length
+      this.chunks++
     } catch (e) {
       console.error(this, values)
       console.error(e)
@@ -29,29 +29,52 @@ class MinMaxArray extends DoubleArray {
   max(i) { return this.array[i*4+3] }
   updateDecimation(source) {
     // Apply 4x decimation to the source MinMaxArray
-    if (source.chunks % 4 === 0 && source.chunks > 0) {
-      const i = source.chunks - 4
-      this.push(
-        (source.time(i) + source.time(i+1) + source.time(i+2) + source.time(i+3)) / 4,
-        (source.mean(i) + source.mean(i+1) + source.mean(i+2) + source.mean(i+3)) / 4,
-        Math.min(source.min(i), source.min(i+1), source.min(i+2), source.min(i+3)),
-        Math.max(source.max(i), source.max(i+1), source.max(i+2), source.max(i+3))
-      )
+    // Every chunk of size 4 in the source array corresponds to one [time, mean, min, max] entry here
+    // When a new source chunk starts, we start a new entry in the destination array
+    // Each time the source chunk is updated, we update the destination entry
+    // When the source chunk finishes, we move on to the next destination entry
+    // This way we have in-flight decimated data for the latest data points
+    const c = source.chunks
+    let s = this.size
+    if (c === 0) return
+    switch (c % 4) {
+      case 0:
+        // Finalising the decimation of the now-finished source chunk
+        this.array[s-4] = (source.time(c-4) + source.time(c-3) + source.time(c-2) + source.time(c-1)) / 4
+        this.array[s-3] = (source.mean(c-4) + source.mean(c-3) + source.mean(c-2) + source.mean(c-1)) / 4
+        this.array[s-2] = Math.min(source.min(c-4), source.min(c-3), source.min(c-2), source.min(c-1))
+        this.array[s-1] = Math.max(source.max(c-4), source.max(c-3), source.max(c-2), source.max(c-1))
+        break
+      case 1:
+        // Starting the decimation of the new in-progress source chunk with only one point
+        this.size += 4; s = this.size
+        this.chunks++
+        this.array[s-4] = source.time(c-1)
+        this.array[s-3] = source.mean(c-1)
+        this.array[s-2] = source.min(c-1)
+        this.array[s-1] = source.max(c-1)
+        break
+      case 2:
+        // Updating the decimation of the in-progress source chunk to reflect the new second point
+        this.array[s-4] = (source.time(c-2) + source.time(c-1)) / 2
+        this.array[s-3] = (source.mean(c-2) + source.mean(c-1)) / 2
+        this.array[s-2] = Math.min(source.min(c-2), source.min(c-1))
+        this.array[s-1] = Math.max(source.max(c-2), source.max(c-1))
+        break
+      case 3:
+        // Updating the decimation of the in-progress source chunk to reflect the new third point
+        this.array[s-4] = (source.time(c-3) + source.time(c-2) + source.time(c-1)) / 3
+        this.array[s-3] = (source.mean(c-3) + source.mean(c-2) + source.mean(c-1)) / 3
+        this.array[s-2] = Math.min(source.min(c-3), source.min(c-2), source.min(c-1))
+        this.array[s-1] = Math.max(source.max(c-3), source.max(c-2), source.max(c-1))
+        break
     }
   }
 }
 
 class FullResolutionMinMaxArray extends MinMaxArray {
   constructor(points) {
-    // TODO: undo
-    super(0)
-    this.array = []
-  }
-  push(...values) {
-    // TODO: undo
-    this.array.push(...values)
-    this.size += values.length
-    this.chunks++
+    super(points >> 1)
   }
   time(i) { return this.array[i*2] }
   mean(i) { return this.array[i*2+1] }
@@ -72,8 +95,7 @@ export default class DecimatedMinMaxSeries {
     // this.arrays[0] is the raw data with stride 2; FullResolutionMinMaxArray provides a min/max view into it
     // this.arrays[1] is a 4x decimated version of this.arrays[0] with stride 4; each chunk is of the form [time1, mean1, min1, max1, ...]
     // this.arrays[n] is a (4^n)x decimated version of this.arrays[n-1] with stride 4
-    // TODO: undo
-    this.n_bound = 0
+    this.n_bound = 4
     this.arrays = {}
     this.capacity = 1_048_576
     this.arrays[0] = new FullResolutionMinMaxArray(this.capacity)
@@ -97,8 +119,11 @@ export default class DecimatedMinMaxSeries {
     // n = max(0, floor(log_4(2x/k)))
     const x = (indexWindow[1] - indexWindow[0])
     const n = Math.min(this.n_bound, Math.max(0, Math.floor(Math.log(2 * x / k + 0.01) / Math.log(4))))
-    // const decimatedWindow = [indexWindow[0] >> (2*n-1), indexWindow[1] >> (2*n-1)]
-    const decimatedWindow = [0, this.arrays[n].chunks]
+
+    const decimatedWindow = [
+      Math.max(binarySearch(i => this.arrays[n].time(i), startTime, this.arrays[n].chunks), 0),
+      Math.min(binarySearch(i => this.arrays[n].time(i), endTime,   this.arrays[n].chunks) + 1, this.arrays[n].chunks)
+    ]
     const size = decimatedWindow[1] - decimatedWindow[0]
     const result = new Array(size)
 
