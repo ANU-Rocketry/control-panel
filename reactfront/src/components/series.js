@@ -142,20 +142,24 @@ class DecimatedMinMaxSeries {
       result.max = Math.max(result.max, result[i][3])
     }
     result.decimated = n > 0
+    // Format the result in "x1,y1 x2,y2, ..." format for ingestion into an SVG polyline
     result.getPoints = (v2x, v2y, currentSeconds) => {
       let acc = ''
       for (let i = 0; i < size; i++) {
-        acc += `${v2x(result[i][0] - currentSeconds)},${v2y(result[i][1])} `
+        // Round to the nearest 0.1px in the x direction to avoid jittering when the time window is moving with the current time
+        // We don't need to round in the y direction because the y scale changes are less obvious (rounding is much cheaper than toFixed(1))
+        acc += `${(v2x(result[i][0] - currentSeconds)).toFixed(1)},${Math.round(v2y(result[i][1]))} `
       }
       return acc
     }
+    // Ditto but for a polygon
     result.getMinMaxPoints = (v2x, v2y, currentSeconds) => {
       let acc = ''
       for (let i = 0; i < size; i++) {
-        acc += `${v2x(result[i][0] - currentSeconds)},${v2y(result[i][2])} `
+        acc += `${(v2x(result[i][0] - currentSeconds)).toFixed(1)},${Math.round(v2y(result[i][2]))} `
       }
       for (let i = size - 1; i >= 0; i--) {
-        acc += `${v2x(result[i][0] - currentSeconds)},${v2y(result[i][3])} `
+        acc += `${(v2x(result[i][0] - currentSeconds)).toFixed(1)},${Math.round(v2y(result[i][3]))} `
       }
       return acc
     }
