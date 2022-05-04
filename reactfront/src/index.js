@@ -50,6 +50,12 @@ class App extends React.Component {
       const data = JSON.parse(e.data);
       switch (data.type) {
         case 'STATE':
+          data.data.time = parseInt(data.data.time) / 1000
+          // If there's a >1s gap, introduce a segment break
+          // This is well behaved with NaNs (if state.data.time is undefined it's false)
+          if (data.data.time - this.state.data?.time > 1) {
+            newData(emptyDataPoint)
+          }
           newData(formatDataPoint(data.data))
           this.setState({ data: data.data })
           break
@@ -59,8 +65,8 @@ class App extends React.Component {
         case 'VALVE':
           // We use this.state.data.time instead of new Date().getTime() because the devices can report epoch times off by a consistent
           // several hour offset in extreme conditions it seems
-          // Example: { "header": "OPEN", "data": { "name": "LOX", "pin": 13 }, "time": 1651140990 }
-          const time = parseInt(this.state.data.time) / 1000
+          // Example: data.data = { "header": "OPEN", "data": { "name": "LOX", "pin": 13 } }
+          const time = data.time / 1000
           const pin = pinFromID(data.data.data.pin).pin
           const label = (data.data.header === 'CLOSE' ? 'Closed' : 'Opened') + ' ' + pin.test_stand + ' ' + pin.abbrev
           newEvent({ time, label })

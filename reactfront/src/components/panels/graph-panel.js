@@ -367,7 +367,7 @@ export default function GraphPanel({ state }) {
   // and efficiently construct highly customisable graphs
   return (
     <Panel title="Graphs" className='panel graphs'>
-      <PressureDatalogger currentSeconds={parseInt(state.data?.time) / 1000} />
+      <PressureDatalogger currentSeconds={state.data?.time} />
     </Panel>
   )
 }

@@ -52,7 +52,7 @@ export function voltsToPsi(volts, barMax) {
 export function formatDataPoint(dict) {
     return {
         // Epoch time in fractional seconds
-        time: parseInt(dict.time) / 1000,
+        time: dict.time,
         // Note: these bar max figures are also in the sensors list in control-panel.js
         'LOX Tank': getPsi(dict.labjacks.LOX.analog["3"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
         'LOX N2': voltsToPsi(dict.labjacks.LOX.analog["1"], 250 /* bar */),  // BADLY CALIBRATED!!!
