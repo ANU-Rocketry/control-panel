@@ -1,10 +1,8 @@
-# LJSoftware
-
-Full stack suite to allow custom control of LabJacks, over TCP for rocket testing
+# ANU Rocketry Test Stand Control Panel
 
 ![screenshot](./screenshot.png)
 
-This project consists of two parts: a backend that runs on a Raspberry Pi written in Python, and a front end website client written using Node.js and React.js. The two communicate over a point-to-point wifi connection.
+This project consists of two parts: a backend that runs on a Raspberry Pi written in Python, and a front end website client written using React.js. The two communicate over a point-to-point wifi connection.
 
 # How To Use
 
@@ -26,8 +24,8 @@ You'll need a Raspberry Pi and your laptop, and some way of putting them on the 
     1. Run installation script (`sudo ./install.sh`)
 1. Install this repository
     1. Go to your home folder (`cd ~`)
-    1. Clone this repository (`git clone https://github.com/pstefa1707/LJSoftware`)
-    1. Go into the repository (`cd LJSoftware`)
+    1. Clone this repository (`git clone https://github.com/ANU-Rocketry/control-panel`)
+    1. Go into the repository (`cd control-panel`)
 1. Install Python 3.10 from source (based off this: https://itheo.tech/installing-python-310-on-raspberry-pi)
     1. `wget -qO - https://raw.githubusercontent.com/tvdsluijs/sh-python-installer/main/python.sh | sudo bash -s 3.10.0` (this will take an hour)
     1. `sudo python3.10 -m pip install --upgrade pip`
@@ -38,7 +36,7 @@ You'll need a Raspberry Pi and your laptop, and some way of putting them on the 
     1. Replace the contents with:
       ```sh
      #!/bin/sh -e
-     sudo sh /home/pi/LJSoftware/startup.sh &
+     sudo sh /home/pi/control-panel/startup.sh &
      exit 0
      ```
 1. Set up static IP
@@ -103,77 +101,20 @@ The startup script on the Pi runs a static server with `reactfront/build`, so yo
 ```sh
 # delete old build (on the raspberry pi!)
 ssh pi@192.168.0.5
-cd ~/LJSoftware/reactfront
+cd ~/control-panel/reactfront
 rm -r build
 logout
 
 # scp over new build (on your machine!)
 cd reactfront
 npm run build
-scp -r build pi@192.168.0.5:/home/pi/LJSoftware/reactfront
+scp -r build pi@192.168.0.5:/home/pi/control-panel/reactfront
 # Reload http://192.168.0.5:3000 in your browser
 ```
 
 # Data Schema
 
 Data is transferred between the server and client over websockets.
-
-## JSON
-
-The data in a valid request (from client to server) is JSON following the schema:
-
-```json
-{
-"command":
-  {
-    "header": <Header String>,
-    "data": <Command Parameter>
-  },
-"time": <Time in milliseconds since EPOC>
-}
-```
-The data in a state 'emit' from the server is JSON following the schema:
-
-```json
-{
-"type": "STATE",
-"data":
-  {
-    "arming_switch" : Bool,
-    "manual_switch" : Bool,
-    "current_sequence" : null or list of commands,
-    "sequence_running": Bool,
-    "lox":
-      {
-        "digital":{
-          Pin(int):Bool
-        },
-        "analog":{
-          Pin(int):Float
-        }
-      },
-     "eth":
-      {
-        "digital":{
-          Pin(int):Bool
-        },
-        "analog":{
-          Pin(int):Float
-        }
-      }
-  },
-"time": <Time in milliseconds since EPOC>
-}
-```
-The data in an error response follows the following schema:
-
-```json
-{
-"type": "ERROR",
-"data": Error message,
-"time": <Time in milliseconds since EPOC>
-}
-```
 
 ## Command
 
@@ -193,18 +134,3 @@ A command consists of a `header` and a `parameter`. Valid commands can be seen b
 | SETSEQUENCE | [command1, command2, ...] |
 
 A sequence is a list of multiple commands. These commands can only consist of `OPEN`, `CLOSE` and `SLEEP` commands.
-
-These commands can be represented and authorised by the `LJCommands.py/Command` object. They can also be represented as strings in the JSON TCP requests.
-
-# Project Overview
-
-The `LabJack.py` file contains a simple library used to communicate with the LabJacks themselves. There's a `LabJackFake` simulation class you can use as well.
-
-
-The `LJCommands.py` file contains the `Command` and `CommandString` objects, which define hollistic commands and headers respectively. The `Command` object ensures correctness of commands. This object throws errors.
-
-
-The `LJClient.py` will contain an object that interfaces with the `LJSocket` over TCP and contains an interface similar to that in `LabJack.py` to communicate with the LabJacks, abstracting all TCP yucky stuff.
-
-
-The `LJSocket.py` file contains the `LJSocket` object which hosts an asynchronous TCP web server that serves clients, parses JSON data, commands, and all backend stuff.
