@@ -212,6 +212,7 @@ class DecimatedMinMaxSeries {
 export class Series {
   constructor() {
     this.series = [new DecimatedMinMaxSeries()]
+    this.enabled = true
   }
   push(time, value) {
     if (isNaN(time) || isNaN(value)) {
@@ -273,7 +274,8 @@ export class Series {
  */
 export default class SeriesCollection {
   constructor(series) {
-    this.keys = Array.from(Object.keys(series))
+    this.series = series
+    this.keys = Array.from(Object.keys(this.series))
 
     // We'll store the data in a series of arrays, one for each series
     // These arrays compute decimated min/max values in an amortized fashion
@@ -289,15 +291,18 @@ export default class SeriesCollection {
     return Math.min(...this.keys.map(key => this.arrays[key].minTime()).filter(x => x))
   }
   sample(timeWindow, k) {
-    const points = this.objectMap(key => this.arrays[key].sample(...timeWindow, k))
-    points.min = Math.min(...this.keys.map(key => points[key].min))
-    points.max = Math.max(...this.keys.map(key => points[key].max))
+    const points = this.objectMap(key => this.arrays[key].enabled && this.arrays[key].sample(...timeWindow, k))
+    points.min = Math.min(...this.keys.filter(key => this.arrays[key].enabled).map(key => points[key].min))
+    points.max = Math.max(...this.keys.filter(key => this.arrays[key].enabled).map(key => points[key].max))
     return points
   }
   samplePreview(k) {
-    const preview = this.objectMap(key => this.arrays[key].samplePreview(k))
-    preview.min = Math.min(...this.keys.map(key => preview[key].min))
-    preview.max = Math.max(...this.keys.map(key => preview[key].max))
+    const preview = this.objectMap(key => this.arrays[key].enabled && this.arrays[key].samplePreview(k))
+    preview.min = Math.min(...this.keys.filter(key => this.arrays[key].enabled).map(key => preview[key].min))
+    preview.max = Math.max(...this.keys.filter(key => this.arrays[key].enabled).map(key => preview[key].max))
     return preview
+  }
+  toggleSeries(key) {
+    this.arrays[key].enabled = !this.arrays[key].enabled
   }
 }

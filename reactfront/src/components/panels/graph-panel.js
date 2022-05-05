@@ -1,10 +1,9 @@
 import React from 'react'
 import { Panel } from '../index'
-import { Slider } from '@material-ui/core'
 import { disablePageScroll, enablePageScroll } from 'scroll-lock'
 import {
   generateAxisTicks, binarySearch, formatUnit, lerp, clamp,
-  intervalUnion, expandInterval, shrinkInterval, interpolateInterval, boundIntervalKeepingLength
+  intervalUnion, expandInterval, interpolateInterval, boundIntervalKeepingLength
 } from '../graph-utils'
 import SeriesCollection from '../series'
 import pins from '../../pins.json'
@@ -102,13 +101,7 @@ export function Datalogger({
 
     // interpolate the bounds over time
     yBounds = interpolateInterval(yBounds, intervalUnion([points.min, points.max], minYBounds), 0.1)
-
-    // Percentage start/end of the y bounds we see (for primitive vertical zoom functionality)
-    const [ySubset, setYSubset] = React.useState([0, 1])
-    const ySliderChangeHandler = (_event, newYSubset) => {
-      setYSubset([Math.min(...newYSubset), Math.max(...newYSubset)])
-    }
-    const effectiveYBounds = expandInterval(shrinkInterval(yBounds, ySubset), 0.2)
+    const effectiveYBounds = expandInterval(yBounds, 0.2)
 
     const fullTimeBounds = [startSeconds, currentSeconds]
 
@@ -138,7 +131,7 @@ export function Datalogger({
     const [mousePosX, setMousePosX] = React.useState(null)
     // Index of the closest point left of the mouse, for each series (-1 if it's NaN or outside the window)
     const tooltipIndices = seriesKeys.map(key => {
-      if (!points[key].length) return null
+      if (!points[key] || !points[key].length) return null
       const t = currentSeconds + x2v(mousePosX)
       // Search through the entire sequence of segments for the closest point before the cursor
       const i = binarySearch(i => points[key].fromPointIndex(i)[0], t, points[key].totalLength - 1)
@@ -239,7 +232,6 @@ export function Datalogger({
     const [previewDragStartTime, setPreviewDragStartTime] = React.useState(null)
 
     const handlePreviewMouseOut = e => {
-      // TODO: is this correct if the mouse moves out onto the other SVG?
       enablePageScroll()
     }
     const handlePreviewMouseDown = e => {
@@ -270,7 +262,8 @@ export function Datalogger({
 
     return (
       <div onMouseMove={e => previewMouseDown ? handlePreviewMouseMove(e) : handleMouseMove(e)}>
-        <svg viewBox={`0 0 ${w} ${h-50}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h-50} style={{ userSelect: 'none', fontFamily: 'sans-serif' }}
+        <svg viewBox={`0 0 ${w} ${h-50}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h-50}
+          style={{ userSelect: 'none', fontFamily: 'sans-serif', display: 'block' }}
           ref={svgRef}
           onMouseOver={() => disablePageScroll()} onMouseOut={handleMouseOut}
           onMouseDown={handleMouseDown} onWheel={wheelHandler}
@@ -279,7 +272,7 @@ export function Datalogger({
           {xTicks.map(({ tick, label }) => (
             <line key={tick} x1={v2x(tick)} y1={p2y(1)} x2={v2x(tick)} y2={p2y(0)} stroke="#ddd" />
           ))}
-          <line x1={p2x(0)} y1={p2y(1)} x2={p2x(1)} y2={p2y(1)} stroke="#888" strokeWidth='2' />
+          <line x1={0} y1={p2y(1)} x2={w} y2={p2y(1)} stroke="#888" strokeWidth='2' />
           {/* Vertical axis gridlines */}
           {yTicks.map(({ tick, label }) => (
             <line key={tick} x1={p2x(0)} y1={v2y(tick)} x2={p2x(1)} y2={v2y(tick)} stroke="#ddd" />
@@ -296,12 +289,12 @@ export function Datalogger({
           {seriesKeys.map(key => (
             <g key={key}>
               {/* Min/max shading polygons, these should be O(n log n) to partition into triangles and render */}
-              {points[key].map((segment, i) => segment.length && segment.decimated && (
+              {points[key] && points[key].map((segment, i) => segment.length && segment.decimated && (
                 <polygon key={i} points={segment.getMinMaxPoints(v2x, v2y, currentSeconds)}
                   fill={series[key].color} opacity='0.5' stroke="none" strokeWidth="0" />
               ))}
               {/* Data points */}
-              {points[key].map((segment, i) => segment.length && (
+              {points[key] && points[key].map((segment, i) => segment.length && (
                 <polyline key={i} points={segment.getPoints(v2x, v2y, currentSeconds)}
                   fill="none" stroke={series[key].color} strokeWidth="1" />
               ))}
@@ -315,25 +308,27 @@ export function Datalogger({
           {yTicks.map(({ tick, label }) => p2y(1) - v2y(tick) > 20 && (
             <text key={tick} x={p2x(0)+2} y={v2y(tick)} textAnchor="start" alignmentBaseline="after-edge" fontSize="12">{label}</text>
           ))}
-          {/* Key/Legend */}
-          {seriesKeys.map((key, i) => (
-            <g key={key}>
-              <circle r="3.5" fill={series[key].color} cx={w-10} cy={12+i*20} />
-              <text fontSize="12" x={w-20} textAnchor="end" alignmentBaseline='middle' fill={series[key].color} y={13+i*20}>{key}</text>
-            </g>
-          ))}
           {/* Tooltip */}
           {tooltipText.length && mousePosX > p2x(0) && (
             <g>
               <line x1={mousePosX} y1={p2y(0)} x2={mousePosX} y2={p2y(1)} stroke="black" strokeWidth='1' />
               {tooltipText.map((text, i) => (
-                <text key={i} x={Math.max(50, Math.min(mousePosX+(flipTooltip?-5:5), p2x(1)-100))} y={p2y(0)+20+16*i} textAnchor={flipTooltip?"end":"start"}
+                <text key={i} x={Math.max(50, Math.min(mousePosX+(flipTooltip?-5:5), p2x(1)-100))} y={p2y(0)+18+20*i} textAnchor={flipTooltip?"end":"start"}
                   alignmentBaseline="text-after-edge" fontSize="12">{text}</text>
               ))}
             </g>
           )}
+          {/* Key/Legend */}
+          {seriesKeys.map((key, i) => (
+            <g key={key} onClick={e => store.toggleSeries(key)} cursor='pointer'>
+              <rect x={w-100} y={i*20} width="100" height="20" fill="transparent" />
+              <circle r="4" fill={store.arrays[key].enabled ? series[key].color : 'lightgrey'} cx={w-10} cy={12+i*20} />
+              <text fontSize="12" x={w-20} textAnchor="end" alignmentBaseline='middle' fill={store.arrays[key].enabled ? series[key].color : 'lightgrey'} y={13+i*20}>{key}</text>
+            </g>
+          ))}
         </svg>
-        <svg viewBox={`0 0 ${w} ${50}`} xmlns="http://www.w3.org/2000/svg" width={w} height={50} style={{ userSelect: 'none', fontFamily: 'sans-serif' }}
+        <svg viewBox={`0 0 ${w} ${50}`} xmlns="http://www.w3.org/2000/svg" width={w} height={50}
+          style={{ userSelect: 'none', fontFamily: 'sans-serif', display: 'block' }}
           onMouseOut={handlePreviewMouseOut} onMouseMove={handlePreviewMouseMove}
           onMouseDown={handlePreviewMouseDown}
         >
@@ -344,7 +339,7 @@ export function Datalogger({
           {/* Preview graph */}
           {seriesKeys.map(key => (
             <g key={key}>
-              {preview[key].map((segment, i) => segment.length && (
+              {preview[key] && preview[key].map((segment, i) => segment.length && (
                 <polyline key={i} points={segment.getPoints(v2previewX, v2previewY, currentSeconds)}
                   fill="none" stroke={series[key].color} strokeWidth="1" />
               ))}
@@ -366,22 +361,14 @@ export function Datalogger({
             y="0" width="16" height="50" fill="transparent" stroke="none" strokeWidth="0" cursor="col-resize" />
           <rect x={v2previewX(relativeTimeWindow[0])-10} onMouseDown={e => handlePreviewResizeHandleMouseDown(e, 0)}
             y="0" width="16" height="50" fill="transparent" stroke="none" strokeWidth="0" cursor="col-resize" />
+          {/* Jump to present button */}
+          {window.length !== 1 && (
+            <g cursor='pointer' onClick={jumpToPresent}>
+              <rect x={w-16} y='2' width="15" height="18" fill="#999" stroke="none" strokeWidth="0" rx="4" />
+              <polyline points={`${w-11},6 ${w-5},11 ${w-11},16`} fill="none" stroke="#fff" strokeWidth="2" />
+            </g>
+          )}
         </svg>
-        {/* Jump to present button */}
-        <button className={'jump-to-present ' + (window.length !== 1 ? 'active' : '')} onClick={jumpToPresent}>&gt;</button>
-        {/* Y scale range slider (low effort way to zoom in vertically) */}
-        <Slider
-          value={ySubset}
-          onChange={ySliderChangeHandler}
-          valueLabelDisplay='off'
-          min={0} max={1}
-          style={{width: w - 40, marginLeft: 50}}
-          step={0.005}
-          marks={[
-            { value: 0, label: "Bottom" },
-            { value: 1, label: "Top" },
-          ]}
-        />
         <button onClick={downloadSVG}>Download SVG</button>
       </div>
     )
