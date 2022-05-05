@@ -102,3 +102,11 @@ export function lerp(x1, y1, x2, y2, x) {
 export function clamp(x, min, max) {
   return Math.max(min, Math.min(max, x))
 }
+
+export function boundIntervalKeepingLength([a, b], [min, max]) {
+  // Clamps the interval within the bounds, ensuring b-a is the same after
+  if (a < min && b > max) return [min, max]  // cannot preserve length
+  else if (a < min) return [min, min + (b - a)]
+  else if (b > max) return [max - (b - a), max]
+  else return [a, b]
+}

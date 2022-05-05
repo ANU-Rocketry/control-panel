@@ -4,7 +4,7 @@ import { Slider } from '@material-ui/core'
 import { disablePageScroll, enablePageScroll } from 'scroll-lock'
 import {
   generateAxisTicks, binarySearch, formatUnit, lerp, clamp,
-  intervalUnion, expandInterval, shrinkInterval, interpolateInterval,
+  intervalUnion, expandInterval, shrinkInterval, interpolateInterval, boundIntervalKeepingLength
 } from '../graph-utils'
 import SeriesCollection from '../series'
 import pins from '../../pins.json'
@@ -172,34 +172,22 @@ export function Datalogger({
       setWindow([Math.min(left, right - 0.01), right])
     }
 
+    const handleMouseDown = e => {
+      setMouseDown(true)
+      const x = e.clientX - svgRef.current?.getBoundingClientRect().left
+      setDragStartXAndTime([x, effectiveTimeWindow])
+    }
+
     const handleMouseMove = e => {
       // Show tooltip on hover
       const x = e.clientX - svgRef.current?.getBoundingClientRect().left
       setMousePosX(x)
-      if (mouseDown && dragStartXAndTime === null) {
-        setDragStartXAndTime([x, effectiveTimeWindow])
-      }
-      if (mouseDown && dragStartXAndTime !== null) {
+      if (mouseDown) {
         const [startX, startWindow] = dragStartXAndTime
         let dt = x2v(startX) - x2v(x)
         let newWindow = [startWindow[0] + dt, startWindow[1] + dt]
-        if (newWindow[0] < fullTimeBounds[0] && newWindow[1] > fullTimeBounds[1]) {
-          newWindow = fullTimeBounds
-        } else if (newWindow[0] < fullTimeBounds[0]) {
-          dt = fullTimeBounds[0] - newWindow[0]
-          newWindow = [newWindow[0] + dt, newWindow[1] + dt]
-        } else if (newWindow[1] > fullTimeBounds[1]) {
-          dt = fullTimeBounds[1] - newWindow[1]
-          newWindow = [newWindow[0] + dt, newWindow[1] + dt]
-        }
-        if (newWindow[1] === fullTimeBounds[1]) {
-          setWindow([newWindow[0] - newWindow[1]])
-        } else {
-          setWindow(newWindow)
-        }
-      }
-      if (!mouseDown && dragStartXAndTime !== null) {
-        setDragStartXAndTime(null)
+        newWindow = boundIntervalKeepingLength(newWindow, intervalUnion(fullTimeBounds, [currentSeconds-10, currentSeconds]))
+        setWindow(newWindow)
       }
     }
 
@@ -231,8 +219,11 @@ export function Datalogger({
     React.useEffect(() => {
       document.body.addEventListener('mouseup', () => {
         setMouseDown(false)
+        setDragStartXAndTime(null)
         setPreviewMouseDown(false)
+        setPreviewDragStartTime(null)
         setPreviewResizeHandleMouseDown(false)
+        setPreviewResizeHandleDragData(null)
       })
     }, [])
 
@@ -271,9 +262,6 @@ export function Datalogger({
           setWindow(newWindow)
         }
       }
-      if (!previewMouseDown && previewDragStartTime !== null) {
-        setPreviewDragStartTime(null)
-      }
       if (previewResizeHandleMouseDown) {
         let newWindow = [...effectiveTimeWindow]
         const [oldWindow, i] = previewResizeHandleDragData
@@ -294,7 +282,7 @@ export function Datalogger({
         <svg viewBox={`0 0 ${w} ${h-50}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h-50} style={{ userSelect: 'none', fontFamily: 'sans-serif' }}
           ref={svgRef}
           onMouseOver={() => disablePageScroll()} onMouseOut={handleMouseOut}
-          onMouseDown={() => setMouseDown(true)} onWheel={wheelHandler}
+          onMouseDown={handleMouseDown} onWheel={wheelHandler}
         >
           {/* Horizontal axis gridlines */}
           {xTicks.map(({ tick, label }) => (
@@ -319,7 +307,7 @@ export function Datalogger({
               {/* Min/max shading polygons, these should be O(n log n) to partition into triangles and render */}
               {points[key].map((segment, i) => segment.length && segment.decimated && (
                 <polygon key={i} points={segment.getMinMaxPoints(v2x, v2y, currentSeconds)}
-                  fill={series[key].color} opacity='0.3' stroke="none" strokeWidth="0" />
+                  fill={series[key].color} opacity='0.5' stroke="none" strokeWidth="0" />
               ))}
               {/* Data points */}
               {points[key].map((segment, i) => segment.length && (
