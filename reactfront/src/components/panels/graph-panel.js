@@ -248,7 +248,7 @@ export function Datalogger({
         const [dragStartTime, startWindow] = previewDragStartTime
         let dt = previewX2v(x) - dragStartTime
         let newWindow = [startWindow[0] + dt, startWindow[1] + dt]
-        setWindow(boundIntervalKeepingLength(newWindow, intervalUnion(fullTimeBounds, [currentSeconds-10, currentSeconds])))
+        setWindow(boundIntervalKeepingLength(newWindow, fullTimeBounds))
       }
       if (previewResizeHandleMouseDown) {
         const i = previewResizeHandleDragData
