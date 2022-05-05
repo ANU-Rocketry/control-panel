@@ -81,6 +81,7 @@ export function Datalogger({
         const minTMinusTime = Math.min(-10, startSeconds - currentSeconds)
         _setWindow([clamp(tMinusTime, minTMinusTime, 0)])
       } else {  // fixed rep
+        w = [Math.min(...w), Math.max(...w)]
         _setWindow([
           clamp(w[0], startSeconds, w[1] - 0.01),
           clamp(w[1], w[0], currentSeconds)
@@ -123,9 +124,9 @@ export function Datalogger({
 
     const previewMargin = { l: margin.l, r: margin.r, t: 6, b: 12 }
     const p2previewY = p => previewMargin.t + p * (50 - previewMargin.t - previewMargin.b)
-    const v2previewX = v => p2x(1-v / (Math.min(fullTimeBounds[1]-10,fullTimeBounds[0]) - fullTimeBounds[1]))
     const v2previewY = v => p2previewY(1 - (v - preview.min) / (preview.max - preview.min))
-    const previewX2v = x => Math.min(fullTimeBounds[1]-10,fullTimeBounds[0]) - x2p(x) * Math.max(10, fullTimeBounds[0] - fullTimeBounds[1]) // inverse
+    const v2previewX = v => p2x(1 - v / (Math.min(fullTimeBounds[1] - 10, fullTimeBounds[0]) - fullTimeBounds[1]))
+    const previewX2v = x => (1 - x2p(x)) * (Math.min(fullTimeBounds[1] - 10, fullTimeBounds[0]) - fullTimeBounds[1]) // inverse
 
     // Horizontal axis ticks
     const xTicks = generateAxisTicks(...relativeTimeWindow, 4, 's')
@@ -172,15 +173,16 @@ export function Datalogger({
       setWindow([Math.min(left, right - 0.01), right])
     }
 
+    const getXFromEvent = e => e.clientX - svgRef.current?.getBoundingClientRect().left
+
     const handleMouseDown = e => {
       setMouseDown(true)
-      const x = e.clientX - svgRef.current?.getBoundingClientRect().left
-      setDragStartXAndTime([x, effectiveTimeWindow])
+      setDragStartXAndTime([getXFromEvent(e), effectiveTimeWindow])
     }
 
     const handleMouseMove = e => {
       // Show tooltip on hover
-      const x = e.clientX - svgRef.current?.getBoundingClientRect().left
+      const x = getXFromEvent(e)
       setMousePosX(x)
       if (mouseDown) {
         const [startX, startWindow] = dragStartXAndTime
@@ -227,54 +229,39 @@ export function Datalogger({
       })
     }, [])
 
-    const previewRef = React.useRef(null)
     const [previewResizeHandleMouseDown, setPreviewResizeHandleMouseDown] = React.useState(false)
     const [previewResizeHandleDragData, setPreviewResizeHandleDragData] = React.useState(null)
     const [previewMouseDown, setPreviewMouseDown] = React.useState(false)
     const [previewDragStartTime, setPreviewDragStartTime] = React.useState(null)
 
     const handlePreviewMouseOut = e => {
-      const rect = previewRef.current?.getBoundingClientRect()
+      // TODO: is this correct if the mouse moves out onto the other SVG?
       enablePageScroll()
     }
-    const handlePreviewMouseMove = e => {
-      const x = e.clientX - previewRef.current?.getBoundingClientRect().left
-      const ftb0 = Math.min(fullTimeBounds[1]-10,fullTimeBounds[0])
-      if (previewMouseDown && previewDragStartTime === null) {
-        setPreviewDragStartTime([previewX2v(x), effectiveTimeWindow])
-      }
-      if (previewMouseDown && previewDragStartTime !== null) {
-        const [dragStartTime, startWindow] = previewDragStartTime
-        let dt = previewX2v(x) - dragStartTime
-        let newWindow = [startWindow[0] + dt, startWindow[1] + dt]
-        if (newWindow[0] < ftb0 && newWindow[1] > fullTimeBounds[1]) {
-          newWindow = fullTimeBounds
-        } else if (newWindow[0] < ftb0) {
-          dt = ftb0 - newWindow[0]
-          newWindow = [newWindow[0] + dt, newWindow[1] + dt]
-        } else if (newWindow[1] > fullTimeBounds[1]) {
-          dt = fullTimeBounds[1] - newWindow[1]
-          newWindow = [newWindow[0] + dt, newWindow[1] + dt]
-        }
-        if (newWindow[1] === fullTimeBounds[1]) {
-          setWindow([newWindow[0] - newWindow[1]])
-        } else {
-          setWindow(newWindow)
-        }
-      }
-      if (previewResizeHandleMouseDown) {
-        let newWindow = [...effectiveTimeWindow]
-        const [oldWindow, i] = previewResizeHandleDragData
-        newWindow[i] = Math.min(fullTimeBounds[1], Math.max(ftb0, previewX2v(x)))
-        if (i === 0) newWindow[0] = Math.min(newWindow[1] - 0.01, newWindow[0])
-        else newWindow[1] = Math.max(newWindow[0] + 0.01, newWindow[1])
-        if (newWindow[1] === fullTimeBounds[1]) newWindow = [newWindow[0] - newWindow[1]]
-        setWindow(newWindow)
-      }
+    const handlePreviewMouseDown = e => {
+      setPreviewMouseDown(true)
+      setPreviewDragStartTime([previewX2v(getXFromEvent(e)), effectiveTimeWindow])
     }
     const handlePreviewResizeHandleMouseDown = (e, i) => {
       setPreviewResizeHandleMouseDown(true)
-      setPreviewResizeHandleDragData([effectiveTimeWindow, i])
+      setPreviewResizeHandleDragData(i)
+    }
+    const handlePreviewMouseMove = e => {
+      const x = getXFromEvent(e)
+      if (previewMouseDown) {
+        const [dragStartTime, startWindow] = previewDragStartTime
+        let dt = previewX2v(x) - dragStartTime
+        let newWindow = [startWindow[0] + dt, startWindow[1] + dt]
+        setWindow(boundIntervalKeepingLength(newWindow, intervalUnion(fullTimeBounds, [currentSeconds-10, currentSeconds])))
+      }
+      if (previewResizeHandleMouseDown) {
+        const i = previewResizeHandleDragData
+        let newWindow = [...effectiveTimeWindow]
+        newWindow[i] = clamp(currentSeconds + previewX2v(x), Math.min(fullTimeBounds[1] - 10, fullTimeBounds[0]), fullTimeBounds[1])
+        if (i === 0) newWindow[0] = Math.min(newWindow[1] - 0.01, newWindow[0])
+        else newWindow[1] = Math.max(newWindow[0] + 0.01, newWindow[1])
+        setWindow(newWindow)
+      }
     }
 
     return (
@@ -343,9 +330,8 @@ export function Datalogger({
           )}
         </svg>
         <svg viewBox={`0 0 ${w} ${50}`} xmlns="http://www.w3.org/2000/svg" width={w} height={50} style={{ userSelect: 'none', fontFamily: 'sans-serif' }}
-          ref={previewRef}
           onMouseOut={handlePreviewMouseOut} onMouseMove={handlePreviewMouseMove}
-          onMouseDown={() => setPreviewMouseDown(true)}
+          onMouseDown={handlePreviewMouseDown}
         >
           {/* Selected time window */}
           <rect x={v2previewX(relativeTimeWindow[0])} y={-2}
