@@ -3,7 +3,7 @@ import { Panel } from '../index'
 import { Slider } from '@material-ui/core'
 import { disablePageScroll, enablePageScroll } from 'scroll-lock'
 import {
-  generateAxisTicks, binarySearch, formatUnit, lerp,
+  generateAxisTicks, binarySearch, formatUnit, lerp, clamp,
   intervalUnion, expandInterval, shrinkInterval, interpolateInterval,
 } from '../graph-utils'
 import SeriesCollection from '../series'
@@ -65,18 +65,34 @@ export function Datalogger({
     // Box model
     const w = 600, h = 450;
 
-    // Window of points to display
-    // Fixed representation: [start_epoch_seconds, end_epoch_seconds] (stays focused on a fixed time window)
-    // Sliding representation: [t_minus_seconds] (stays focused on the current time, up to a fixed number of seconds before)
-    const [window, setWindow] = React.useState([-3]);
-    // Window of point indices to display, with at least one on either side
     // We avoid new Date().getTime() when possible because we want the epoch times to come from the same source as the data point times
     // This is so we can use system epoch times from systems without an accurate clock (e.g. a Raspberry Pi which was turned on without an
     // internet connection. They have no real-time clock that runs when the Pi isn't powered keeping the clock in sync with world time.)
     if (!currentSeconds) currentSeconds = new Date().getTime() / 1000
+    const startSeconds = store.minTime()
+
+    // Window of points to display
+    // Fixed representation: [start_epoch_seconds, end_epoch_seconds] (stays focused on a fixed time window)
+    // Sliding representation: [t_minus_seconds] (stays focused on the current time, up to a fixed number of seconds before)
+    const [window, _setWindow] = React.useState([-3])
+    const setWindow = w => {
+      if (w.length === 1 || w[1] >= currentSeconds) {  // sliding rep
+        const tMinusTime = w.length === 1 ? w[0] : w[0] - currentSeconds
+        const minTMinusTime = Math.min(-10, startSeconds - currentSeconds)
+        _setWindow([clamp(tMinusTime, minTMinusTime, 0)])
+      } else {  // fixed rep
+        _setWindow([
+          clamp(w[0], startSeconds, w[1] - 0.01),
+          clamp(w[1], w[0], currentSeconds)
+        ])
+      }
+    }
+
+    // Window in a fixed representation relative to the current time
     const effectiveTimeWindow = window.length === 1
       ? [currentSeconds + window[0], currentSeconds]
       : window
+    // Window of 2 t-minus times
     const relativeTimeWindow = [effectiveTimeWindow[0] - currentSeconds, effectiveTimeWindow[1] - currentSeconds]
 
     const points = store.sample(effectiveTimeWindow, w)
@@ -92,7 +108,6 @@ export function Datalogger({
     }
     const effectiveYBounds = expandInterval(shrinkInterval(yBounds, ySubset), 0.2)
 
-    const startSeconds = points.minTime
     const fullTimeBounds = [startSeconds, currentSeconds]
 
     // Box model
@@ -150,17 +165,11 @@ export function Datalogger({
       // does not stop the scroll from also happening (tested on Chrome on an M1 Mac)
       // So instead we use the scroll-lock library to disable scrolling when the mouse is over the graph view
       const d = e.deltaX + e.deltaY
-      if (window.length === 1) {
-        // Scale the left edge
-        const left = Math.max(window[0] * Math.pow(1.001, -d), Math.min(fullTimeBounds[0] - currentSeconds, -10))
-        setWindow([Math.min(left, -0.01)])
-      } else {
-        // Scale both edges (zooming around the center)
-        const mid = (window[0] + window[1]) / 2
-        const left = Math.max(mid + (window[0] - mid) * Math.pow(1.001, -d), Math.min(fullTimeBounds[0] + 0.01, currentSeconds-10))
-        const right = Math.min(mid + (window[1] - mid) * Math.pow(1.001, -d), fullTimeBounds[1])
-        setWindow([Math.min(left, right - 0.01), right])
-      }
+      // Scale both edges (zooming around the center, or if we're in a sliding rep we stay in a sliding rep by zooming around the right)
+      const mid = window.length === 1 ? effectiveTimeWindow[1] : (effectiveTimeWindow[0] + effectiveTimeWindow[1]) / 2
+      const left = Math.max(mid + (effectiveTimeWindow[0] - mid) * Math.pow(1.001, -d), Math.min(fullTimeBounds[0] + 0.01, currentSeconds-10))
+      const right = Math.min(mid + (effectiveTimeWindow[1] - mid) * Math.pow(1.001, -d), fullTimeBounds[1])
+      setWindow([Math.min(left, right - 0.01), right])
     }
 
     const handleMouseMove = e => {

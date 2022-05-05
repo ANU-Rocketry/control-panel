@@ -98,3 +98,7 @@ export function interpolateInterval(a, b, fraction) {
 export function lerp(x1, y1, x2, y2, x) {
   return y1 + (y2 - y1) * (x - x1) / (x2 - x1)
 }
+
+export function clamp(x, min, max) {
+  return Math.max(min, Math.min(max, x))
+}

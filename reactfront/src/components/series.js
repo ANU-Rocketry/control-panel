@@ -262,6 +262,9 @@ export class Series {
     result.max = Math.max(...result.map(s => s.max))
     return result
   }
+  minTime() {
+    return this.series[0]?.arrays[0]?.time(0)
+  }
 }
 
 /*
@@ -282,11 +285,13 @@ export default class SeriesCollection {
       return acc
     }, {})
   }
+  minTime() {
+    return Math.min(...this.keys.map(key => this.arrays[key].minTime()).filter(x => x))
+  }
   sample(timeWindow, k) {
     const points = this.objectMap(key => this.arrays[key].sample(...timeWindow, k))
     points.min = Math.min(...this.keys.map(key => points[key].min))
     points.max = Math.max(...this.keys.map(key => points[key].max))
-    points.minTime = Math.min(...this.keys.map(key => this.arrays[key].series[0]?.arrays[0]?.time(0)).filter(x => x))
     return points
   }
   samplePreview(k) {
