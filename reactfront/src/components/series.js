@@ -1,5 +1,5 @@
 
-import { binarySearch } from './graph-utils'
+import { binarySearch, intervalUnion } from './graph-utils'
 
 class DoubleArray {
   constructor(capacity) {
@@ -209,7 +209,7 @@ class DecimatedMinMaxSeries {
 
 // A Series is a sequence of DecimatedMinMaxSeries, one for each segment of the time series
 // (each NaN causes a separation)
-export default class Series {
+export class Series {
   constructor() {
     this.series = [new DecimatedMinMaxSeries()]
   }
@@ -261,5 +261,38 @@ export default class Series {
     result.min = Math.min(...result.map(s => s.min))
     result.max = Math.max(...result.map(s => s.max))
     return result
+  }
+}
+
+/*
+ * Takes an object where the keys are the series names
+ * and manages a dictionary of Series objects
+ */
+export default class SeriesCollection {
+  constructor(series) {
+    this.keys = Array.from(Object.keys(series))
+
+    // We'll store the data in a series of arrays, one for each series
+    // These arrays compute decimated min/max values in an amortized fashion
+    this.arrays = this.objectMap(key => new Series())
+  }
+  objectMap(f) {
+    return this.keys.reduce((acc, key) => {
+      acc[key] = f(key)
+      return acc
+    }, {})
+  }
+  sample(timeWindow, k) {
+    const points = this.objectMap(key => this.arrays[key].sample(...timeWindow, k))
+    points.min = Math.min(...this.keys.map(key => points[key].min))
+    points.max = Math.max(...this.keys.map(key => points[key].max))
+    points.minTime = Math.min(...this.keys.map(key => this.arrays[key].series[0]?.arrays[0]?.time(0)).filter(x => x))
+    return points
+  }
+  samplePreview(k) {
+    const preview = this.objectMap(key => this.arrays[key].samplePreview(k))
+    preview.min = Math.min(...this.keys.map(key => preview[key].min))
+    preview.max = Math.max(...this.keys.map(key => preview[key].max))
+    return preview
   }
 }

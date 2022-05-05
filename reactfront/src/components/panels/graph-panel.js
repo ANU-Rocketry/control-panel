@@ -6,7 +6,7 @@ import {
   generateAxisTicks, binarySearch, formatUnit, lerp,
   intervalUnion, expandInterval, shrinkInterval, interpolateInterval,
 } from '../graph-utils'
-import Series from '../series'
+import SeriesCollection from '../series'
 import pins from '../../pins.json'
 
 window.enablePageScroll = enablePageScroll
@@ -36,10 +36,7 @@ export function Datalogger({
 
   // We'll store the data in a series of arrays, one for each series
   // These arrays compute decimated min/max values in an amortized fashion
-  const seriesArrays = seriesKeys.reduce((acc, key) => {
-    acc[key] = new Series()
-    return acc
-  }, {})
+  const store = new SeriesCollection(series)
 
   // Events are { time, label } objects rendered on the graph as a vertical dashed line with a textual label
   const events = []
@@ -50,7 +47,7 @@ export function Datalogger({
   document.addEventListener('datalogger-new-data', ({ detail }) => {
     for (let key of seriesKeys) {
       if (key in detail) {
-        seriesArrays[key].push(detail.time, detail[key])
+        store.arrays[key].push(detail.time, detail[key])
       }
     }
     forceUpdate()
@@ -82,22 +79,11 @@ export function Datalogger({
       : window
     const relativeTimeWindow = [effectiveTimeWindow[0] - currentSeconds, effectiveTimeWindow[1] - currentSeconds]
 
-    let newYBounds = null
-    const points = seriesKeys.reduce((acc, key) => {
-      acc[key] = seriesArrays[key].sample(...effectiveTimeWindow, w)
-      newYBounds = intervalUnion(newYBounds, [acc[key].min, acc[key].max])
-      return acc
-    }, {})
-    const preview = seriesKeys.reduce((acc, key) => {
-      acc[key] = seriesArrays[key].samplePreview(w / 4)
-      return acc
-    }, {})
-    preview.min = Math.min(...seriesKeys.map(key => preview[key].min))
-    preview.max = Math.max(...seriesKeys.map(key => preview[key].max))
+    const points = store.sample(effectiveTimeWindow, w)
+    const preview = store.samplePreview(w)
 
     // interpolate the bounds over time
-    newYBounds = intervalUnion(newYBounds, minYBounds)
-    yBounds = interpolateInterval(yBounds, newYBounds, 0.1)
+    yBounds = interpolateInterval(yBounds, intervalUnion([points.min, points.max], minYBounds), 0.1)
 
     // Percentage start/end of the y bounds we see (for primitive vertical zoom functionality)
     const [ySubset, setYSubset] = React.useState([0, 1])
@@ -106,27 +92,24 @@ export function Datalogger({
     }
     const effectiveYBounds = expandInterval(shrinkInterval(yBounds, ySubset), 0.2)
 
-    const startSeconds = seriesKeys.reduce((acc, key) => {
-      const t = seriesArrays[key].series[0].arrays[0].time(0)
-      if (t) acc = Math.min(acc, t)
-      return acc
-    }, currentSeconds)
+    const startSeconds = points.minTime
     const fullTimeBounds = [startSeconds, currentSeconds]
 
     // Box model
     const margin = { l: 1, r: 1, t: 1, b: 1 }   // margin around the graph (between SVG bounding box and axes)
-    const previewMargin = { l: margin.l, r: margin.r, t: 6, b: 12 }
     // Conversion from decimal in [0,1] range to pixel
     const p2x = p => margin.l + p * (w - margin.l - margin.r)
     const p2y = p => margin.t + p * (h - 50 - margin.t - margin.b)
-    const p2previewY = p => previewMargin.t + p * (50 - previewMargin.t - previewMargin.b)
     const x2p = x => (x - margin.l) / (w - margin.l - margin.r) // inverse
     // Conversion from t-minus time in seconds / value in unit to pixel
     const v2x = v => p2x((v - relativeTimeWindow[0]) / (relativeTimeWindow[1] - relativeTimeWindow[0]))
-    const v2previewX = v => p2x(1-v / (Math.min(fullTimeBounds[1]-10,fullTimeBounds[0]) - fullTimeBounds[1]))
     const v2y = v => p2y(1 - (v - effectiveYBounds[0]) / (effectiveYBounds[1] - effectiveYBounds[0]))
-    const v2previewY = v => p2previewY(1 - (v - preview.min) / (preview.max - preview.min))
     const x2v = x => relativeTimeWindow[0] + x2p(x) * (relativeTimeWindow[1] - relativeTimeWindow[0]) // inverse
+
+    const previewMargin = { l: margin.l, r: margin.r, t: 6, b: 12 }
+    const p2previewY = p => previewMargin.t + p * (50 - previewMargin.t - previewMargin.b)
+    const v2previewX = v => p2x(1-v / (Math.min(fullTimeBounds[1]-10,fullTimeBounds[0]) - fullTimeBounds[1]))
+    const v2previewY = v => p2previewY(1 - (v - preview.min) / (preview.max - preview.min))
     const previewX2v = x => Math.min(fullTimeBounds[1]-10,fullTimeBounds[0]) - x2p(x) * Math.max(10, fullTimeBounds[0] - fullTimeBounds[1]) // inverse
 
     // Horizontal axis ticks
