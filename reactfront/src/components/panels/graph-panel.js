@@ -43,6 +43,7 @@ export function Datalogger({
 
   // Because we use a mutable array for state, we need to force React to update the graph when we tell it to
   let forceUpdate = () => {}
+  let deferredForceUpdate = () => requestAnimationFrame(forceUpdate)
 
   document.addEventListener('datalogger-new-data', ({ detail }) => {
     for (let key of seriesKeys) {
@@ -50,12 +51,12 @@ export function Datalogger({
         store.arrays[key].push(detail.time, detail[key])
       }
     }
-    forceUpdate()
+    deferredForceUpdate()
   })
 
   document.addEventListener('datalogger-new-event', ({ detail }) => {
     events.push({ ...detail, key: events.length })
-    forceUpdate()
+    deferredForceUpdate()
   })
 
   function Component({ currentSeconds }) {
@@ -167,7 +168,10 @@ export function Datalogger({
       // So instead we use the scroll-lock library to disable scrolling when the mouse is over the graph view
       const d = e.deltaX + e.deltaY
       // Scale both edges (zooming around the center, or if we're in a sliding rep we stay in a sliding rep by zooming around the right)
-      const mid = window.length === 1 ? effectiveTimeWindow[1] : (effectiveTimeWindow[0] + effectiveTimeWindow[1]) / 2
+      const mid =
+        window.length === 1 ? effectiveTimeWindow[1]
+        : mousePosX ? currentSeconds + x2v(mousePosX)
+        : (effectiveTimeWindow[0] + effectiveTimeWindow[1]) / 2
       const left = Math.max(mid + (effectiveTimeWindow[0] - mid) * Math.pow(1.001, -d), Math.min(fullTimeBounds[0] + 0.01, currentSeconds-10))
       const right = Math.min(mid + (effectiveTimeWindow[1] - mid) * Math.pow(1.001, -d), fullTimeBounds[1])
       setWindow([Math.min(left, right - 0.01), right])
@@ -355,13 +359,13 @@ export function Datalogger({
           </text>
           {/* Preview window resize handles */}
           <rect x={v2previewX(relativeTimeWindow[1])-4}
-            y={10} width={8} height={30} fill="lightblue" stroke="none" strokeWidth="0" rx="4" />
-          <rect x={v2previewX(relativeTimeWindow[1])-10} onMouseDown={e => handlePreviewResizeHandleMouseDown(e, 1)}
-            y="0" width="20" height="50" fill="transparent" stroke="none" strokeWidth="0" cursor="col-resize" />
+            y={10} width={8} height={30} fill="#999" stroke="none" strokeWidth="0" rx="4" />
           <rect x={v2previewX(relativeTimeWindow[0])-4}
-            y={10} width={8} height={30} fill="lightblue" stroke="none" strokeWidth="0" rx="4" />
+            y={10} width={8} height={30} fill="#999" stroke="none" strokeWidth="0" rx="4" />
+          <rect x={v2previewX(relativeTimeWindow[1])-6} onMouseDown={e => handlePreviewResizeHandleMouseDown(e, 1)}
+            y="0" width="16" height="50" fill="transparent" stroke="none" strokeWidth="0" cursor="col-resize" />
           <rect x={v2previewX(relativeTimeWindow[0])-10} onMouseDown={e => handlePreviewResizeHandleMouseDown(e, 0)}
-            y="0" width="20" height="50" fill="transparent" stroke="none" strokeWidth="0" cursor="col-resize" />
+            y="0" width="16" height="50" fill="transparent" stroke="none" strokeWidth="0" cursor="col-resize" />
         </svg>
         {/* Jump to present button */}
         <button className={'jump-to-present ' + (window.length !== 1 ? 'active' : '')} onClick={jumpToPresent}>&gt;</button>
