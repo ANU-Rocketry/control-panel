@@ -84,10 +84,16 @@ export function Datalogger({
 
     let newYBounds = null
     const points = seriesKeys.reduce((acc, key) => {
-      acc[key] = seriesArrays[key].sample(...effectiveTimeWindow, w / 2)
+      acc[key] = seriesArrays[key].sample(...effectiveTimeWindow, w)
       newYBounds = intervalUnion(newYBounds, [acc[key].min, acc[key].max])
       return acc
     }, {})
+    const preview = seriesKeys.reduce((acc, key) => {
+      acc[key] = seriesArrays[key].samplePreview(w / 4)
+      return acc
+    }, {})
+    preview.min = Math.min(...seriesKeys.map(key => preview[key].min))
+    preview.max = Math.max(...seriesKeys.map(key => preview[key].max))
 
     // interpolate the bounds over time
     newYBounds = intervalUnion(newYBounds, minYBounds)
@@ -108,21 +114,25 @@ export function Datalogger({
     const fullTimeBounds = [startSeconds, currentSeconds]
 
     // Box model
-    const margin = { l: 90, r: 16, t: 10, b: 35 }   // margin around the graph (between SVG bounding box and axes)    
+    const margin = { l: 1, r: 1, t: 1, b: 1 }   // margin around the graph (between SVG bounding box and axes)
+    const previewMargin = { l: margin.l, r: margin.r, t: 6, b: 12 }
     // Conversion from decimal in [0,1] range to pixel
     const p2x = p => margin.l + p * (w - margin.l - margin.r)
-    const p2y = p => margin.t + p * (h - margin.t - margin.b)
+    const p2y = p => margin.t + p * (h - 50 - margin.t - margin.b)
+    const p2previewY = p => previewMargin.t + p * (50 - previewMargin.t - previewMargin.b)
     const x2p = x => (x - margin.l) / (w - margin.l - margin.r) // inverse
     // Conversion from t-minus time in seconds / value in unit to pixel
     const v2x = v => p2x((v - relativeTimeWindow[0]) / (relativeTimeWindow[1] - relativeTimeWindow[0]))
+    const v2previewX = v => p2x(1-v / (Math.min(fullTimeBounds[1]-10,fullTimeBounds[0]) - fullTimeBounds[1]))
     const v2y = v => p2y(1 - (v - effectiveYBounds[0]) / (effectiveYBounds[1] - effectiveYBounds[0]))
+    const v2previewY = v => p2previewY(1 - (v - preview.min) / (preview.max - preview.min))
     const x2v = x => relativeTimeWindow[0] + x2p(x) * (relativeTimeWindow[1] - relativeTimeWindow[0]) // inverse
+    const previewX2v = x => Math.min(fullTimeBounds[1]-10,fullTimeBounds[0]) - x2p(x) * Math.max(10, fullTimeBounds[0] - fullTimeBounds[1]) // inverse
 
     // Horizontal axis ticks
     const xTicks = generateAxisTicks(...relativeTimeWindow, 4, 's')
-    const yTicks = generateAxisTicks(effectiveYBounds[0], effectiveYBounds[1], 10, 'psi')
+    const yTicks = generateAxisTicks(...effectiveYBounds, 6, 'psi')
 
-    // TODO: re-add hover tooltip (this is at odds with being able to add new data to series independently. we should make it interpolate values for each series and be careful of nan gaps)
     // Hover tooltip
     // Mouse X position relative to the <svg>
     const [mousePosX, setMousePosX] = React.useState(null)
@@ -147,17 +157,7 @@ export function Datalogger({
       const val = lerp(data[seg][point][0], data[seg][point][1], data[seg][point+1][0], data[seg][point+1][1], currentSeconds + x2v(mousePosX))
       return `${seriesKeys[seriesIndex]}: ${formatUnit(val, unit)}`
     }).filter(text => text.length)
-    const flipTooltip = mousePosX > p2x(1) - 160
-
-    const sliderChangeHandler = (_event, newTimeWindow) => {
-      // Convert window to the appropriate time window representation
-      if (newTimeWindow[1] >= currentSeconds - (currentSeconds - fullTimeBounds[0]) * 0.01) {
-        setWindow([Math.min(newTimeWindow[0] - newTimeWindow[1], -0.01)])
-      } else {
-        if (newTimeWindow[1] - newTimeWindow[0] < 0.01) newTimeWindow[0] = newTimeWindow[1] - 0.01
-        setWindow(newTimeWindow)
-      }
-    }
+    const flipTooltip = mousePosX > p2x(1) - 200
 
     const [mouseDown, setMouseDown] = React.useState(false)
     const [dragStartXAndTime, setDragStartXAndTime] = React.useState(null)
@@ -237,45 +237,88 @@ export function Datalogger({
     const jumpToPresent = () => setWindow([window[0] - window[1]])
 
     React.useEffect(() => {
-      document.body.addEventListener('mouseup', () => setMouseDown(false))
+      document.body.addEventListener('mouseup', () => {
+        setMouseDown(false)
+        setPreviewMouseDown(false)
+        setPreviewResizeHandleMouseDown(false)
+      })
     }, [])
 
+    const previewRef = React.useRef(null)
+    const [previewResizeHandleMouseDown, setPreviewResizeHandleMouseDown] = React.useState(false)
+    const [previewResizeHandleDragData, setPreviewResizeHandleDragData] = React.useState(null)
+    const [previewMouseDown, setPreviewMouseDown] = React.useState(false)
+    const [previewDragStartTime, setPreviewDragStartTime] = React.useState(null)
+
+    const handlePreviewMouseOut = e => {
+      const rect = previewRef.current?.getBoundingClientRect()
+      enablePageScroll()
+    }
+    const handlePreviewMouseMove = e => {
+      const x = e.clientX - previewRef.current?.getBoundingClientRect().left
+      const ftb0 = Math.min(fullTimeBounds[1]-10,fullTimeBounds[0])
+      if (previewMouseDown && previewDragStartTime === null) {
+        setPreviewDragStartTime([previewX2v(x), effectiveTimeWindow])
+      }
+      if (previewMouseDown && previewDragStartTime !== null) {
+        const [dragStartTime, startWindow] = previewDragStartTime
+        let dt = previewX2v(x) - dragStartTime
+        let newWindow = [startWindow[0] + dt, startWindow[1] + dt]
+        if (newWindow[0] < ftb0 && newWindow[1] > fullTimeBounds[1]) {
+          newWindow = fullTimeBounds
+        } else if (newWindow[0] < ftb0) {
+          dt = ftb0 - newWindow[0]
+          newWindow = [newWindow[0] + dt, newWindow[1] + dt]
+        } else if (newWindow[1] > fullTimeBounds[1]) {
+          dt = fullTimeBounds[1] - newWindow[1]
+          newWindow = [newWindow[0] + dt, newWindow[1] + dt]
+        }
+        if (newWindow[1] === fullTimeBounds[1]) {
+          setWindow([newWindow[0] - newWindow[1]])
+        } else {
+          setWindow(newWindow)
+        }
+      }
+      if (!previewMouseDown && previewDragStartTime !== null) {
+        setPreviewDragStartTime(null)
+      }
+      if (previewResizeHandleMouseDown) {
+        let newWindow = [...effectiveTimeWindow]
+        const [oldWindow, i] = previewResizeHandleDragData
+        newWindow[i] = Math.min(fullTimeBounds[1], Math.max(ftb0, previewX2v(x)))
+        if (i === 0) newWindow[0] = Math.min(newWindow[1] - 0.01, newWindow[0])
+        else newWindow[1] = Math.max(newWindow[0] + 0.01, newWindow[1])
+        if (newWindow[1] === fullTimeBounds[1]) newWindow = [newWindow[0] - newWindow[1]]
+        setWindow(newWindow)
+      }
+    }
+    const handlePreviewResizeHandleMouseDown = (e, i) => {
+      setPreviewResizeHandleMouseDown(true)
+      setPreviewResizeHandleDragData([effectiveTimeWindow, i])
+    }
+
     return (
-      <div>
-        <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h} style={{ userSelect: 'none', fontFamily: 'sans-serif' }}
+      <div onMouseMove={e => previewMouseDown ? handlePreviewMouseMove(e) : handleMouseMove(e)}>
+        <svg viewBox={`0 0 ${w} ${h-50}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h-50} style={{ userSelect: 'none', fontFamily: 'sans-serif' }}
           ref={svgRef}
-          onMouseOver={() => disablePageScroll()} onMouseOut={handleMouseOut} onMouseMove={handleMouseMove}
+          onMouseOver={() => disablePageScroll()} onMouseOut={handleMouseOut}
           onMouseDown={() => setMouseDown(true)} onWheel={wheelHandler}
         >
-          <defs>
-            {/* Bounding box for data series rendering */}
-            <clipPath id="data-clip-path">
-              <rect x={p2x(0)} y={p2y(0)} width={p2x(1)-p2x(0)} height={p2y(1)-p2y(0)} />
-            </clipPath>
-          </defs>
-          {/* Horizontal axis */}
-          <line x1={p2x(0)} y1={p2y(1)} x2={p2x(1)} y2={p2y(1)} stroke="black" strokeWidth='2' />
-          <text x={p2x(0.5)} y={h-2} textAnchor="middle" fontSize="12" fontWeight="bold">Time (s)</text>
+          {/* Horizontal axis gridlines */}
           {xTicks.map(({ tick, label }) => (
-            <React.Fragment key={tick}>
-              <line x1={v2x(tick)} y1={p2y(1)} x2={v2x(tick)} y2={p2y(1)+5} stroke="black" />
-              <text x={v2x(tick)} y={p2y(1)+7} textAnchor="middle" alignmentBaseline="text-before-edge" fontSize="12">{label}</text>
-            </React.Fragment>
+            <line key={tick} x1={v2x(tick)} y1={p2y(1)} x2={v2x(tick)} y2={p2y(0)} stroke="#ddd" />
           ))}
-          {/* Vertical axis */}
-          <line x1={p2x(0)} y1={p2y(0)} x2={p2x(0)} y2={p2y(1)} stroke="black" strokeWidth='2' />
-          <text y={20} x={-p2y(0.5)} textAnchor="middle" fontSize="12" fontWeight="bold" transform="rotate(-90)" dy="-0.5em">{label} ({unit})</text>
+          <line x1={p2x(0)} y1={p2y(1)} x2={p2x(1)} y2={p2y(1)} stroke="#888" strokeWidth='2' />
+          {/* Vertical axis gridlines */}
           {yTicks.map(({ tick, label }) => (
-            <React.Fragment key={tick}>
-              <line x1={p2x(0)} y1={v2y(tick)} x2={p2x(0)-5} y2={v2y(tick)} stroke="black" />
-              <text x={p2x(0)-7} y={v2y(tick)} textAnchor="end" alignmentBaseline="middle" fontSize="12">{label}</text>
-            </React.Fragment>
+            <line key={tick} x1={p2x(0)} y1={v2y(tick)} x2={p2x(1)} y2={v2y(tick)} stroke="#ddd" />
           ))}
+          <line x1={p2x(0)} y1={0} x2={p2x(0)} y2={h} stroke="#888" strokeWidth='2' />
           {/* Vertical labels (valve toggle indicators) */}
           {verticalLabels.map(({x, label, key}, i) => (
             <g key={key}>
-              <line x1={x} y1={p2y(0)} x2={x} y2={p2y(1)} stroke="#333" strokeWidth='1' strokeDasharray='2 4' clipPath='url(#data-clip-path)' />
-              <text x={x+5} y={p2y(1)-(i%10)*10} textAnchor="start" alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{label}</text>
+              <line x1={x} y1={p2y(0)} x2={x} y2={p2y(1)} stroke="#333" strokeWidth='1' strokeDasharray='2 4' />
+              <text x={x+5} y={p2y(1)-(i%10)*10-20} textAnchor="start" alignmentBaseline="text-after-edge" fontSize="12">{label}</text>
             </g>
           ))}
           {/* Series (plotting data curves as polylines) */}
@@ -284,52 +327,78 @@ export function Datalogger({
               {/* Min/max shading polygons, these should be O(n log n) to partition into triangles and render */}
               {points[key].map((segment, i) => segment.length && segment.decimated && (
                 <polygon key={i} points={segment.getMinMaxPoints(v2x, v2y, currentSeconds)}
-                  fill={series[key].color} opacity='0.3' stroke="none" strokeWidth="0" clipPath='url(#data-clip-path)' />
+                  fill={series[key].color} opacity='0.3' stroke="none" strokeWidth="0" />
               ))}
               {/* Data points */}
               {points[key].map((segment, i) => segment.length && (
                 <polyline key={i} points={segment.getPoints(v2x, v2y, currentSeconds)}
-                  fill="none" stroke={series[key].color} strokeWidth="1" clipPath='url(#data-clip-path)' />
+                  fill="none" stroke={series[key].color} strokeWidth="1" />
               ))}
             </g>
+          ))}
+          {/* Horizontal axis tick labels */}
+          {xTicks.map(({ tick, label }) => v2x(tick) - p2x(0) > 40 && (
+            <text key={tick} x={v2x(tick)} y={p2y(1)-2} textAnchor="middle" alignmentBaseline="after-edge" fontSize="12">{label}</text>
+          ))}
+          {/* Vertical axis tick labels */}
+          {yTicks.map(({ tick, label }) => p2y(1) - v2y(tick) > 20 && (
+            <text key={tick} x={p2x(0)+2} y={v2y(tick)} textAnchor="start" alignmentBaseline="after-edge" fontSize="12">{label}</text>
           ))}
           {/* Key/Legend */}
           {seriesKeys.map((key, i) => (
             <g key={key}>
-              <circle r="3.5" fill={series[key].color} cx={w-5} cy={14+i*20} />
-              <text fontSize="12" x={w-15} textAnchor="end" alignmentBaseline='middle' fill={series[key].color} y={15+i*20}>{key}</text>
+              <circle r="3.5" fill={series[key].color} cx={w-10} cy={12+i*20} />
+              <text fontSize="12" x={w-20} textAnchor="end" alignmentBaseline='middle' fill={series[key].color} y={13+i*20}>{key}</text>
             </g>
           ))}
           {/* Tooltip */}
           {tooltipText.length && mousePosX > p2x(0) && (
             <g>
-              <line x1={mousePosX} y1={p2y(0)} x2={mousePosX} y2={p2y(1)} stroke="black" strokeWidth='1' clipPath='url(#data-clip-path)' />
+              <line x1={mousePosX} y1={p2y(0)} x2={mousePosX} y2={p2y(1)} stroke="black" strokeWidth='1' />
               {tooltipText.map((text, i) => (
-                <text key={i} x={Math.min(mousePosX+(flipTooltip?-5:5), p2x(1)-70)} y={p2y(0)+20+16*i} textAnchor={flipTooltip?"end":"start"}
-                  alignmentBaseline="text-after-edge" fontSize="12" clipPath='url(#data-clip-path)'>{text}</text>
+                <text key={i} x={Math.max(50, Math.min(mousePosX+(flipTooltip?-5:5), p2x(1)-100))} y={p2y(0)+20+16*i} textAnchor={flipTooltip?"end":"start"}
+                  alignmentBaseline="text-after-edge" fontSize="12">{text}</text>
               ))}
             </g>
           )}
         </svg>
+        <svg viewBox={`0 0 ${w} ${50}`} xmlns="http://www.w3.org/2000/svg" width={w} height={50} style={{ userSelect: 'none', fontFamily: 'sans-serif' }}
+          ref={previewRef}
+          onMouseOut={handlePreviewMouseOut} onMouseMove={handlePreviewMouseMove}
+          onMouseDown={() => setPreviewMouseDown(true)}
+        >
+          {/* Selected time window */}
+          <rect x={v2previewX(relativeTimeWindow[0])} y={-2}
+            width={v2previewX(relativeTimeWindow[1]) - v2previewX(relativeTimeWindow[0])} height={54}
+            fill="#eee" stroke="#999" strokeWidth="2" />
+          {/* Preview graph */}
+          {seriesKeys.map(key => (
+            <g key={key}>
+              {preview[key].map((segment, i) => segment.length && (
+                <polyline key={i} points={segment.getPoints(v2previewX, v2previewY, currentSeconds)}
+                  fill="none" stroke={series[key].color} strokeWidth="1" />
+              ))}
+            </g>
+          ))}
+          {/* X seconds ago / now labels */}
+          <text x='2' y='50' alignmentBaseline='text-after-edge' textAnchor='start' fontSize='12' fill='grey'>
+            {Math.max(10, Math.round(fullTimeBounds[1] - fullTimeBounds[0]))}s ago
+          </text>
+          <text x={w-2} y='50' alignmentBaseline='text-after-edge' textAnchor='end' fontSize='12' fill='grey'>
+            now
+          </text>
+          {/* Preview window resize handles */}
+          <rect x={v2previewX(relativeTimeWindow[1])-4}
+            y={10} width={8} height={30} fill="lightblue" stroke="none" strokeWidth="0" rx="4" />
+          <rect x={v2previewX(relativeTimeWindow[1])-10} onMouseDown={e => handlePreviewResizeHandleMouseDown(e, 1)}
+            y="0" width="20" height="50" fill="transparent" stroke="none" strokeWidth="0" cursor="col-resize" />
+          <rect x={v2previewX(relativeTimeWindow[0])-4}
+            y={10} width={8} height={30} fill="lightblue" stroke="none" strokeWidth="0" rx="4" />
+          <rect x={v2previewX(relativeTimeWindow[0])-10} onMouseDown={e => handlePreviewResizeHandleMouseDown(e, 0)}
+            y="0" width="20" height="50" fill="transparent" stroke="none" strokeWidth="0" cursor="col-resize" />
+        </svg>
         {/* Jump to present button */}
         <button className={'jump-to-present ' + (window.length !== 1 ? 'active' : '')} onClick={jumpToPresent}>&gt;</button>
-        {/* Time window selection slider */}
-        <Slider
-          value={effectiveTimeWindow}
-          onChange={sliderChangeHandler}
-          valueLabelDisplay='off'
-          min={Math.min(fullTimeBounds[0], fullTimeBounds[1] - 10)}
-          max={fullTimeBounds[1]}
-          style={{width: w - 40, marginLeft: 50}}
-          step={0.01}
-          marks={[
-            {
-              value: Math.min(fullTimeBounds[0], fullTimeBounds[1] - 10),
-              label: `${Math.max(10, Math.round(fullTimeBounds[1] - fullTimeBounds[0]))}s ago`
-            },
-            { value: fullTimeBounds[1], label: 'now' },
-          ]}
-        />
         {/* Y scale range slider (low effort way to zoom in vertically) */}
         <Slider
           value={ySubset}
@@ -353,7 +422,6 @@ export function Datalogger({
 
 const PressureDatalogger = Datalogger({
   unit: 'psi',
-  label: 'Pressure',
   series: {
     'LOX Tank': { color: '#000' },
     'LOX N2': { color: '#f00' },

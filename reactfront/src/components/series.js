@@ -25,6 +25,15 @@ class DoubleArray {
     newArray.set(this.array.subarray(0, this.size))
     this.array = newArray
   }
+  filterMapChunks(filter, map) {
+    const result = []
+    for (let i = 0; i < this.chunks; i++) {
+      if (filter(i)) {
+        result.push(map(i))
+      }
+    }
+    return result
+  }
 }
 
 class MinMaxArray extends DoubleArray {
@@ -165,6 +174,31 @@ class DecimatedMinMaxSeries {
     }
     return result
   }
+  samplePreview(k = 200) {
+    // Sample up to k points from the raw data at even intervals using naive decimation, not min/max decimation
+    const n = this.arrays[0].chunks
+    const decimation = Math.ceil(n / k)
+    let min = Infinity, max = -Infinity
+    const sample = this.arrays[0].filterMapChunks(
+      i => i % decimation === 0 || i === n - 1,
+      i => {
+        const value = this.arrays[0].mean(i)
+        min = Math.min(min, value)
+        max = Math.max(max, value)
+        return [this.arrays[0].time(i), value]
+      }
+    )
+    sample.min = min
+    sample.max = max
+    sample.getPoints = (v2x, v2y, currentSeconds) => {
+      let acc = ''
+      for (let i = 0; i < sample.length; i++) {
+        acc += `${(v2x(sample[i][0] - currentSeconds)).toFixed(1)},${Math.round(v2y(sample[i][1]))} `
+      }
+      return acc
+    }
+    return sample
+  }
   shrink() {
     // Shrink all the arrays to fit their contents
     for (let n = 0; n <= this.n_bound; n++) {
@@ -208,6 +242,22 @@ export default class Series {
       const [segmentIndex, pointIndex] = result.splitPointIndex(i)
       return result[segmentIndex][pointIndex]
     }
+    result.min = Math.min(...result.map(s => s.min))
+    result.max = Math.max(...result.map(s => s.max))
+    return result
+  }
+  samplePreview(k) {
+    // Sample up to k points from the raw data at even intervals using naive decimation, not min/max decimation
+    if (this.series.length === 0 || this.series[0].arrays[0].chunks === 0) return []
+    const timeWindow = [
+      this.series[0].arrays[0].time(0),
+      this.series[this.series.length - 1].arrays[0].time(this.series[this.series.length - 1].arrays[0].chunks - 1)
+    ]
+    if (timeWindow[0] === timeWindow[1]) return []
+    const result = this.series.map(s => {
+      const coeff = (s.arrays[0].time(s.arrays[0].chunks - 1) - s.arrays[0].time(0)) / (timeWindow[1] - timeWindow[0])
+      return s.samplePreview(k * coeff)
+    })
     result.min = Math.min(...result.map(s => s.min))
     result.max = Math.max(...result.map(s => s.max))
     return result
