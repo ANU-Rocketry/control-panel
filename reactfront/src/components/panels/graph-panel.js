@@ -165,8 +165,8 @@ export function Datalogger({
         window.length === 1 ? effectiveTimeWindow[1]
         : mousePosX ? currentSeconds + x2v(mousePosX)
         : (effectiveTimeWindow[0] + effectiveTimeWindow[1]) / 2
-      const left = Math.max(mid + (effectiveTimeWindow[0] - mid) * Math.pow(1.001, -d), Math.min(fullTimeBounds[0] + 0.01, currentSeconds-10))
-      const right = Math.min(mid + (effectiveTimeWindow[1] - mid) * Math.pow(1.001, -d), fullTimeBounds[1])
+      const left = Math.max(mid + (effectiveTimeWindow[0] - mid) * Math.pow(1.001, d), Math.min(fullTimeBounds[0] + 0.01, currentSeconds-10))
+      const right = Math.min(mid + (effectiveTimeWindow[1] - mid) * Math.pow(1.001, d), fullTimeBounds[1])
       setWindow([Math.min(left, right - 0.01), right])
     }
 

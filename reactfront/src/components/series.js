@@ -250,12 +250,9 @@ export class Series {
   samplePreview(k) {
     // Sample up to k points from the raw data at even intervals using naive decimation, not min/max decimation
     if (this.series.length === 0 || this.series[0].arrays[0].chunks === 0) return []
-    const timeWindow = [
-      this.series[0].arrays[0].time(0),
-      this.series[this.series.length - 1].arrays[0].time(this.series[this.series.length - 1].arrays[0].chunks - 1)
-    ]
+    const timeWindow = [this.minTime(), this.maxTime()]
     if (timeWindow[0] === timeWindow[1]) return []
-    const result = this.series.map(s => {
+    const result = this.series.filter(s => s.arrays[0].chunks).map(s => {
       const coeff = (s.arrays[0].time(s.arrays[0].chunks - 1) - s.arrays[0].time(0)) / (timeWindow[1] - timeWindow[0])
       return s.samplePreview(k * coeff)
     })
@@ -265,6 +262,15 @@ export class Series {
   }
   minTime() {
     return this.series[0]?.arrays[0]?.time(0)
+  }
+  maxTime() {
+    // The most recent segment may be empty (eg right after a NaN gap)
+    for (let i = this.series.length - 1; i >= 0; i--) {
+      if (this.series[i].arrays[0].chunks > 0) {
+        return this.series[i].arrays[0].time(this.series[i].arrays[0].chunks - 1)
+      }
+    }
+    return NaN
   }
 }
 
