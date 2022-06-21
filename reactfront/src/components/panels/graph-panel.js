@@ -29,7 +29,6 @@ export const newData = detail => document.dispatchEvent(new CustomEvent('datalog
 // newEvent({ time: epoch_secs, label: text })
 export const newEvent = detail => document.dispatchEvent(new CustomEvent('datalogger-new-event', { detail }))
 
-
 export function Datalogger({
   series, unit, label
 }) {
