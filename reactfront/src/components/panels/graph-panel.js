@@ -3,7 +3,8 @@ import { Panel } from '../index'
 import { disablePageScroll, enablePageScroll } from 'scroll-lock'
 import {
   generateAxisTicks, binarySearch, formatUnit, lerp, clamp,
-  intervalUnion, expandInterval, interpolateInterval, boundIntervalKeepingLength
+  intervalUnion, expandInterval, interpolateInterval, boundIntervalKeepingLength,
+  undefOnBadRef
 } from '../graph-utils'
 import SeriesCollection from '../series'
 import pins from '../../pins.json'
@@ -27,30 +28,6 @@ export const newData = detail => document.dispatchEvent(new CustomEvent('datalog
 
 // newEvent({ time: epoch_secs, label: text })
 export const newEvent = detail => document.dispatchEvent(new CustomEvent('datalogger-new-event', { detail }))
-
-// intended use:
-//   when indexing into an object that may or may not be undefined (using ?.)
-//   replace that call with this callback and it won't error out and just return undefined
-//   for example:
-//      undefOnBadRef(() => svg.current.getBoundingClientRect().left)
-//      replaces svgRef.current?.getBoundingClientRect().left
-// issues:
-//   is more general and less precise with the error handling. If you need something to only
-//   error on a bad index, do it directly (with x === null || x === undefined).
-function undefOnBadRef (callback) {
-    let out
-    try {
-        out = callback()
-    } catch (err) {
-        if (err.name === ReferenceError) {
-            out = undefined
-        } else {
-            throw err
-        }
-    } finally {
-        return out
-    }
-}
 
 
 export function Datalogger({

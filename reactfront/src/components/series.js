@@ -1,5 +1,5 @@
 
-import { binarySearch, intervalUnion } from './graph-utils'
+import { binarySearch, intervalUnion, undefOnBadRef } from './graph-utils'
 
 class DoubleArray {
   constructor(capacity) {
@@ -261,7 +261,7 @@ export class Series {
     return result
   }
   minTime() {
-    return this.series[0]?.arrays[0]?.time(0)
+    return undefOnBadRef(() => this.series[0].arrays[0].time(0))
   }
   maxTime() {
     // The most recent segment may be empty (eg right after a NaN gap)

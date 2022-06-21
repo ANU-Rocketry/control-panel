@@ -8,6 +8,7 @@ import Sequences from './components/panels/sequence-panel';
 import ControlPanel from './components/panels/control-panel';
 import Alert from '@material-ui/lab/Alert';
 import { formatDataPoint, emptyDataPoint } from './utils';
+import { undefOnBadRef } from "./components/graph-utils.js"
 
 class App extends React.Component {
 
@@ -54,15 +55,7 @@ class App extends React.Component {
           // If there's a >1s gap, introduce a segment break
           // This is well behaved with NaNs (if state.data.time is undefined it's false)
 
-          // compatability for this.state.data?.time
-          let tempData = this.state.data
-          let stateTime
-          if (tempData === null || tempData === undefined) {
-            stateTime = 0
-          } else {
-            stateTime = tempData.time
-          }
-
+          let stateTime = undefOnBadRef(() => this.state.data.time)
           if (data.data.time - stateTime > 1) {
             newData(emptyDataPoint)
           }

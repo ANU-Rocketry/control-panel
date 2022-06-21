@@ -68,3 +68,5 @@ export const emptyDataPoint = {
     'ETH Tank': NaN,
     'ETH N2': NaN,
 }
+
+
