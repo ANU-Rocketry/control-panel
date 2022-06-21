@@ -24,16 +24,16 @@ function roundToSigFigs(x, sigFigs) {
 
 // Formatted label including SI unit prefixes
 export function formatUnit(val, unit, sigFigs = 3) {
-  return Math.abs(val) >= 1000000000000  ? `${roundToSigFigs(val / 1000000000000, sigFigs)} T${unit}`
-       : Math.abs(val) >= 1000000000      ? `${roundToSigFigs(val / 1000000000,     sigFigs)} G${unit}`
-       : Math.abs(val) >= 1000000          ? `${roundToSigFigs(val / 1000000,         sigFigs)} M${unit}`
-       : Math.abs(val) >= 1000              ? `${roundToSigFigs(val / 1000,             sigFigs)} k${unit}`
-       : Math.abs(val) >= 1                  ? `${roundToSigFigs(val,                     sigFigs)} ${unit}`
-       : Math.abs(val) >= 0.001              ? `${roundToSigFigs(val * 1000,             sigFigs)} m${unit}`
-       : Math.abs(val) >= 0.000001          ? `${roundToSigFigs(val * 1000000,         sigFigs)} μ${unit}`
-       : Math.abs(val) >= 0.000000001      ? `${roundToSigFigs(val * 1000000000,     sigFigs)} n${unit}`
-       : Math.abs(val) >= 0.000000000001  ? `${roundToSigFigs(val * 1000000000000, sigFigs)} p${unit}`
-       : `0 ${unit}`
+  let prefixes = ["T", "G", "M", "K", "", "m", "μ", "n", "p"]
+  let trill = Math.pow(1000, 4) // 1 trillion for T
+  for (let i = 0; i < prefixes.length; i++) {
+      let divider = trill / Math.pow(1000, i)
+      if (Math.abs(val) >= divider) {
+          return roundToSigFigs(val / divider, sigFigs) + prefixes[i] + unit
+      }
+  }
+  // was "return '0 ' + unit" but I changed it to:
+  return roundToSigFigs(val, sigFigs) + unit
 }
 
 // Generate around a suggested number of nicely rounded decimal axis ticks with units
