@@ -110,3 +110,27 @@ export function boundIntervalKeepingLength([a, b], [min, max]) {
   else if (b > max) return [max - (b - a), max]
   else return [a, b]
 }
+
+// intended use:
+//   when indexing into an object that may or may not be undefined (using ?.)
+//   replace that call with this callback and it won't error out and just return undefined
+//   for example:
+//      undefOnBadRef(() => svg.current.getBoundingClientRect().left)
+//      replaces svgRef.current?.getBoundingClientRect().left
+// issues:
+//   this is more general and less precise with the error handling. If you need something to 
+//   only error on a bad index, do it directly (with x === null || x === undefined).
+export function undefOnBadRef (callback) {
+    let out
+    try {
+        out = callback()
+    } catch (err) {
+        if (err.name === ReferenceError) {
+            out = undefined
+        } else {
+            throw err
+        }
+    } finally {
+        return out
+    }
+}
