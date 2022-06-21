@@ -53,7 +53,17 @@ class App extends React.Component {
           data.data.time = parseInt(data.data.time) / 1000
           // If there's a >1s gap, introduce a segment break
           // This is well behaved with NaNs (if state.data.time is undefined it's false)
-          if (data.data.time - this.state.data?.time > 1) {
+
+          // compatability for this.state.data?.time
+          let tempData = this.state.data
+          let stateTime
+          if (tempData === null || tempData === undefined) {
+            stateTime = 0
+          } else {
+            stateTime = tempData.time
+          }
+
+          if (data.data.time - stateTime > 1) {
             newData(emptyDataPoint)
           }
           newData(formatDataPoint(data.data))

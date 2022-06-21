@@ -104,7 +104,7 @@ class DecimatedMinMaxSeries {
     // 2*2**19 + 4*2**18 + 4*2**17 + ... + 4*2**7 64bit doubles is approx 12MiB of arrays in total for this series
     // We don't worry about overflowing this buffer, because we're only ever going to be storing a few hours of data
     this.n_bound = 12 // 2^12 = 4096x decimation
-    this.capacity = 524_288
+    this.capacity = 524288
     // this.arrays[0] stores the raw data
     // this.arrays[n] provides a 2^n times decimated version of this.arrays[0] with mean/min/max data
     this.arrays = {}
