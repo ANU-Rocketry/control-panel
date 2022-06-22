@@ -1,4 +1,5 @@
 import React from 'react'
+import binarySearch from 'graph-utils.js'
 
 /**
  * Datalogger.JS
@@ -41,26 +42,6 @@ export const newData = detail => document.dispatchEvent(new CustomEvent('datalog
 
 // newEvent({ time: epoch_secs, label: text })
 export const newEvent = detail => document.dispatchEvent(new CustomEvent('datalogger-new-event', { detail }))
-
-// Binary search the [0, length-1] range of integers for the highest number `x` satisfying the `f(x) <= target`
-// If `f(0) > target`, it returns -1
-function binarySearch(f, target, length) {
-  let left = 0
-  let right = length - 1
-  let mid
-  while (left <= right) {
-    mid = Math.floor((left + right) / 2)
-    let mapped = f(mid)
-    if (mapped === target) {
-        return mid
-    } else if (mapped < target) {
-        left = mid + 1
-    } else {
-        right = mid - 1
-    }
-  }
-  return right
-}
 
 /*
  * Packed, typed array of floating point (time, value) pairs
