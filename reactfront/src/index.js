@@ -47,8 +47,8 @@ class App extends React.Component {
       }, 1000)
     }
     this.socket.onmessage = e => {
-      if (!this.mounted) return;
-      const data = JSON.parse(e.data);
+      if (!this.mounted) return
+      const data = JSON.parse(e.data)
       switch (data.type) {
         case 'STATE':
           data.data.time = parseInt(data.data.time) / 1000
