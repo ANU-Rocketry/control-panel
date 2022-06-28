@@ -32,6 +32,10 @@ class App extends React.Component {
     clearInterval(this.interval);
   }
   connect() {
+
+    console.log(undefOnBadRef(() => decodeURI("%")))
+    console.log("above is undef")
+
     if (this.socket) this.socket.close();
     try {
     this.socket = new WebSocket(`ws://${this.state.wsAddress}:8888`)
