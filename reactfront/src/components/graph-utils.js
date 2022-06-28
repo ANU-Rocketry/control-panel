@@ -24,16 +24,14 @@ function roundToSigFigs(x, sigFigs) {
 
 // Formatted label including SI unit prefixes
 export function formatUnit(val, unit, sigFigs = 3) {
-  let prefixes = ["T", "G", "M", "K", "", "m", "μ", "n", "p"]
-  let trill = Math.pow(1000, 4) // 1 trillion for T
+  let prefixes = [["T",4], ["G",3], ["M",2], ["K",1], ["",0], ["m",-1], ["μ",-2], ["n",-3]]
   for (let i = 0; i < prefixes.length; i++) {
-      let divider = trill / Math.pow(1000, i)
+      let divider = Math.pow(1000, prefixes[i][1])
       if (Math.abs(val) >= divider) {
-          return roundToSigFigs(val / divider, sigFigs) + prefixes[i] + unit
+          return roundToSigFigs(val / divider, sigFigs) + ' ' + prefixes[i][0] + unit
       }
   }
-  // was "return '0 ' + unit" but I changed it to:
-  return roundToSigFigs(val, sigFigs) + unit
+  return roundToSigFigs(val / Math.pow(1000, -4), sigFigs) + ' p' + unit
 }
 
 // Generate around a suggested number of nicely rounded decimal axis ticks with units
@@ -125,12 +123,11 @@ export function undefOnBadRef (callback) {
     try {
         out = callback()
     } catch (err) {
-        if (err.name === ReferenceError) {
+        if (err instanceof TypeError) {
             out = undefined
         } else {
             throw err
         }
-    } finally {
-        return out
     }
+    return out
 }

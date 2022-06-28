@@ -171,7 +171,7 @@ export function Datalogger({
       setWindow([Math.min(left, right - 0.01), right])
     }
 
-    const getXFromEvent = function(e) {
+    const getXFromEvent = e => {
         return e.clientX - undefOnBadRef(() => svgRef.current.getBoundingClientRect().left)
     }
 
