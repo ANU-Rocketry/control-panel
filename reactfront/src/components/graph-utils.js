@@ -24,6 +24,7 @@ function roundToSigFigs(x, sigFigs) {
 
 // Formatted label including SI unit prefixes
 export function formatUnit(val, unit, sigFigs = 3) {
+  if (val === 0) {return "0 " + unit}
   let prefixes = [["T",4], ["G",3], ["M",2], ["K",1], ["",0], ["m",-1], ["μ",-2], ["n",-3]]
   for (let i = 0; i < prefixes.length; i++) {
       let divider = Math.pow(1000, prefixes[i][1])
