@@ -4,11 +4,29 @@
 
 This project consists of two parts: a backend that runs on a Raspberry Pi written in Python, and a front end website client written using React.js. The two communicate over a point-to-point wifi connection.
 
-# How To Use
+Contents:
+* [Setting up a computer for development](#development)
+* [Setting up a Raspberry Pi](#setting-up-a-raspberry-pi-for-the-first-time) (this should not be necessary)
+* [Setting up the Pi at the testing site](#setting-up-the-pi-at-the-testing-site)
+* [Debugging with the Raspberry Pi](#how-to-debug)
 
-You'll need a Raspberry Pi and your laptop, and some way of putting them on the same network. You can network with point-to-point ethernet or a hotspot + Linux compatible wifi dongle (don't need wifi dongle on newer Pi's). You cannot use ResNet as they block the ports we need.
+# Development
+
+Installation:
+
+1. Install Node.js on the computer you're running the front-end on
+1. Install Python >=3.10 so you can run a development server with fake data on the same computer
+1. `git clone git@github.com:ANU-Rocketry/control-panel.git` and `cd control-panel`
+1. In `control-panel/reactfront`, run `npm ci` to install dependencies for the React.js front end
+1. In `control-panel/src`, run `pip install -r requirements.txt` to install server dependencies (this is so you can use your computer for a development server with fake data instead of a Raspberry Pi)
+
+Then every time you want to run it:
+1. In `reactfront` run `npm start` to launch the app on `http://localhost:3000/`
+1. In `src` run `python server.py --dev` to start a development backend server generating fake data, and paste the IP address it prints out into the "R-Pi IP" field in the app
 
 # Setting up a Raspberry Pi for the first time
+
+You'll need a Raspberry Pi and your laptop, and some way of putting them on the same network. You can network with point-to-point ethernet or a hotspot + Linux compatible wifi dongle (don't need wifi dongle on newer Pi's). You cannot use ResNet as they block the ports we need.
 
 1. Start up the Raspberry Pi and get internet access and a terminal
     * Option 1: If you have two ethernet cables and the router we use, plug the Pi into a LAN slot on the router, plug the external ethernet (eg ResNet) into the WAN slot, connect your laptop to the router's wifi, and SSH into `192.168.0.5`
@@ -87,12 +105,6 @@ Whenever you make changes on your laptop, you need to copy them over to the Pi v
 To test the server locally, run `python3 server.py --dev` on your laptop. In the frontend, you'll need to change `R-Pi IP` to your local IP address. You should see simulated sine wave pressure data.
 
 If you have any problems, just file a GitHub Issue, contact us on Microsoft Teams or email our student emails.
-
-# Development
-
-To run the dev build of the front-end, you will need to install Node.js on the computer you're running the front-end on. Then download this repository on that computer, go into the `reactfront` folder in a terminal / command prompt, run `npm install` and then `npm start`. After a short wait this will open a browser tab with the front end in it. When you're done make sure to `npm run build` so the `reactfront/build` folder is updated.
-
-The backend Pi server has an optional `dev` flag (ie `python server.py --dev`) that lets you use a fake simulated LabJack for testing.
 
 ## Pushing new builds on the fly
 
