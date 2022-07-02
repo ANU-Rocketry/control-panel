@@ -33,6 +33,14 @@ export default function SafetyPanel({ state, emit, that }) {
 
   const UPSStatus = state.data === null ? false : state.data.UPS_status
 
+  const statuses = ["Connecting", "Connected", "Closing", "Closed"]
+  let connectionStatus
+  if (that.socket) {
+      connectionStatus = statuses[that.socket.readyState]
+  } else {
+      connectionStatus = "Not Connected"
+  }
+
   return (
     <Panel title="Safety" className='panel safety'>
       <div className="flex" style={{ justifyContent: 'flex-start' }}>
@@ -74,6 +82,10 @@ export default function SafetyPanel({ state, emit, that }) {
             {UPSStatus}
           </SafetyCard>
         )}
+
+        <SafetyCard title="Connection Status">
+            {connectionStatus}
+        </SafetyCard>
       </div>
     </Panel>
   )
