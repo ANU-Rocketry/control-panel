@@ -21,7 +21,7 @@ export function SafetyCard(props) {
   );
 }
 
-export default function SafetyPanel({ state, emit, that }) {
+export default function SafetyPanel({ state, emit, sockStatus, that }) {
   const armingSwitchActive = state.data === null ? false : state.data.arming_switch
   const toggleArmingSwitch = x => emit('ARMINGSWITCH', x)
 
@@ -33,12 +33,11 @@ export default function SafetyPanel({ state, emit, that }) {
 
   const UPSStatus = state.data === null ? false : state.data.UPS_status
 
-  const statuses = ["Connecting", "Connected", "Closing", "Closed"]
   let connectionStatus
-  if (that.socket) {
-      connectionStatus = statuses[that.socket.readyState]
+  if (sockStatus === 1) {
+      connectionStatus = <div style={{color : "green"}}> Connected </div>
   } else {
-      connectionStatus = "Not Connected"
+      connectionStatus = <div style={{color : "red"}}> Not Connected </div>
   }
 
   return (
