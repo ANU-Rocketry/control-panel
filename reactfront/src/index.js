@@ -99,12 +99,20 @@ class App extends React.Component {
       console.log(this.state.mostRecentWarning);
       this.setState({ mostRecentWarning: this.state.data.latest_warning, showWarning: true });
     }
+
+    let sockStatus
+    if (this.socket) {
+        sockStatus = this.socket.readyState
+    } else {
+        sockStatus = -1 //little iffy.
+    }
+
     return (
       <div>
         <TopBar />
         <div className='panels-root'>
           <div className='panel-row-1'>
-            <SafetyPanel state={this.state} emit={this.emit} that={this} />
+            <SafetyPanel state={this.state} emit={this.emit} sockStatus={sockStatus} that={this} />
             <Sequences state={this.state} emit={this.emit} />
           </div>
           <div className='panel-row-2'>
