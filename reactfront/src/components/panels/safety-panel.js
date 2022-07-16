@@ -33,12 +33,9 @@ export default function SafetyPanel({ state, emit, sockStatus, that }) {
 
   const UPSStatus = state.data === null ? false : state.data.UPS_status
 
-  let connectionStatus
-  if (sockStatus === 1) {
-      connectionStatus = <div style={{color : "green"}}> Connected </div>
-  } else {
-      connectionStatus = <div style={{color : "red"}}> Not Connected </div>
-  }
+  let connectionStatus = sockStatus === WebSocket.OPEN
+    ? <div style={{color : "green"}}>Connected</div>
+    : <div style={{color : "red"}}> Disconnected</div>
 
   return (
     <Panel title="Safety" className='panel safety'>

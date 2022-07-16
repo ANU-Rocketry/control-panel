@@ -18,7 +18,8 @@ class App extends React.Component {
       data: null, mostRecentWarning: {}, showWarning: false,
       wsAddress: localStorage.getItem('wsaddr') || "192.168.0.5",
       defaultWSAddress: "192.168.0.5",
-      events: []
+      events: [],
+      socketStatus: -1,
     }
     this.emit = this.emit.bind(this)
     this.connect()
@@ -35,8 +36,13 @@ class App extends React.Component {
     if (this.socket) this.socket.close();
     try {
     this.socket = new WebSocket(`ws://${this.state.wsAddress}:8888`)
-    this.socket.onopen = e => console.log('websocket connection established')
+    this.setState({ socketStatus: this.socket.readyState })
+    this.socket.onopen = e => {
+      console.log('websocket connection established')
+      this.setState({ socketStatus: this.socket.readyState })
+    }
     this.socket.onclose = e => {
+      this.setState({ socketStatus: this.socket.readyState })
       this.socket = null
       console.log('websocket connection lost. reconnecting...')
       newData(emptyDataPoint)
@@ -48,6 +54,7 @@ class App extends React.Component {
     }
     this.socket.onmessage = e => {
       if (!this.mounted) return
+      this.setState({ socketStatus: this.socket.readyState })
       const data = JSON.parse(e.data)
       switch (data.type) {
         case 'STATE':
@@ -100,19 +107,12 @@ class App extends React.Component {
       this.setState({ mostRecentWarning: this.state.data.latest_warning, showWarning: true });
     }
 
-    let sockStatus
-    if (this.socket) {
-        sockStatus = this.socket.readyState
-    } else {
-        sockStatus = -1 //little iffy.
-    }
-
     return (
       <div>
         <TopBar />
         <div className='panels-root'>
           <div className='panel-row-1'>
-            <SafetyPanel state={this.state} emit={this.emit} sockStatus={sockStatus} that={this} />
+            <SafetyPanel state={this.state} emit={this.emit} sockStatus={this.state.socketStatus} that={this} />
             <Sequences state={this.state} emit={this.emit} />
           </div>
           <div className='panel-row-2'>
