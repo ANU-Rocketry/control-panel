@@ -13,11 +13,13 @@ from typing import List, Mapping, Tuple, Optional
 from pathlib import Path
 import os
 import subprocess
+import datetime
 
 # If you run `python3 server.py --dev` you get a simulated LabJack class
 # If you run `python3 server.py` it tries to connect properly
 # (To connect properly we need LabJackPython's u3.py and the Exodriver, see README)
-LabJack = get_class('--dev' in sys.argv)
+devMode = '--dev' in sys.argv
+LabJack = get_class(devMode)
 
 STATE_BROADCAST_FREQUENCY = 20  # Get the LabJack state and broadcast it to all connected clients at 20Hz
 ABORT_SEQUENCE_TIMEOUT = 900 # Seconds without any active connections before the abort sequence automatically fires
@@ -33,6 +35,8 @@ def get_output(cmd):
     proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     return proc.communicate()[0].decode("utf-8")
 
+#IMPORTANT: these names are used line 25,38 safety-panel.js to get the correct symbols
+#if the names are changed, change them there too.
 class UPSStatus(str, Enum):
     "Enum for the status of the UPS"
     LINE_POWERED = 'LINE_POWERED'
@@ -133,14 +137,25 @@ class LJWebSocketsServer:
             self.datalog.log_data(data, type)
 
     def get_UPS_status(self):
-        status = get_output('apcaccess status')
-        # if there's a connection, it should say "STATUS   : ONBATT" or "STATUS   : ONLINE" on one of the lines
-        if "STATUS   : ONBATT" in status:
-            return UPSStatus.BATTERY_POWERED
-        elif "STATUS   : ONLINE" in status:
-            return UPSStatus.LINE_POWERED
+        if not devMode:
+            status = get_output('apcaccess status')
+            # if there's a connection, it should say "STATUS   : ONBATT" or "STATUS   : ONLINE" on one of the lines
+            if "STATUS   : ONBATT" in status:
+                return UPSStatus.BATTERY_POWERED
+            elif "STATUS   : ONLINE" in status:
+                return UPSStatus.LINE_POWERED
+            else:
+                return UPSStatus.UNKNOWN
         else:
-            return UPSStatus.UNKNOWN
+            #for test servers switch the status every 3 seconds
+            ts = datetime.datetime.now().timestamp()
+            ts = int(ts) % 10
+            if ts <= 3:
+                return UPSStatus.LINE_POWERED
+            elif ts <= 6:
+                return UPSStatus.BATTERY_POWERED
+            else:
+                return UPSStatus.UNKNOWN
 
     async def update_UPS_status(self):
         while True:
