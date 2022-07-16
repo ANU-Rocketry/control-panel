@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Panel, ToggleSwitch } from '../index'
+import { Snackbar, Button } from '@material-ui/core'
 
 export function SafetyCard(props) {
   var toggle = ""
@@ -21,6 +22,10 @@ export function SafetyCard(props) {
   );
 }
 
+// enums taken from line36 server.py UPSStatus
+const UPSSymbols = {"LINE_POWERED": "✅", "BATTERY_POWERED": "❌", "UNKNOWN": "❔"}
+const UPSNames = {"LINE_POWERED": "Line Powered", "BATTERY_POWERED": "Battery Backup (Line Disconnected)", "UNKNOWN": "Unknown"}
+
 export default function SafetyPanel({ state, emit, sockStatus, that }) {
   const armingSwitchActive = state.data === null ? false : state.data.arming_switch
   const toggleArmingSwitch = x => emit('ARMINGSWITCH', x)
@@ -31,7 +36,12 @@ export default function SafetyPanel({ state, emit, sockStatus, that }) {
   const dataLoggingActive = state.data === null ? false : state.data.data_logging
   const toggleDataLogging = x => emit('DATALOG', x)
 
-  const UPSStatus = state.data === null ? false : state.data.UPS_status
+  //UNKNOWN is taken from the python enum line 38 server.py. change this if it changes there
+  const UPSStatus = state.data === null ? "UNKNOWN" : state.data.UPS_status
+  const UPSInfo = UPSSymbols[UPSStatus] + " " + UPSNames[UPSStatus]
+  const [prevUPS, setPrevUPS] = useState([false, "UNKNOWN"])
+  const openSnackBar = prevUPS[1] !== UPSStatus
+  if(openSnackBar && !prevUPS[0]) {setPrevUPS([true, UPSStatus])}
 
   let connectionStatus = sockStatus === WebSocket.OPEN
     ? <div style={{color : "green"}}>Connected</div>
@@ -75,14 +85,30 @@ export default function SafetyPanel({ state, emit, sockStatus, that }) {
 
         {UPSStatus && (
           <SafetyCard title="UPS Status">
-            {UPSStatus}
+            {UPSInfo}
           </SafetyCard>
         )}
 
         <SafetyCard title="Connection Status">
             {connectionStatus}
         </SafetyCard>
+
       </div>
+
+      <Snackbar
+        open={prevUPS[0]}
+        onClose={() => setPrevUPS([false, UPSStatus])}
+        message={"UPS status changed: " + UPSInfo}
+        action={(
+          <Button onClick={() => setPrevUPS([false, UPSStatus])}
+                  style={{color: "white", "text-transform": "none"}}> 
+            <u> dismiss </u>
+          </Button>
+        )}
+    />
+
     </Panel>
+
+
   )
 }
