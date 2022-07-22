@@ -1,5 +1,5 @@
 
-import { binarySearch, intervalUnion, undefOnBadRef } from './graph-utils'
+import { binarySearch, undefOnBadRef } from './graph-utils'
 
 class DoubleArray {
   constructor(capacity) {

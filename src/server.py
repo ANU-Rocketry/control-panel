@@ -11,9 +11,7 @@ import sys
 from labjack import get_class
 from typing import List, Mapping, Tuple, Optional
 from pathlib import Path
-import os
 import subprocess
-import datetime
 
 # If you run `python3 server.py --dev` you get a simulated LabJack class
 # If you run `python3 server.py` it tries to connect properly
@@ -35,8 +33,6 @@ def get_output(cmd):
     proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     return proc.communicate()[0].decode("utf-8")
 
-#IMPORTANT: these names are used line 25,38 safety-panel.js to get the correct symbols
-#if the names are changed, change them there too.
 class UPSStatus(str, Enum):
     "Enum for the status of the UPS"
     LINE_POWERED = 'LINE_POWERED'
@@ -147,15 +143,10 @@ class LJWebSocketsServer:
             else:
                 return UPSStatus.UNKNOWN
         else:
-            #for test servers switch the status every 3 seconds
-            ts = datetime.datetime.now().timestamp()
-            ts = int(ts) % 10
-            if ts <= 3:
-                return UPSStatus.LINE_POWERED
-            elif ts <= 6:
-                return UPSStatus.BATTERY_POWERED
-            else:
-                return UPSStatus.UNKNOWN
+            # for test servers, switch the UPS status every 3 seconds
+            statuses = [UPSStatus.LINE_POWERED, UPSStatus.BATTERY_POWERED, UPSStatus.UNKNOWN]
+            index = (int(time.time() / 60)) % len(statuses)
+            return statuses[index]
 
     async def update_UPS_status(self):
         while True:
