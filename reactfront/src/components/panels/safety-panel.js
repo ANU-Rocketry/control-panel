@@ -22,9 +22,13 @@ export function SafetyCard(props) {
   );
 }
 
-// enums taken from line36 server.py UPSStatus
+// Strings taken from server.py's UPSStatus enum
 const UPSSymbols = {"LINE_POWERED": "✅", "BATTERY_POWERED": "❌", "UNKNOWN": "❔"}
-const UPSNames = {"LINE_POWERED": "Line Powered", "BATTERY_POWERED": "Battery Backup (Line Disconnected)", "UNKNOWN": "Unknown"}
+const UPSNames = {
+  "LINE_POWERED": "Line Powered",
+  "BATTERY_POWERED": "On Battery (No Power)",
+  "UNKNOWN": "Unknown"
+}
 
 export default function SafetyPanel({ state, emit, sockStatus, that }) {
   const armingSwitchActive = state.data === null ? false : state.data.arming_switch
@@ -36,12 +40,13 @@ export default function SafetyPanel({ state, emit, sockStatus, that }) {
   const dataLoggingActive = state.data === null ? false : state.data.data_logging
   const toggleDataLogging = x => emit('DATALOG', x)
 
-  //UNKNOWN is taken from the python enum line 38 server.py. change this if it changes there
   const UPSStatus = state.data === null ? "UNKNOWN" : state.data.UPS_status
   const UPSInfo = UPSSymbols[UPSStatus] + " " + UPSNames[UPSStatus]
   const [prevUPS, setPrevUPS] = useState([false, "UNKNOWN"])
   const openSnackBar = prevUPS[1] !== UPSStatus
-  if(openSnackBar && !prevUPS[0]) {setPrevUPS([true, UPSStatus])}
+  if (openSnackBar && !prevUPS[0]) {
+    setPrevUPS([true, UPSStatus])
+  }
 
   let connectionStatus = sockStatus === WebSocket.OPEN
     ? <div style={{color : "green"}}>Connected</div>
@@ -101,14 +106,12 @@ export default function SafetyPanel({ state, emit, sockStatus, that }) {
         message={"UPS status changed: " + UPSInfo}
         action={(
           <Button onClick={() => setPrevUPS([false, UPSStatus])}
-                  style={{color: "white", "text-transform": "none"}}> 
-            <u> dismiss </u>
+            style={{color: "white", "text-transform": "none", "text-decoration": "underline"}}>
+            Dismiss
           </Button>
         )}
     />
 
     </Panel>
-
-
   )
 }
