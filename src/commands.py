@@ -5,7 +5,6 @@
 from abc import ABCMeta, abstractmethod
 from xmlrpc.client import Server
 from stands import Stand, StandConfig, ETH, LOX
-import time
 import asyncio
 from dataclasses import dataclass, asdict
 import json
@@ -21,9 +20,9 @@ class ServerCommand(metaclass=ABCMeta):
     async def act(self, server):
         pass
     @abstractmethod
-    def as_dict(self):
+    def as_dict(self) -> dict:
         pass # returned dict requires "name" field
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 class Sleep(ServerCommand):
@@ -87,14 +86,12 @@ class ClientCommandString:
     SETSEQUENCE = 'SETSEQUENCE'
     BEGINSEQUENCE = 'BEGINSEQUENCE'
     ABORTSEQUENCE = 'ABORTSEQUENCE'
-    SLEEP = 'SLEEP'
 
 @dataclass
 class ClientCommand:
     name: ClientCommandString
     pin: int = None # for OPEN, CLOSE
     stand: Stand = None # for OPEN, CLOSE
-    ms: int = None # for SLEEP
     sequence_file: str = None # for SETSEQUENCE
     enabled: bool = None # for ARMINGSWITCH, MANUALSWITCH, DATALOG
 
@@ -103,5 +100,3 @@ class ClientCommand:
 
     def __str__(self) -> str:
         return json.dumps(self.as_dict())
-
-#parser: map(eval, string.split("\n")) #check new line being careful to filter out blank lines
