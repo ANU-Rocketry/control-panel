@@ -4,7 +4,7 @@
 
 from abc import ABCMeta, abstractmethod
 from xmlrpc.client import Server
-from stands import Stand, StandConfig
+from stands import Stand, StandConfig, ETH, LOX
 import time
 import asyncio
 from dataclasses import dataclass, asdict
@@ -27,9 +27,9 @@ class ServerCommand(metaclass=ABCMeta):
         return self.name
 
 class Sleep(ServerCommand):
-    def __init__(self, ms: int):
+    def __init__(self, seconds: int):
         self.name = "SLEEP"
-        self.ms = ms
+        self.ms = int(seconds * 1000)
 
     async def act(self, server):
         if self.ms <= 0: return
@@ -49,7 +49,8 @@ class Sleep(ServerCommand):
         return { "name": self.name, "ms": self.ms }
 
 class Open(ServerCommand):
-    def __init__(self, stand: Stand, pin: int):
+    def __init__(self, stand: Stand, pin: int = None):
+        if isinstance(stand, tuple): stand, pin = stand # so you can Open(LOX.Main)
         self.name = "OPEN"
         self.stand = stand
         self.pin = pin
@@ -60,7 +61,8 @@ class Open(ServerCommand):
         return { "name": self.name, "stand": self.stand, "pin": self.pin }
 
 class Close(ServerCommand):
-    def __init__(self, stand: Stand, pin: int):
+    def __init__(self, stand: Stand, pin: int = None):
+        if isinstance(stand, tuple): stand, pin = stand # so you can Open(LOX.Main)
         self.name = "CLOSE"
         self.stand = stand
         self.pin = pin
@@ -96,5 +98,4 @@ class ClientCommand:
     def __str__(self) -> str:
         return json.dumps(self.as_dict())
 
-#parser: map(eval, string.split("\n")) #check new line
-
+#parser: map(eval, string.split("\n")) #check new line being careful to filter out blank lines

@@ -11,7 +11,7 @@ def get_local_ip() -> str:
     return ret
 
 def time_ms() -> int:
-    return time.time_ns() // 1_000_000
+    return int(time.time_ns() // 1_000_000)
 
 def get_output(cmd) -> str:
     """
