@@ -287,6 +287,10 @@ class LJWebSocketsServer:
             self.state.aborting = False
         asyncio.ensure_future(temp())
 
+    def should_interrupt_sleep(self) -> bool:
+        # TODO: need the right condition to interrupt (eg paused, mid-sequence abort)
+        return False
+
     async def emit(self, ws, msg_type, data):
         # if msg_type == "STATE", data is the state, etc.
         obj = {
