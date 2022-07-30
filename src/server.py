@@ -12,6 +12,7 @@ from stands import Stand, StandConfig
 from typing import List, Mapping, Tuple, Optional
 from pathlib import Path
 import utils
+from commands import Sleep, Open, Close
 
 # If you run `python3 server.py --dev` you get a simulated LabJack class
 # If you run `python3 server.py` it tries to connect properly
@@ -140,24 +141,14 @@ class LJWebSocketsServer:
         self.clients.add(ws)
         try:
             async for message in ws:
-                # reset inactivity measure
-                self.inactive_abort_fired = False
-
+                self.inactive_abort_fired = False # reset inactivity measure
                 self.log_data(message, type="REQUEST")
-                data = json.loads(message)
-                if 'command' in data.keys():
-                    try:
-                        await self.handle_command(ws, data['command']['header'],
-                            data['command'].get('data', None), data['time'])
-                    except Exception as e:
-                        print_exc()
-                        self.state.latest_warning = (
-                            int(time.time()*1000),
-                            str(e)
-                        )
-
-                else:
-                    assert False, f"Invalid command {message}"
+                try:
+                    data = json.loads(message)
+                    await self.handle_command(ws, data['header'], data.get('data', None), data['time'])
+                except Exception as e:
+                    print_exc()
+                    self.state.latest_warning = ( utils.time_ms(), str(e) )
         finally:
             self.clients.remove(ws)
             self.time_of_last_disconnect = time.time()
@@ -186,31 +177,45 @@ class LJWebSocketsServer:
             await self.emit(ws, 'PING', time)
             return
 
-        if self.state.aborting: return
+        if self.state.aborting: return # TODO: why is this there?
         print(header)
 
         match header:
-            case CommandString.DATALOG:
-                self.set_datalogging_enabled(data)
             case CommandString.ARMINGSWITCH:
                 self.log_data(data, type="ARMING_SWITCH")
                 self.state.arming_switch = data
-            case CommandString.ABORTSEQUENCE:
-                self.run_abort_sequence()
-            case CommandString.SETSEQUENCE:
-                print(type(data))
-                command = Command(
-                    CommandString.SETSEQUENCE, data)
-                self.state.current_sequence = command.data
+
             case CommandString.MANUALSWITCH:
                 self.log_data(data, type="MANUAL_SWITCH")
                 self.state.manual_switch = data
+
+            case CommandString.OPEN:
+                if self.state.arming_switch and self.state.manual_switch:
+                    await Open(data['name'], data['pin']).act(self)
+                    asyncio.ensure_future(self.broadcast('VALVE', data))
+
+            case CommandString.CLOSE:
+                if self.state.arming_switch and self.state.manual_switch:
+                    await Close(data['name'], data['pin']).act(self)
+                    asyncio.ensure_future(self.broadcast('VALVE', data))
+
+            case CommandString.DATALOG:
+                self.set_datalogging_enabled(data)
+
+            case CommandString.SETSEQUENCE:
+                # TODO this is ugly
+                command = Command(CommandString.SETSEQUENCE, data)
+                self.state.current_sequence = command.data
+
             case CommandString.BEGINSEQUENCE:
                 if self.state.arming_switch:
                     self.execute_sequence()
-            case CommandString.OPEN | CommandString.CLOSE:
-                if self.state.arming_switch and self.state.manual_switch:
-                    self.LJ_execute(Command(header, data))
+
+            case CommandString.ABORTSEQUENCE:
+                self.run_abort_sequence()
+
+            case _:
+                self.state.latest_warning = ( utils.time_ms(), f"Unknown command: {header}" )
 
     async def start_server(self):
         asyncio.ensure_future(self.sync_state())
@@ -221,7 +226,6 @@ class LJWebSocketsServer:
 
     def LJ_execute(self, command: Command):
         self.log_data(command.as_dict(), "COMMAND_EXECUTED")
-        asyncio.ensure_future(self.broadcast('VALVE', command.as_dict()))
         if type(command) == dict:
             command = Command(command['header'], command['data'])
         if command.header == CommandString.OPEN:

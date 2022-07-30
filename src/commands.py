@@ -54,7 +54,8 @@ class Open(ServerCommand):
         self.stand = stand
         self.pin = pin
     async def act(self, server):
-        server.labjacks[self.stand].open_valve(self.pin)
+        if server.state.arming_switch or server.state.aborting:
+            server.labjacks[self.stand].open_valve(self.pin)
     def as_dict(self):
         return { "name": self.name, "stand": self.stand, "pin": self.pin }
 
@@ -64,13 +65,25 @@ class Close(ServerCommand):
         self.stand = stand
         self.pin = pin
     async def act(self, server):
-        server.labjacks[self.stand].close_valve(self.pin)
+        if server.state.arming_switch or server.state.aborting:
+            server.labjacks[self.stand].close_valve(self.pin)
     def as_dict(self):
         return { "name": self.name, "stand": self.stand, "pin": self.pin }
 
+class ClientCommandString:
+    ARMINGSWITCH = 'ARMINGSWITCH'
+    MANUALSWITCH = 'MANUALSWITCH'
+    OPEN = 'OPEN'
+    CLOSE = 'CLOSE'
+    DATALOG = 'DATALOG'
+    SETSEQUENCE = 'SETSEQUENCE'
+    BEGINSEQUENCE = 'BEGINSEQUENCE'
+    ABORTSEQUENCE = 'ABORTSEQUENCE'
+    SLEEP = 'SLEEP'
+
 @dataclass
 class ClientCommand:
-    name: str
+    name: ClientCommandString
     pin: int = None # for OPEN, CLOSE
     stand: Stand = None # for OPEN, CLOSE
     ms: int = None # for SLEEP
