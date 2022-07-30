@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field, asdict
-from enum import Enum
 import websockets
 import asyncio
 import time
@@ -12,7 +11,7 @@ from labjack import get_class
 from stands import Stand, StandConfig
 from typing import List, Mapping, Tuple, Optional
 from pathlib import Path
-import subprocess
+import utils
 
 # If you run `python3 server.py --dev` you get a simulated LabJack class
 # If you run `python3 server.py` it tries to connect properly
@@ -24,16 +23,7 @@ ABORT_SEQUENCE_TIMEOUT = 900 # Seconds without any active connections before the
 
 LOG_PATH = Path(__file__).parent / 'logs'
 
-def get_output(cmd):
-    """
-    Get the STDOUT of a shell command as a string, suppressing STDERR.
-    If there is only an error (including command not found), the return will be an empty string.
-    """
-    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    return proc.communicate()[0].decode("utf-8")
-
-class UPSStatus(str, Enum):
-    "Enum for the status of the UPS"
+class UPSStatus:
     LINE_POWERED = 'LINE_POWERED'
     BATTERY_POWERED = 'BATTERY_POWERED'
     UNKNOWN = 'UNKNOWN'
@@ -127,7 +117,7 @@ class LJWebSocketsServer:
 
     def get_UPS_status(self):
         if not devMode:
-            status = get_output('apcaccess status')
+            status = utils.get_output('apcaccess status')
             # if there's a connection, it should say "STATUS   : ONBATT" or "STATUS   : ONLINE" on one of the lines
             if "STATUS   : ONBATT" in status:
                 return UPSStatus.BATTERY_POWERED
@@ -305,18 +295,10 @@ class LJWebSocketsServer:
             await self.emit(ws, msg_type, data)
 
 
-def get_local_ip():
-    # Source: https://stackoverflow.com/a/166589
-    import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("8.8.8.8", 80))
-    ret = s.getsockname()[0]
-    s.close()
-    return ret
 
 
 if __name__ == '__main__':
-    ip = get_local_ip()
+    ip = utils.get_local_ip()
     port = 8888
     server = LJWebSocketsServer(ip, port)
     asyncio.run(server.start_server())

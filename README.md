@@ -44,12 +44,13 @@ You'll need a Raspberry Pi and your laptop, and some way of putting them on the 
 1. Install this repository
     1. Go to your home folder (`cd ~`)
     1. Clone this repository (`git clone https://github.com/ANU-Rocketry/control-panel`)
-    1. Go into the repository (`cd control-panel`)
 1. Install Python 3.10 from source (based off this: https://itheo.tech/installing-python-310-on-raspberry-pi)
     1. `screen -S rocketry_session`
     1. `wget -qO - https://raw.githubusercontent.com/tvdsluijs/sh-python-installer/main/python.sh | sudo bash -s 3.10.0` (this will take an hour for a new Pi and **3-4 hours** for an older one!)
         1. If you need to leave and come back without stopping the process, press Ctrl+A then Ctrl+D and close the SSH session. When you get back, run `screen -r` to resume it.
+        1. Once done, you can Ctrl+A then Ctrl+D if you like and you can safely delete the `Python-XXX.tar.xz` and `Python-XXX` folders
     1. `sudo python3.10 -m pip install --upgrade pip`
+    1. `cd control-panel/src`
     1. `sudo python3.10 -m pip install -r requirements.txt`
         1. The sudo is VERY IMPORTANT. Otherwise the startup script will not be able to find the pip modules because they'll be locally installed otherwise
 1. Configure startup script
