@@ -9,6 +9,7 @@ from LJCommands import CommandString, Command, parse_sequence_csv
 from traceback import print_exc
 import sys
 from labjack import get_class
+from stands import Stand, StandConfig
 from typing import List, Mapping, Tuple, Optional
 from pathlib import Path
 import subprocess
@@ -17,13 +18,11 @@ import subprocess
 # If you run `python3 server.py` it tries to connect properly
 # (To connect properly we need LabJackPython's u3.py and the Exodriver, see README)
 devMode = '--dev' in sys.argv
-LabJack = get_class(devMode)
 
 STATE_BROADCAST_FREQUENCY = 20  # Get the LabJack state and broadcast it to all connected clients at 20Hz
 ABORT_SEQUENCE_TIMEOUT = 900 # Seconds without any active connections before the abort sequence automatically fires
 
 LOG_PATH = Path(__file__).parent / 'logs'
-CONFIG_FILE = Path(__file__).parent / 'config.json'
 
 def get_output(cmd):
     """
@@ -76,24 +75,19 @@ class SystemState:
 
 class LJWebSocketsServer:
 
-    def __init__(self, ip: str, port: int, config=CONFIG_FILE):
+    def __init__(self, ip: str, port: int):
         self.config = {}
         self.state = SystemState()
         self.datalog = None
         self.time_of_last_disconnect = time.time()
         self.inactive_abort_fired = False
 
-        with open(config, "r") as in_file:
-            data = json.loads(in_file.read())
-
-        self.config = data
-        self.abort_sequence = parse_sequence_csv(self.config['ABORT_SEQUENCE'])
+        self.abort_sequence = parse_sequence_csv('abort_sequence.csv')
 
         self.labjacks = {}
 
-        for key in self.config['labjacks']:
-            config = self.config['labjacks'][key]
-            self.labjacks[key] = LabJack(config["serial"], config["analog"])
+        self.labjacks['LOX'] = get_class(devMode)(StandConfig[Stand.LOX])
+        self.labjacks['ETH'] = get_class(devMode)(StandConfig[Stand.ETH])
 
         self.ip = ip
         self.port = port
@@ -120,8 +114,7 @@ class LJWebSocketsServer:
             if self.state.data_logging and self.datalog:
                 self.log_data(self.state.as_dict(), type="STATE")
             for stand in self.labjacks:
-                pin_data = self.labjacks[stand].get_state(
-                    self.config['labjacks'][stand]["digital"], self.config['labjacks'][stand]["analog"])
+                pin_data = self.labjacks[stand].get_state()
                 self.state.labjacks[stand] = pin_data
             self.state.time = int(time.time() * 1000)
             # broadcast new state to all clients
