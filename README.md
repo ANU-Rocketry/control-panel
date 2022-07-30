@@ -35,6 +35,7 @@ You'll need a Raspberry Pi and your laptop, and some way of putting them on the 
 1. Open a terminal
 1. Build the LabJack Exodrvier
     1. Go to your home folder (type `cd ~` in the terminal)
+    1. `sudo apt-get update`, `sudo apt-get install git`, `sudo apt-get install screen`
     1. Install Python Pip if not already installed (`sudo apt install python3-pip`)
     1. Install the libusb headers with `sudo apt-get install libusb-1.0-0 libusb-1.0-0-dev` (note the dashes where you'd expect periods to be)
     1. Clone the Exodriver repository (`git clone https://github.com/labjack/exodriver`)
@@ -45,7 +46,9 @@ You'll need a Raspberry Pi and your laptop, and some way of putting them on the 
     1. Clone this repository (`git clone https://github.com/ANU-Rocketry/control-panel`)
     1. Go into the repository (`cd control-panel`)
 1. Install Python 3.10 from source (based off this: https://itheo.tech/installing-python-310-on-raspberry-pi)
-    1. `wget -qO - https://raw.githubusercontent.com/tvdsluijs/sh-python-installer/main/python.sh | sudo bash -s 3.10.0` (this will take an hour)
+    1. `screen -S rocketry_session`
+    1. `wget -qO - https://raw.githubusercontent.com/tvdsluijs/sh-python-installer/main/python.sh | sudo bash -s 3.10.0` (this will take an hour for a new Pi and **3-4 hours** for an older one!)
+        1. If you need to leave and come back without stopping the process, press Ctrl+A then Ctrl+D and close the SSH session. When you get back, run `screen -r` to resume it.
     1. `sudo python3.10 -m pip install --upgrade pip`
     1. `sudo python3.10 -m pip install -r requirements.txt`
         1. The sudo is VERY IMPORTANT. Otherwise the startup script will not be able to find the pip modules because they'll be locally installed otherwise
