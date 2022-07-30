@@ -192,12 +192,10 @@ class LJWebSocketsServer:
             case CommandString.OPEN:
                 if self.state.arming_switch and self.state.manual_switch:
                     await Open(data['name'], data['pin']).act(self)
-                    asyncio.ensure_future(self.broadcast('VALVE', data))
 
             case CommandString.CLOSE:
                 if self.state.arming_switch and self.state.manual_switch:
                     await Close(data['name'], data['pin']).act(self)
-                    asyncio.ensure_future(self.broadcast('VALVE', data))
 
             case CommandString.DATALOG:
                 self.set_datalogging_enabled(data)
@@ -223,21 +221,6 @@ class LJWebSocketsServer:
         asyncio.ensure_future(self.update_UPS_status())
         async with websockets.serve(self.event_handler, self.ip, self.port):
             await asyncio.Future()
-
-    def LJ_execute(self, command: Command):
-        self.log_data(command.as_dict(), "COMMAND_EXECUTED")
-        if type(command) == dict:
-            command = Command(command['header'], command['data'])
-        if command.header == CommandString.OPEN:
-            LJ = command.data["name"]
-            pin = command.data["pin"]
-            self.labjacks[LJ].open_valve(pin)
-        elif command.header == CommandString.CLOSE:
-            LJ = command.data["name"]
-            pin = command.data["pin"]
-            self.labjacks[LJ].close_valve(pin)
-        else:
-            assert False, "Unknown command string: " + json.dumps(command.as_dict())
 
     def execute_sequence(self):
         async def temp():
@@ -272,9 +255,10 @@ class LJWebSocketsServer:
                 else:
                     if command.header == CommandString.OPEN:
                         print(f"[Sequence] opening {command.data}")
+                        await Open(command.data['name'], command.data['pin']).act(self)
                     elif command.header == CommandString.CLOSE:
                         print(f"[Sequence] closing {command.data}")
-                    self.LJ_execute(command)
+                        await Close(command.data['name'], command.data['pin']).act(self)
                 self.state.command_in_flight = None
 
             self.state.sequence_running = False
@@ -296,10 +280,10 @@ class LJWebSocketsServer:
 
     async def broadcast(self, msg_type, data):
         for ws in self.clients:
-            await self.emit(ws, msg_type, data)
-
-
-
+            try:
+                await self.emit(ws, msg_type, data)
+            except:
+                pass
 
 if __name__ == '__main__':
     ip = utils.get_local_ip()

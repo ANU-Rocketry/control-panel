@@ -57,6 +57,9 @@ class Open(ServerCommand):
     async def act(self, server):
         if server.state.arming_switch or server.state.aborting:
             server.labjacks[self.stand].open_valve(self.pin)
+        asyncio.ensure_future(server.broadcast('VALVE', {
+            'time': utils.time_ms(), 'header': 'OPEN', 'pin': self.pin
+        }))
     def as_dict(self):
         return { "name": self.name, "stand": self.stand, "pin": self.pin }
 
@@ -69,6 +72,9 @@ class Close(ServerCommand):
     async def act(self, server):
         if server.state.arming_switch or server.state.aborting:
             server.labjacks[self.stand].close_valve(self.pin)
+        asyncio.ensure_future(server.broadcast('VALVE', {
+            'time': utils.time_ms(), 'header': 'CLOSE', 'pin': self.pin
+        }))
     def as_dict(self):
         return { "name": self.name, "stand": self.stand, "pin": self.pin }
 
