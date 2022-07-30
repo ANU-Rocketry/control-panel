@@ -4,15 +4,14 @@ import asyncio
 import time
 import json
 from datalog import Datalog
-from LJCommands import CommandString, Command, parse_sequence_csv
 from traceback import print_exc
 import sys
 from labjack import get_class
-from stands import Stand, StandConfig
+from stands import Stand, StandConfig, ETH, LOX
 from typing import List, Mapping, Tuple, Optional
 from pathlib import Path
 import utils
-from commands import Sleep, Open, Close
+from commands import Sleep, Open, Close, ServerCommand, ClientCommandString
 
 # If you run `python3 server.py --dev` you get a simulated LabJack class
 # If you run `python3 server.py` it tries to connect properly
@@ -41,11 +40,11 @@ class SystemState:
     # But not:
     # * partially finished sleeps
     # * commands that have already run in an actively running sequence
-    current_sequence: List[Command] = field(default_factory=list)
+    current_sequence: List[ServerCommand] = field(default_factory=list)
     # Is the current_sequence in progress?
     sequence_running: bool = False
     # The current sequence command being executed, if the sequence is running
-    command_in_flight: Optional[Command] = None
+    command_in_flight: Optional[ServerCommand] = None
     # Is data logging to a CSV file server-side enabled?
     data_logging: bool = False
     # Is the abort sequence currently running? Must be false if sequence_running is false
@@ -61,10 +60,16 @@ class SystemState:
     UPS_status: UPSStatus = UPSStatus.UNKNOWN
 
     def as_dict(self):
-        return asdict(self)
+        # this is JSON encoded and sent to front end clients periodically
+        c, self.command_in_flight = self.command_in_flight, None
+        s, self.current_sequence = self.current_sequence, None
+        ret = asdict(self)
+        if c is not None: ret['command_in_flight'] = c.as_dict(); self.command_in_flight = c
+        if s is not None: ret['current_sequence'] = [x.as_dict() for x in s]; self.current_sequence = s
+        return ret
 
 
-class LJWebSocketsServer:
+class ControlPanelServer:
 
     def __init__(self, ip: str, port: int):
         self.config = {}
@@ -72,8 +77,6 @@ class LJWebSocketsServer:
         self.datalog = None
         self.time_of_last_disconnect = time.time()
         self.inactive_abort_fired = False
-
-        self.abort_sequence = parse_sequence_csv('abort_sequence.csv')
 
         self.labjacks = {}
 
@@ -153,11 +156,20 @@ class LJWebSocketsServer:
             self.clients.remove(ws)
             self.time_of_last_disconnect = time.time()
 
+    def load_sequence(self, name: str):
+        # name='abort' means loading src/sequences/abort.py
+        with open(Path(__file__).parent / 'sequences' / (name + '.py')) as f:
+            # instead of writing a parser, we just exec each line in the file
+            return [
+                utils.exec_expr_with_locals(line, Sleep=Sleep, Open=Open, Close=Close, LOX=LOX, ETH=ETH)
+                for line in f.readlines()
+            ]
+
     def run_abort_sequence(self):
         self.log_data(True, type="ABORTING")
         self.state.aborting = True
         if not self.state.sequence_running:
-            self.state.current_sequence = [*self.abort_sequence]
+            self.state.current_sequence = self.load_sequence('abort')
             self.execute_sequence()
         self.state.arming_switch = False
         self.state.manual_switch = False
@@ -181,35 +193,33 @@ class LJWebSocketsServer:
         print(header)
 
         match header:
-            case CommandString.ARMINGSWITCH:
+            case ClientCommandString.ARMINGSWITCH:
                 self.log_data(data, type="ARMING_SWITCH")
                 self.state.arming_switch = data
 
-            case CommandString.MANUALSWITCH:
+            case ClientCommandString.MANUALSWITCH:
                 self.log_data(data, type="MANUAL_SWITCH")
                 self.state.manual_switch = data
 
-            case CommandString.OPEN:
+            case ClientCommandString.OPEN:
                 if self.state.arming_switch and self.state.manual_switch:
                     await Open(data['name'], data['pin']).act(self)
 
-            case CommandString.CLOSE:
+            case ClientCommandString.CLOSE:
                 if self.state.arming_switch and self.state.manual_switch:
                     await Close(data['name'], data['pin']).act(self)
 
-            case CommandString.DATALOG:
+            case ClientCommandString.DATALOG:
                 self.set_datalogging_enabled(data)
 
-            case CommandString.SETSEQUENCE:
-                # TODO this is ugly
-                command = Command(CommandString.SETSEQUENCE, data)
-                self.state.current_sequence = command.data
+            case ClientCommandString.SETSEQUENCE:
+                self.state.current_sequence = self.load_sequence(data)
 
-            case CommandString.BEGINSEQUENCE:
+            case ClientCommandString.BEGINSEQUENCE:
                 if self.state.arming_switch:
                     self.execute_sequence()
 
-            case CommandString.ABORTSEQUENCE:
+            case ClientCommandString.ABORTSEQUENCE:
                 self.run_abort_sequence()
 
             case _:
@@ -232,7 +242,7 @@ class LJWebSocketsServer:
             while len(self.state.current_sequence) != 0 and self.state.sequence_running:
                 command = self.state.current_sequence.pop(0)
                 self.state.command_in_flight = command
-                if command.header == CommandString.SLEEP:
+                if command.header == ClientCommandString.SLEEP:
                     self.state.command_in_flight = {
                         "header": "SLEEP",
                         "data": command.data,
@@ -248,15 +258,15 @@ class LJWebSocketsServer:
                     while time_ms() < expiry:
                         if self.state.aborting and not is_abort_sequence:
                             is_abort_sequence = True
-                            self.state.current_sequence = [*self.abort_sequence]
+                            self.state.current_sequence = self.load_sequence('abort')
                             break
                         await asyncio.sleep(0.005) # 5ms
                     print(f"delta: {time_ms()-x}ms")
                 else:
-                    if command.header == CommandString.OPEN:
+                    if command.header == ClientCommandString.OPEN:
                         print(f"[Sequence] opening {command.data}")
                         await Open(command.data['name'], command.data['pin']).act(self)
-                    elif command.header == CommandString.CLOSE:
+                    elif command.header == ClientCommandString.CLOSE:
                         print(f"[Sequence] closing {command.data}")
                         await Close(command.data['name'], command.data['pin']).act(self)
                 self.state.command_in_flight = None
@@ -279,14 +289,15 @@ class LJWebSocketsServer:
         await ws.send(json.dumps(obj))
 
     async def broadcast(self, msg_type, data):
-        for ws in self.clients:
-            try:
-                await self.emit(ws, msg_type, data)
-            except:
-                pass
+        try:
+            for ws in self.clients:
+                try:
+                    await self.emit(ws, msg_type, data)
+                except: pass
+        except: pass # can fail if a client connects/disconnects mid broadcast, but that's ok
 
 if __name__ == '__main__':
     ip = utils.get_local_ip()
     port = 8888
-    server = LJWebSocketsServer(ip, port)
+    server = ControlPanelServer(ip, port)
     asyncio.run(server.start_server())
