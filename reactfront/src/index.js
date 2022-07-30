@@ -36,13 +36,13 @@ class App extends React.Component {
     if (this.socket) this.socket.close();
     try {
     this.socket = new WebSocket(`ws://${this.state.wsAddress}:8888`)
-    this.setState({ socketStatus: this.socket.readyState })
+    this.setState({ socketStatus: this.socket && this.socket.readyState })
     this.socket.onopen = e => {
       console.log('websocket connection established')
-      this.setState({ socketStatus: this.socket.readyState })
+      this.setState({ socketStatus: this.socket && this.socket.readyState })
     }
     this.socket.onclose = e => {
-      this.setState({ socketStatus: this.socket.readyState })
+      this.setState({ socketStatus: this.socket && this.socket.readyState })
       this.socket = null
       console.log('websocket connection lost. reconnecting...')
       newData(emptyDataPoint)
@@ -54,7 +54,7 @@ class App extends React.Component {
     }
     this.socket.onmessage = e => {
       if (!this.mounted) return
-      this.setState({ socketStatus: this.socket.readyState })
+      this.setState({ socketStatus: this.socket && this.socket.readyState })
       const data = JSON.parse(e.data)
       switch (data.type) {
         case 'STATE':
