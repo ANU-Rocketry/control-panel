@@ -1,4 +1,5 @@
 {
+    "notice": "The labjack pin values are duplicated in the Python code, beware!",
     "buttons": [{
             "pin": {
                 "test_stand": "ETH", "labjack_pin": 14,

@@ -1,9 +1,10 @@
 from dataclasses import dataclass, asdict
 import json
 import csv
-import CommandFunctions #probs merge back in after finishing changes
+# import CommandFunctions #probs merge back in after finishing changes
 
 # Could be wrong
+# TODO this is dodgy, no longer a source of truth
 ALLOWED_CHANNEL_NUMS = [14, 12, 10, 8, 19, 17, 16, 18, 9, 11, 13, 15]
 
 

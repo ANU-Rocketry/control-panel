@@ -13,8 +13,10 @@ def get_class(dev: bool) -> Type:
 class LabJackBase(metaclass=ABCMeta):
     """Base class for LabJack and LabJackFake"""
 
+    config: type
+
     @abstractmethod
-    def __init__(self, serial_number: int, analog_inputs: list[int]):
+    def __init__(self, standConfig: type):
         pass
 
     @abstractmethod
@@ -29,32 +31,26 @@ class LabJackBase(metaclass=ABCMeta):
     def get_voltage(self, pin_number: int) -> float:
         pass
 
-    @abstractmethod
-    def get_state(self, digital: Optional[list[int]] = None, analog: Optional[list[int]] = None) -> dict:
-        pass
-
     def open_valve(self, pin_number: int):
         self.set_valve_state(pin_number, True)
 
     def close_valve(self, pin_number: int):
         self.set_valve_state(pin_number, False)
 
-    def get_state(self, digital: Optional[list[int]] = None, analog: Optional[list[int]] = None) -> dict:
+    def get_state(self) -> dict:
         """
-        Returns a dictionary of states of all specified valves and analog pins.
+        Returns a dictionary of states of all valves and analog pins for a given stand's pins
         Used to update the entire front end 20 times a second.
-        Example:
-        >>> labjack.get_state([1,2,3],[4,5,6])
-        { "digital": { 1: True, 2: False, 3: True }, "analog": { 4: 1.3, 5: 2.7, 6: 0.01} }
+        Example: { "digital": { 1: True, 2: False, 3: True }, "analog": { 4: 1.3, 5: 2.7, 6: 0.01} }
         """
         state = {}
-        if digital:
+        if self.digital_pins:
             state["digital"] = {}
-            for pin in digital:
+            for pin in self.digital_pins:
                 state["digital"][pin] = self.get_valve_state(pin)
-        if analog:
+        if self.analog_inputs:
             state["analog"] = {}
-            for pin in analog:
+            for pin in self.analog_inputs:
                 state["analog"][pin] = self.get_voltage(pin)
         return state
 
@@ -70,12 +66,14 @@ class LabJackBase(metaclass=ABCMeta):
         If we open/close the pin are we still in an allowed state?
         Eg vent + pressurisation cannot be open both at once
         """
-        state = self.get_state(digital=[13, 19, 11, 8], analog=[])['digital']
-        state[pin] = open
-        # Vent + pressurisation = disaster for both ETH (19,8) and LOX (13,11)
-        if (state[19] and state[8]) or (state[13] and state[11]):
-            return False
         return True
+        # TODO: this is broken now because get_state doesn't take args; also we don't want pin numbers hardcoded here
+        # state = self.get_state(digital=[13, 19, 11, 8], analog=[])['digital']
+        # state[pin] = open
+        # # Vent + pressurisation = disaster for both ETH (19,8) and LOX (13,11)
+        # if (state[19] and state[8]) or (state[13] and state[11]):
+        #     return False
+        # return True
 
 class LabJack(LabJackBase):
     """
@@ -85,17 +83,20 @@ class LabJack(LabJackBase):
     be installed before instantiating a LabJack object.
     """
 
-    def __init__(self, serial_number: int, analog_inputs: list[int]):
+    def __init__(self, standConfig: type):
         """Opens a USB connection to a LabJack and configures whether pins are analog/digital"""
+        self.config = standConfig
+        self.digital_pins = standConfig.Valves
+        self.analog_inputs = standConfig.Sensors
         # Import LabJackPython (Python imports are cached so this only happens once)
         import LabJackPython
         # if you get an error here do `sudo pip uninstall LabJackPython` and then `sudo pip install LabJackPython==2.0.4`
         assert LabJackPython.__version__ == '2.0.4', 'User error: LabJackPython pip module must be exactly v2.0.4'
         import u3
-        self.serial_number = serial_number
+        self.serial_number = standConfig.SerialNumber
         self.device = u3.U3(firstFound=False, serial=self.serial_number)
         x = 0
-        for pin in analog_inputs:
+        for pin in self.analog_inputs:
             x |= 1 << int(pin)
         # print(self.device.configIO())
         self.device.configIO(FIOAnalog=x, EIOAnalog=0)
@@ -144,8 +145,11 @@ class LabJackFake(LabJackBase):
     Maintains digital pin states you set and returns sine waves for the voltages.
     """
 
-    def __init__(self, serial_number: int, analog_inputs: list[int]):
-        self.serial_number = serial_number
+    def __init__(self, standConfig: type):
+        self.config = standConfig
+        self.digital_pins = standConfig.Valves
+        self.analog_inputs = standConfig.Sensors
+        self.serial_number = standConfig.SerialNumber
         self.state = {
             "digital": {},
             "analog": {}
