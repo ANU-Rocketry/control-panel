@@ -19,6 +19,8 @@ export default function Sequences({ state, emit }) {
 
     var current_executing = state.data === null ? null : state.data.command_in_flight
 
+    const aborting = state.data ? state.data.status === 3 : false
+
     const handleChange = async () => {
         await emit('SETSEQUENCE', prompt("Enter a sequence name"))
     }
@@ -49,9 +51,16 @@ export default function Sequences({ state, emit }) {
                             <TableRow>
                                 <TableCell align='right' style={{width:100}}>Command</TableCell>
                                 <TableCell>Parameter</TableCell>
-                                <TableCell align='right'>{current_executing &&
-                                    <button onClick={() => emit('PAUSESEQUENCE', null)}>Pause</button>
-                                }</TableCell>
+                                <TableCell align='right'>
+                                    {!aborting && <>
+                                        {current_executing &&
+                                            <button onClick={() => emit('PAUSESEQUENCE', null)}>Pause</button>
+                                        }
+                                        {(sequences.length || current_executing) &&
+                                            <button onClick={() => emit('UNSETSEQUENCE', null)}>Clear</button>
+                                        }
+                                    </>}
+                                </TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>

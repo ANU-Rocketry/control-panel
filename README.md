@@ -127,26 +127,3 @@ npm run build
 scp -r build pi@192.168.0.5:/home/pi/control-panel/reactfront
 # Reload http://192.168.0.5:3000 in your browser
 ```
-
-# Data Schema
-
-Data is transferred between the server and client over websockets.
-
-## Command
-
-A command consists of a `header` and a `parameter`. Valid commands can be seen below:
-
-
-| header | parameter |
-| - | - |
-| OPEN | {"name":labjack_name, "pin":pin} |
-| CLOSE | {"name":labjack_name, "pin":pin} |
-| SLEEP | {"milliseconds": time in ms} |
-| BEGINSEQUENCE | (parameter is unimportant) |
-| ABORTSEQUENCE | (parameter is unimportant) |
-| ARMINGSWITCH | on_bool |
-| MANUALSWITCH | on_bool |
-| DATALOG | on_bool |
-| SETSEQUENCE | [command1, command2, ...] |
-
-A sequence is a list of multiple commands. These commands can only consist of `OPEN`, `CLOSE` and `SLEEP` commands.
