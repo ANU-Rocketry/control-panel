@@ -33,17 +33,31 @@ class App extends React.Component {
     this.mounted = false;
     clearInterval(this.interval);
   }
+  pushWarning(time, message) {
+    if (!this.state.mostRecentWarning ||
+      (this.state.mostRecentWarning.time !== time && this.state.mostRecentWarning.message !== message)) {
+      this.setState({ mostRecentWarning: { time, message }, showWarning: true })
+    }
+  }
+  updateSocketStatus() {
+    if (!this.socket) return
+    const diff = { socketStatus: this.socket.readyState }
+    if (this.socket.readyState !== WebSocket.OPEN) {
+      this.pushWarning(new Date().getTime(), "Server connection lost")
+    }
+    this.setState(diff)
+  }
   connect() {
     if (this.socket) this.socket.close();
     try {
     this.socket = new WebSocket(`ws://${this.state.wsAddress}:8888`)
-    this.setState({ socketStatus: this.socket && this.socket.readyState })
+    this.updateSocketStatus()
     this.socket.onopen = e => {
       console.log('websocket connection established')
-      this.setState({ socketStatus: this.socket && this.socket.readyState })
+      this.updateSocketStatus()
     }
     this.socket.onclose = e => {
-      this.setState({ socketStatus: this.socket && this.socket.readyState })
+      this.updateSocketStatus()
       this.socket = null
       console.log('websocket connection lost. reconnecting...')
       newData(emptyDataPoint)
@@ -55,7 +69,7 @@ class App extends React.Component {
     }
     this.socket.onmessage = e => {
       if (!this.mounted) return
-      this.setState({ socketStatus: this.socket && this.socket.readyState })
+      this.updateSocketStatus()
       const data = JSON.parse(e.data)
       switch (data.type) {
         case 'STATE':
@@ -69,6 +83,9 @@ class App extends React.Component {
           }
           newData(formatDataPoint(data.data))
           this.setState({ data: data.data })
+          if (data.data.latest_warning) {
+            this.pushWarning(data.data.latest_warning[0], data.data.latest_warning[1])
+          }
           break
         case 'PING':
           this.setState({ ping: new Date().getTime() - data.data })
@@ -101,10 +118,6 @@ class App extends React.Component {
   }
 
   render() {
-    if (this.state.data && this.state.data.latest_warning && this.state.data.latest_warning[0] !== this.state.mostRecentWarning[0]) {
-      this.setState({ mostRecentWarning: this.state.data.latest_warning, showWarning: true });
-    }
-
     return (
       <div>
         <TopBar />
@@ -120,7 +133,7 @@ class App extends React.Component {
           {this.state.showWarning && (
             <Snackbar open
               onClose={() => this.setState({ showWarning: false })}
-              message={this.state.mostRecentWarning[1]}
+              message={this.state.mostRecentWarning.message}
               action={(
                 <Button onClick={() => this.setState({ showWarning: false })}
                   style={{color: "white", "text-transform": "none", "text-decoration": "underline"}}>
