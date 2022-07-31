@@ -6,7 +6,6 @@ import SafetyPanel from './components/panels/safety-panel';
 import GraphPanel, { newData, newEvent, pinFromID } from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';
 import ControlPanel from './components/panels/control-panel';
-import Alert from '@material-ui/lab/Alert';
 import { formatDataPoint, emptyDataPoint } from './utils';
 import { undefOnBadRef } from "./components/graph-utils.js"
 import { Snackbar, Button } from '@material-ui/core'

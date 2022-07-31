@@ -1,12 +1,7 @@
-#idea:
-#we have a series of objects that are used so that we can view them on the front end.
-#all of the computation is done through the field "act"
 
 from abc import ABCMeta, abstractmethod
 from stands import Stand
 import asyncio
-from dataclasses import dataclass, asdict
-import json
 import utils
 
 # Commands that the server executes to control the hardware
@@ -90,17 +85,3 @@ class ClientCommandString:
     SETSEQUENCE = 'SETSEQUENCE'
     BEGINSEQUENCE = 'BEGINSEQUENCE'
     ABORTSEQUENCE = 'ABORTSEQUENCE'
-
-@dataclass
-class ClientCommand:
-    name: ClientCommandString
-    pin: int = None # for OPEN, CLOSE
-    stand: Stand = None # for OPEN, CLOSE
-    sequence_file: str = None # for SETSEQUENCE
-    enabled: bool = None # for ARMINGSWITCH, MANUALSWITCH, DATALOG
-
-    def as_dict(self) -> dict:
-        return asdict(self)
-
-    def __str__(self) -> str:
-        return json.dumps(self.as_dict())

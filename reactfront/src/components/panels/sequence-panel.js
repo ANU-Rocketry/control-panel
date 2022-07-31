@@ -1,4 +1,4 @@
-import { Table, TableBody, TableCell, TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@material-ui/core';
+import { Table, TableBody, TableCell, TableHead, TableRow } from '@material-ui/core';
 import React from 'react';
 import { Panel } from '../index'
 import {SafetyCard} from './safety-panel'
@@ -19,12 +19,8 @@ export default function Sequences({ state, emit }) {
 
     var current_executing = state.data === null ? null : state.data.command_in_flight
 
-    const [open, setOpen] = React.useState(false);
-
     const handleChange = async () => {
         await emit('SETSEQUENCE', prompt("Enter a sequence name"))
-        // TODO: use setOpen(true) if the Python is invalid?
-        // or use the most recent warning infra and delete the warning
     };
 
     const abort = x => emit('ABORTSEQUENCE', x)
