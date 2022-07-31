@@ -39,7 +39,6 @@ class SequenceStatus:
     # There may be a command in flight (ie a running sequence was paused), or not (sequence loaded but not started)
     IDLE = 0
     # Currently running a sequence other than the abort sequence
-    # TODO: if you manually select the abort sequence as if it were a normal sequence it's RUNNING, if you click ABORT it's ABORTING
     RUNNING = 1
     # A sequence is running and we want to interrupt it to run the abort sequence instead
     ABORT_REQUESTED = 2

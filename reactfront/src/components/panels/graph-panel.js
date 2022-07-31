@@ -215,6 +215,7 @@ export function Datalogger({
     const verticalLabels = events
       .map(({ time, ...e }) => ({ x: v2x(time - currentSeconds), ...e }))
       .filter(({ x }) => x >= p2x(0) - 10 && x <= p2x(1))
+    const showVerticalLabelText = effectiveTimeWindow[1] - effectiveTimeWindow[0] < 15
 
     const jumpToPresent = () => setWindow([window[0] - window[1]])
 
@@ -285,7 +286,9 @@ export function Datalogger({
           {verticalLabels.map(({x, label, key}, i) => (
             <g key={key}>
               <line x1={x} y1={p2y(0)} x2={x} y2={p2y(1)} stroke="#333" strokeWidth='1' strokeDasharray='2 4' />
-              <text x={x+5} y={p2y(1)-(i%10)*10-20} textAnchor="start" alignmentBaseline="text-after-edge" fontSize="12">{label}</text>
+              {showVerticalLabelText &&
+                <text x={x+5} y={p2y(1)-(i%10)*12-20} textAnchor="start" alignmentBaseline="text-after-edge" fontSize="12">{label}</text>
+              }
             </g>
           ))}
           {/* Series (plotting data curves as polylines) */}

@@ -136,7 +136,7 @@ class App extends React.Component {
               message={this.state.mostRecentWarning.message}
               action={(
                 <Button onClick={() => this.setState({ showWarning: false })}
-                  style={{color: "white", "text-transform": "none", "text-decoration": "underline"}}>
+                  style={{color: "white", textTransform: "none", textDecoration: "underline"}}>
                   Dismiss
                 </Button>
               )}
