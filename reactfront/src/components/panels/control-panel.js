@@ -80,7 +80,7 @@ export default function ControlPanel({ state, emit }) {
     return (
         <Panel title="Control Panel" className='panel control'>
             <div className="control-panel">
-                {pins.buttons.map((button) =>
+                {pins.buttons.map((button) => state.data &&
                     <ControlSwitch
                         title={button.pin.test_stand.charAt(0) + ' ' + button.pin.abbrev + ' ' + button.pin.labjack_pin}
                         key={button.pin.name}
@@ -91,7 +91,7 @@ export default function ControlPanel({ state, emit }) {
                         enabled={state.data && state.data.arming_switch && state.data.manual_switch}
                     />
                 )}
-                {pins.sensors.map((sensor) =>
+                {pins.sensors.map((sensor) => state.data &&
                     <ControlCard
                         title={sensor.pin.abbrev}
                         key={sensor.pin.name}
