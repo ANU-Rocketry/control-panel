@@ -2,12 +2,13 @@ import { Table, TableBody, TableCell, TableHead, TableRow, Button, Dialog, Dialo
 import React from 'react';
 import { Panel } from '../index'
 import {SafetyCard} from './safety-panel'
+import { pinFromID } from './graph-panel'
 
 function SequenceRow(data) {
     return <TableRow style={data.style}>
         <TableCell component="th" scope="row">{data.name}</TableCell>
         <TableCell align="center">{data.stand ?? ""}</TableCell>
-        <TableCell align="center">{data.stand ? data.pin : (data.ms.toString() + ' ms')}</TableCell>
+        <TableCell align="center">{data.stand ? pinFromID(data.pin).pin.abbrev : (data.ms.toString() + ' ms')}</TableCell>
     </TableRow>
 }
 
@@ -53,14 +54,14 @@ export default function Sequences({ state, emit }) {
                 <div style={{ width: '200px', borderRight: '1px solid #999', height: '100%' }}>
                     <div className='frame'>
                         <h2>
-                            Start Sequence
+                            Start
                         </h2>
                         <div>
-                            <button onClick={handleChange}>Choose sequence</button>
+                            <button onClick={handleChange} disabled={!armed}>Choose sequence</button>
                         </div><br/>
-                        <button onClick={() => emit('BEGINSEQUENCE', null)} style={{backgroundColor:armed?'lime':'lightgrey',padding:10,cursor:'pointer'}}>Start</button><br/><br/>
-                        <SafetyCard title="Run Abort Sequence">
-                            <button onClick={() => abort()} style={{backgroundColor:armed?'tomato':'lightgrey',padding:10,cursor:'pointer'}}>ABORT</button>
+                        <button onClick={() => emit('BEGINSEQUENCE', null)} style={{backgroundColor:armed?'lime':'lightgrey',padding:10,cursor:armed&&'pointer'}} disabled={!armed}>Start</button><br/><br/>
+                        <SafetyCard title="Abort">
+                            <button onClick={() => abort()} style={{backgroundColor:armed?'tomato':'lightgrey',padding:10,cursor:armed&&'pointer'}} disabled={!armed}>ABORT</button>
                         </SafetyCard>
                     </div>
                 </div>

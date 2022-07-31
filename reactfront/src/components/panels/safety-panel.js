@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Panel, ToggleSwitch } from '../index'
-import { Snackbar, Button } from '@material-ui/core'
 
 export function SafetyCard(props) {
   var toggle = ""
@@ -42,11 +41,6 @@ export default function SafetyPanel({ state, emit, sockStatus, that }) {
 
   const UPSStatus = state.data === null ? "UNKNOWN" : state.data.UPS_status
   const UPSInfo = UPSSymbols[UPSStatus] + " " + UPSNames[UPSStatus]
-  const [prevUPS, setPrevUPS] = useState([false, "UNKNOWN"])
-  const openSnackBar = prevUPS[1] !== UPSStatus
-  if (openSnackBar && !prevUPS[0]) {
-    setPrevUPS([true, UPSStatus])
-  }
 
   let connectionStatus = sockStatus === WebSocket.OPEN
     ? <div style={{color : "green"}}>Connected</div>
@@ -99,18 +93,6 @@ export default function SafetyPanel({ state, emit, sockStatus, that }) {
         </SafetyCard>
 
       </div>
-
-      <Snackbar
-        open={prevUPS[0]}
-        onClose={() => setPrevUPS([false, UPSStatus])}
-        message={"UPS status changed: " + UPSInfo}
-        action={(
-          <Button onClick={() => setPrevUPS([false, UPSStatus])}
-            style={{color: "white", "text-transform": "none", "text-decoration": "underline"}}>
-            Dismiss
-          </Button>
-        )}
-    />
 
     </Panel>
   )

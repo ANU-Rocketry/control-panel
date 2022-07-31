@@ -7,8 +7,7 @@ from datalog import Datalog
 from traceback import print_exc
 import sys
 from labjack import get_class
-from stands import Stand, StandConfig, ETH, LOX
-from typing import List, Mapping, Tuple, Optional
+from stands import ETH, LOX
 from pathlib import Path
 import utils
 from commands import Sleep, Open, Close, ServerCommand, ClientCommandString
@@ -27,6 +26,25 @@ class UPSStatus:
     LINE_POWERED = 'LINE_POWERED'
     BATTERY_POWERED = 'BATTERY_POWERED'
     UNKNOWN = 'UNKNOWN'
+    All = [LINE_POWERED, BATTERY_POWERED, UNKNOWN]
+
+UPSStatusMessages = {
+    UPSStatus.LINE_POWERED: '✅ Line Powered',
+    UPSStatus.BATTERY_POWERED: '❌ On Battery (No Power)',
+    UPSStatus.UNKNOWN: '❔ Unknown',
+}
+
+class SequenceStatus:
+    # A sequence may or may not be loaded, but it's not currently running
+    # There may be a command in flight (ie a running sequence was paused), or not (sequence loaded but not started)
+    IDLE = 0
+    # Currently running a sequence other than the abort sequence
+    # TODO: if you manually select the abort sequence as if it were a normal sequence it's RUNNING, if you click ABORT it's ABORTING
+    RUNNING = 1
+    # A sequence is running and we want to interrupt it to run the abort sequence instead
+    ABORT_REQUESTED = 2
+    # Currently running the abort sequence
+    ABORTING = 3
 
 @dataclass
 class SystemState:
@@ -40,21 +58,19 @@ class SystemState:
     # But not:
     # * partially finished sleeps
     # * commands that have already run in an actively running sequence
-    current_sequence: List[ServerCommand] = field(default_factory=list)
+    current_sequence: list[ServerCommand] = field(default_factory=list)
     # Is the current_sequence in progress?
-    sequence_running: bool = False
+    status: SequenceStatus = SequenceStatus.IDLE
     # The current sequence command being executed, if the sequence is running
-    command_in_flight: Optional[ServerCommand] = None
+    command_in_flight: ServerCommand | None = None
     # Is data logging to a CSV file server-side enabled?
     data_logging: bool = False
-    # Is the abort sequence currently running? Must be false if sequence_running is false
-    aborting: bool = False
     # Warning to display in the client, as a (epoch milliseconds, message) tuple
-    latest_warning: Optional[Tuple[int, str]] = None
+    latest_warning: tuple[int, str] | None = None
     # LabJack sensor data - state['LOX']['analog'][pin_no] is a voltage for instance
     # Note this is not necessarily up-to-date: it's computed from LabJack.get_state()
     # before sending this entire object as JSON to the client
-    labjacks: Mapping[str, dict] = field(default_factory=dict)
+    labjacks: dict[str, dict] = field(default_factory=dict)
     # Last time the labjacks field was updated (epoch milliseconds)
     time: int = 0
     UPS_status: UPSStatus = UPSStatus.UNKNOWN
@@ -76,12 +92,12 @@ class ControlPanelServer:
         self.state = SystemState()
         self.datalog = None
         self.time_of_last_disconnect = time.time()
-        self.inactive_abort_fired = False
+        self.inactive_abort_fired = False # so we don't fire the abort sequence repeatedly
 
         self.labjacks = {}
 
-        self.labjacks['LOX'] = get_class(devMode)(StandConfig[Stand.LOX])
-        self.labjacks['ETH'] = get_class(devMode)(StandConfig[Stand.ETH])
+        self.labjacks['LOX'] = get_class(devMode)(LOX)
+        self.labjacks['ETH'] = get_class(devMode)(ETH)
 
         self.ip = ip
         self.port = port
@@ -119,6 +135,9 @@ class ControlPanelServer:
         if self.datalog and self.state.data_logging:
             self.datalog.log_data(data, type)
 
+    def push_warning(self, msg: str):
+        self.state.latest_warning = ( utils.time_ms(), msg )
+
     def get_UPS_status(self):
         if not devMode:
             status = utils.get_output('apcaccess status')
@@ -130,14 +149,16 @@ class ControlPanelServer:
             else:
                 return UPSStatus.UNKNOWN
         else:
-            # for test servers, switch the UPS status every 3 seconds
-            statuses = [UPSStatus.LINE_POWERED, UPSStatus.BATTERY_POWERED, UPSStatus.UNKNOWN]
-            index = (int(time.time() / 60)) % len(statuses)
-            return statuses[index]
+            # for test servers, switch the UPS status regularly
+            index = (int(time.time() / 60)) % len(UPSStatus.All)
+            return UPSStatus.All[index]
 
     async def update_UPS_status(self):
         while True:
+            old = self.state.UPS_status
             self.state.UPS_status = self.get_UPS_status()
+            if old != self.state.UPS_status:
+                self.push_warning(f"UPS status changed: {UPSStatusMessages[self.state.UPS_status]}")
             await asyncio.sleep(1)
 
     async def event_handler(self, ws, path):
@@ -151,7 +172,7 @@ class ControlPanelServer:
                     await self.handle_command(ws, data['header'], data.get('data', None), data['time'])
                 except Exception as e:
                     print_exc()
-                    self.state.latest_warning = ( utils.time_ms(), str(e) )
+                    self.push_warning(str(e))
         finally:
             self.clients.remove(ws)
             self.time_of_last_disconnect = time.time()
@@ -159,7 +180,7 @@ class ControlPanelServer:
     def load_sequence(self, name: str):
         # name='abort' means loading src/sequences/abort.py
         with open(Path(__file__).parent / 'sequences' / (name + '.py')) as f:
-            # instead of writing a parser, we just exec each line in the file
+            # instead of writing a parser, we just exec each line in the file (not a security issue as sequences are trusted)
             return [
                 utils.exec_expr_with_locals(line, Sleep=Sleep, Open=Open, Close=Close, LOX=LOX, ETH=ETH)
                 for line in f.readlines()
@@ -167,12 +188,19 @@ class ControlPanelServer:
 
     def run_abort_sequence(self):
         self.log_data(True, type="ABORTING")
-        self.state.aborting = True
-        if not self.state.sequence_running:
-            self.state.current_sequence = self.load_sequence('abort')
-            self.execute_sequence()
         self.state.arming_switch = False
         self.state.manual_switch = False
+        match self.state.status:
+            case SequenceStatus.ABORTING | SequenceStatus.ABORT_REQUESTED:
+                pass # let the existing abort continue
+            case SequenceStatus.IDLE:
+                self.state.current_sequence = self.load_sequence('abort')
+                self.execute_sequence(initial_state=SequenceStatus.ABORTING)
+            case SequenceStatus.RUNNING:
+                # the sleep will pick up the abort request and break out early,
+                # # so we can just overwrite the rest of the sequence with the abort
+                self.state.status = SequenceStatus.ABORT_REQUESTED
+                self.state.current_sequence = self.load_sequence('abort')
 
     def set_datalogging_enabled(self, enabled):
         if enabled:
@@ -185,21 +213,19 @@ class ControlPanelServer:
             self.datalog = None
 
     async def handle_command(self, ws, header, data, time):
-        if header == 'PING':
-            await self.emit(ws, 'PING', time)
-            return
-
-        if self.state.aborting: return # TODO: why is this there?
-        print(header)
-
         match header:
+            case ClientCommandString.PING:
+                await self.emit(ws, 'PING', time)
+
             case ClientCommandString.ARMINGSWITCH:
-                self.log_data(data, type="ARMING_SWITCH")
-                self.state.arming_switch = data
+                if not self.sequence_running():
+                    self.log_data(data, type="ARMING_SWITCH")
+                    self.state.arming_switch = data
 
             case ClientCommandString.MANUALSWITCH:
-                self.log_data(data, type="MANUAL_SWITCH")
-                self.state.manual_switch = data
+                if not self.sequence_running():
+                    self.log_data(data, type="MANUAL_SWITCH")
+                    self.state.manual_switch = data
 
             case ClientCommandString.OPEN:
                 if self.state.arming_switch and self.state.manual_switch:
@@ -213,17 +239,22 @@ class ControlPanelServer:
                 self.set_datalogging_enabled(data)
 
             case ClientCommandString.SETSEQUENCE:
-                self.state.current_sequence = self.load_sequence(data)
+                if self.state.arming_switch:
+                    try:
+                        self.state.current_sequence = self.load_sequence(data)
+                    except:
+                        self.push_warning(f"Could not load sequence {data}")
 
             case ClientCommandString.BEGINSEQUENCE:
                 if self.state.arming_switch:
                     self.execute_sequence()
 
             case ClientCommandString.ABORTSEQUENCE:
-                self.run_abort_sequence()
+                if self.state.arming_switch:
+                    self.run_abort_sequence()
 
             case _:
-                self.state.latest_warning = ( utils.time_ms(), f"Unknown command: {header}" )
+                self.push_warning(f"Unknown command: {header}")
 
     async def start_server(self):
         asyncio.ensure_future(self.sync_state())
@@ -232,52 +263,35 @@ class ControlPanelServer:
         async with websockets.serve(self.event_handler, self.ip, self.port):
             await asyncio.Future()
 
-    def execute_sequence(self):
-        async def temp():
-            assert not self.state.sequence_running
+    def execute_sequence(self, initial_state=SequenceStatus.RUNNING):
+        async def task():
+            self.state.status = initial_state
+            self.state.manual_switch = False
 
-            self.state.sequence_running = True
-            is_abort_sequence = self.state.aborting
+            # if the status changes to idle, it means we've paused (keep the half completed sleep there and just exit execute_sequence)
+            while len(self.state.current_sequence) != 0 and self.state.status != SequenceStatus.IDLE:
+                self.state.command_in_flight = self.state.current_sequence.pop(0)
+                complete = await self.state.command_in_flight.act(self)
+                if complete: self.state.command_in_flight = None
 
-            while len(self.state.current_sequence) != 0 and self.state.sequence_running:
-                command = self.state.current_sequence.pop(0)
-                self.state.command_in_flight = command
-                if command.header == ClientCommandString.SLEEP:
-                    self.state.command_in_flight = {
-                        "header": "SLEEP",
-                        "data": command.data,
-                        "time": round(time.time()*1000) + command.data
-                    }
-                    self.log_data(command.as_dict(), type="COMMAND_EXECUTED")
-                    print(f"[Sequence] sleeping for {command.data}ms")
-                    # break sleep into 5ms chunks so aborts will interrupt sleeps
-                    def time_ms():
-                        return time.time_ns() // 1_000_000
-                    expiry = time_ms() + command.data # milliseconds
-                    x = time_ms()
-                    while time_ms() < expiry:
-                        if self.state.aborting and not is_abort_sequence:
-                            is_abort_sequence = True
-                            self.state.current_sequence = self.load_sequence('abort')
-                            break
-                        await asyncio.sleep(0.005) # 5ms
-                    print(f"delta: {time_ms()-x}ms")
-                else:
-                    if command.header == ClientCommandString.OPEN:
-                        print(f"[Sequence] opening {command.data}")
-                        await Open(command.data['name'], command.data['pin']).act(self)
-                    elif command.header == ClientCommandString.CLOSE:
-                        print(f"[Sequence] closing {command.data}")
-                        await Close(command.data['name'], command.data['pin']).act(self)
-                self.state.command_in_flight = None
+                # if the status changes to ABORT_REQUESTED, we change it to ABORTING and discard the command in flight
+                if self.state.status == SequenceStatus.ABORT_REQUESTED:
+                    self.state.status = SequenceStatus.ABORTING
 
-            self.state.sequence_running = False
-            self.state.aborting = False
-        asyncio.ensure_future(temp())
+            self.state.status = SequenceStatus.IDLE
+
+        asyncio.ensure_future(task())
 
     def should_interrupt_sleep(self) -> bool:
-        # TODO: need the right condition to interrupt (eg paused, mid-sequence abort)
-        return False
+        return self.state.status == SequenceStatus.ABORT_REQUESTED
+
+    def sequence_running(self) -> bool:
+        match self.state.status:
+            case SequenceStatus.RUNNING | SequenceStatus.ABORTING | SequenceStatus.ABORT_REQUESTED: return True
+            case _: return False
+
+    def sequence_command_allowed(self) -> bool:
+        return self.state.arming_switch or self.state.status == SequenceStatus.ABORTING
 
     async def emit(self, ws, msg_type, data):
         # if msg_type == "STATE", data is the state, etc.
