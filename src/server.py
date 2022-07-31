@@ -95,8 +95,15 @@ class ControlPanelServer:
 
         self.labjacks = {}
 
-        self.labjacks['LOX'] = get_class(devMode)(LOX)
-        self.labjacks['ETH'] = get_class(devMode)(ETH)
+        try:
+            self.labjacks['LOX'] = get_class(devMode)(LOX)
+            self.labjacks['ETH'] = get_class(devMode)(ETH)
+        except:
+            print('''
+            Could not connect to the LabJacks. Are they both connected and powered?
+            To run a local development server, run `python3 server.py --dev`
+            ''')
+            exit(0)
 
         self.ip = ip
         self.port = port
@@ -172,6 +179,8 @@ class ControlPanelServer:
                 except Exception as e:
                     print_exc()
                     self.push_warning(str(e))
+        except (asyncio.exceptions.IncompleteReadError, websockets.exceptions.ConnectionClosedError):
+            pass
         finally:
             self.clients.remove(ws)
             self.time_of_last_disconnect = time.time()
