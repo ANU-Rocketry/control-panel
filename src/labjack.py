@@ -2,12 +2,12 @@
 from abc import ABCMeta, abstractmethod
 from traceback import print_exc
 import sys
-from typing import Optional, Type
 import time
 import math
 import random
+from stands import LOX, ETH
 
-def get_class(dev: bool) -> Type:
+def get_class(dev: bool) -> type:
     return LabJackFake if dev else LabJack
 
 class LabJackBase(metaclass=ABCMeta):
@@ -20,8 +20,8 @@ class LabJackBase(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def set_valve_state(self, pin_number: int, open: bool):
-        pass
+    def _set_valve_state(self, pin_number: int, open: bool):
+        pass # don't call this (call set_valve_state), but do override it
 
     @abstractmethod
     def get_valve_state(self, pin_number: int) -> bool:
@@ -36,6 +36,21 @@ class LabJackBase(metaclass=ABCMeta):
 
     def close_valve(self, pin_number: int):
         self.set_valve_state(pin_number, False)
+
+    def set_valve_state(self, pin_number: int, open: bool):
+        # make sure that we end up in an allowed state by coercing other valves as needed
+        # ie if opening vent is requested, close pressurisation and then open vent rather than doing nothing
+        # or going into a dangerous state
+        if open and pin_number == LOX.Pressure[1]:
+            self._set_valve_state(LOX.Vent[1], False)
+        if open and pin_number == ETH.Pressure[1]:
+            self._set_valve_state(ETH.Vent[1], False)
+        if open and pin_number == LOX.Vent[1]:
+            self._set_valve_state(LOX.Pressure[1], False)
+        if open and pin_number == ETH.Vent[1]:
+            self._set_valve_state(ETH.Pressure[1], False)
+
+        self._set_valve_state(pin_number, open)
 
     def get_state(self) -> dict:
         """
@@ -59,21 +74,7 @@ class LabJackBase(metaclass=ABCMeta):
         # all other valves have relays at 1 (high voltage) iff the valves are mechanically open
         # this is part of the electronics
         # the interface of this class hides this implementation detail
-        return pin_number != 13 and pin_number != 19
-
-    def _is_legal_state_with(self, pin: int, open: bool) -> bool:
-        """
-        If we open/close the pin are we still in an allowed state?
-        Eg vent + pressurisation cannot be open both at once
-        """
-        return True
-        # TODO: this is broken now because get_state doesn't take args; also we don't want pin numbers hardcoded here
-        # state = self.get_state(digital=[13, 19, 11, 8], analog=[])['digital']
-        # state[pin] = open
-        # # Vent + pressurisation = disaster for both ETH (19,8) and LOX (13,11)
-        # if (state[19] and state[8]) or (state[13] and state[11]):
-        #     return False
-        # return True
+        return pin_number != LOX.Vent[1] and pin_number != ETH.Vent[1]
 
 class LabJack(LabJackBase):
     """
@@ -101,7 +102,7 @@ class LabJack(LabJackBase):
         # print(self.device.configIO())
         self.device.configIO(FIOAnalog=x, EIOAnalog=0)
 
-    def set_valve_state(self, pin_number: int, open: bool):
+    def _set_valve_state(self, pin_number: int, open: bool):
         """
         Opens/closes a valve by toggling the relay (digital pin) on the LabJack
         We make no guarantee it will be successful (may fail silently due to hardware error or invalid state)
@@ -110,9 +111,6 @@ class LabJack(LabJackBase):
         Note that some valves are on when their relays are high voltage and some are on
         when they're low voltage. We abstract this away here so don't worry about it.
         """
-        # Is it a legal state we're moving into?
-        if not self._is_legal_state_with(pin_number, open):
-            return
         # Invert if the relay on state opposes the valve open state
         if self._is_inverted_relay(pin_number): open = not open
         # Set the value in the hardware
@@ -155,10 +153,7 @@ class LabJackFake(LabJackBase):
             "analog": {}
         }
 
-    def set_valve_state(self, pin_number: int, state: bool):
-        # Is it a legal state we're moving into?
-        if not self._is_legal_state_with(pin_number, open):
-            return
+    def _set_valve_state(self, pin_number: int, state: bool):
         self.state["digital"][pin_number] = state
 
     def _set_default_state(self, pin_number: int):
