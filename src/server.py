@@ -263,7 +263,14 @@ class ControlPanelServer:
                     self.run_abort_sequence()
 
             case ClientCommandString.PAUSESEQUENCE:
-                self.state.status = SequenceStatus.IDLE
+                if self.state.status != SequenceStatus.ABORTING:
+                    self.state.status = SequenceStatus.IDLE
+
+            case ClientCommandString.UNSETSEQUENCE:
+                if self.state.status != SequenceStatus.ABORTING:
+                    self.state.status = SequenceStatus.IDLE
+                    self.state.command_in_flight = None
+                    self.state.current_sequence = []
 
             case _:
                 self.push_warning(f"Unknown command: {header}")
