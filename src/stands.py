@@ -36,8 +36,3 @@ class ETH:
     N2Sensor = ('ETH', 1)
     ETHSensor = ('ETH', 3)
     Sensors = [N2Sensor[1], ETHSensor[1]]
-
-StandConfig = {
-    Stand.LOX: LOX,
-    Stand.ETH: ETH,
-}

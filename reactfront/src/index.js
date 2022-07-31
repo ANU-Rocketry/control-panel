@@ -9,6 +9,7 @@ import ControlPanel from './components/panels/control-panel';
 import Alert from '@material-ui/lab/Alert';
 import { formatDataPoint, emptyDataPoint } from './utils';
 import { undefOnBadRef } from "./components/graph-utils.js"
+import { Snackbar, Button } from '@material-ui/core'
 
 class App extends React.Component {
 
@@ -100,8 +101,7 @@ class App extends React.Component {
   }
 
   render() {
-    if (this.state.data && this.state.data.latest_warning && this.state.data.latest_warning.id !== this.state.mostRecentWarning.id) {
-      console.log(this.state.mostRecentWarning);
+    if (this.state.data && this.state.data.latest_warning && this.state.data.latest_warning[0] !== this.state.mostRecentWarning[0]) {
       this.setState({ mostRecentWarning: this.state.data.latest_warning, showWarning: true });
     }
 
@@ -118,9 +118,16 @@ class App extends React.Component {
             <GraphPanel state={this.state} emit={this.emit} />
           </div>
           {this.state.showWarning && (
-            <Alert onClose={()=>{this.setState({ showWarning: false })}} severity="error" className='alert'>
-              {this.state.mostRecentWarning.message}
-            </Alert> 
+            <Snackbar open
+              onClose={() => this.setState({ showWarning: false })}
+              message={this.state.mostRecentWarning[1]}
+              action={(
+                <Button onClick={() => this.setState({ showWarning: false })}
+                  style={{color: "white", "text-transform": "none", "text-decoration": "underline"}}>
+                  Dismiss
+                </Button>
+              )}
+            />
           )}
         </div>
       </div>

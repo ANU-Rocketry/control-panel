@@ -3,8 +3,7 @@
 #all of the computation is done through the field "act"
 
 from abc import ABCMeta, abstractmethod
-from xmlrpc.client import Server
-from stands import Stand, StandConfig, ETH, LOX
+from stands import Stand
 import asyncio
 from dataclasses import dataclass, asdict
 import json
@@ -17,7 +16,7 @@ import utils
 class ServerCommand(metaclass=ABCMeta):
     name: str
     @abstractmethod
-    async def act(self, server):
+    async def act(self, server) -> bool: # returns whether it's finished
         pass
     @abstractmethod
     def as_dict(self) -> dict:
@@ -35,7 +34,6 @@ class Sleep(ServerCommand):
         # Sleeps for self.ms milliseconds, checking every 5ms if the server wants to interrupt the sleep
         # Interrupts might occur due to pausing or an abort mid-sequence
 
-        print(f"[Sequence] sleeping for {self.ms}ms")
         # break sleep into 5ms chunks so aborts will interrupt sleeps
         expiry = utils.time_ms() + self.ms # milliseconds
         while utils.time_ms() < expiry:
@@ -43,6 +41,7 @@ class Sleep(ServerCommand):
             await asyncio.sleep(0.005) # 5ms
         # update remaining time if we're pausing so that we can continue by calling act again
         self.ms = max(0, expiry - utils.time_ms())
+        return self.ms > 0
 
     def as_dict(self):
         return { "name": self.name, "ms": self.ms }
@@ -54,11 +53,12 @@ class Open(ServerCommand):
         self.stand = stand
         self.pin = pin
     async def act(self, server):
-        if server.state.arming_switch or server.state.aborting:
+        if server.sequence_command_allowed():
             server.labjacks[self.stand].open_valve(self.pin)
         asyncio.ensure_future(server.broadcast('VALVE', {
             'time': utils.time_ms(), 'header': 'OPEN', 'pin': self.pin
         }))
+        return True
     def as_dict(self):
         return { "name": self.name, "stand": self.stand, "pin": self.pin }
 
@@ -69,15 +69,17 @@ class Close(ServerCommand):
         self.stand = stand
         self.pin = pin
     async def act(self, server):
-        if server.state.arming_switch or server.state.aborting:
+        if server.sequence_command_allowed():
             server.labjacks[self.stand].close_valve(self.pin)
         asyncio.ensure_future(server.broadcast('VALVE', {
             'time': utils.time_ms(), 'header': 'CLOSE', 'pin': self.pin
         }))
+        return True
     def as_dict(self):
         return { "name": self.name, "stand": self.stand, "pin": self.pin }
 
 class ClientCommandString:
+    PING = 'PING'
     ARMINGSWITCH = 'ARMINGSWITCH'
     MANUALSWITCH = 'MANUALSWITCH'
     OPEN = 'OPEN'
