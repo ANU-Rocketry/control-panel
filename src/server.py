@@ -198,6 +198,7 @@ class ControlPanelServer:
         self.log_data(True, type="ABORTING")
         self.state.arming_switch = False
         self.state.manual_switch = False
+        self.state.command_in_flight = None
         match self.state.status:
             case SequenceStatus.ABORTING | SequenceStatus.ABORT_REQUESTED:
                 pass # let the existing abort continue
@@ -261,6 +262,9 @@ class ControlPanelServer:
                 if self.state.arming_switch:
                     self.run_abort_sequence()
 
+            case ClientCommandString.PAUSESEQUENCE:
+                self.state.status = SequenceStatus.IDLE
+
             case _:
                 self.push_warning(f"Unknown command: {header}")
 
@@ -272,6 +276,11 @@ class ControlPanelServer:
             await asyncio.Future()
 
     def execute_sequence(self, initial_state=SequenceStatus.RUNNING):
+        # If we start with a command in flight, we're unpausing
+        if self.state.command_in_flight is not None:
+            self.state.current_sequence.insert(0, self.state.command_in_flight)
+            self.state.command_in_flight = None
+
         async def task():
             self.state.status = initial_state
             self.state.manual_switch = False
@@ -291,7 +300,7 @@ class ControlPanelServer:
         asyncio.ensure_future(task())
 
     def should_interrupt_sleep(self) -> bool:
-        return self.state.status == SequenceStatus.ABORT_REQUESTED
+        return self.state.status == SequenceStatus.ABORT_REQUESTED or self.state.status == SequenceStatus.IDLE
 
     def sequence_running(self) -> bool:
         match self.state.status:
