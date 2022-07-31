@@ -1,6 +1,4 @@
 
-# TODO: test this script
-
 # delete old build on the raspberry pi
 ssh pi@192.168.0.5 "cd ~/control-panel/reactfront; rm -r build"
 # build a new version

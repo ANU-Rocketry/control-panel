@@ -31,25 +31,6 @@ export default function Sequences({ state, emit }) {
 
     return (
         <Panel title="Sequences">
-            <div>
-                <Dialog
-                    open={open}
-                    aria-labelledby="alert-dialog-title"
-                    aria-describedby="alert-dialog-description"
-                >
-                    <DialogTitle id="alert-dialog-title">Invalid CSV</DialogTitle>
-                    <DialogContent>
-                        <DialogContentText id="alert-dialog-description">
-                            Confirm the CSV given was valid, read documentation if unsure.
-                        </DialogContentText>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => { setOpen(false) }} color="primary" autoFocus>
-                            Understood!
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-            </div>
             <div className="flex">
                 <div style={{ width: '200px', borderRight: '1px solid #999', height: '100%' }}>
                     <div className='frame'>

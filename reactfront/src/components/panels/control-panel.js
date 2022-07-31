@@ -5,7 +5,7 @@ import { Panel } from '../index'
 import pins from '../../pins.json'
 
 function normalisePosition (num) {
-    return `${num*26}px`;
+    return num*26;
 }
 
 function controlWidgetStyle({ x, y, width, height, enabled }) {
@@ -15,7 +15,7 @@ function controlWidgetStyle({ x, y, width, height, enabled }) {
         borderColor: 'transparent', // temp hack to keep alignment, should change margins instead
         width: normalisePosition(width),
         height: normalisePosition(height),
-        top: normalisePosition(y), 
+        top: normalisePosition(y),
         left: normalisePosition(x),
         ...(!enabled ? {cursor:'help'} : {})
     };
@@ -32,8 +32,10 @@ function ControlSwitch({ state, emit, ...props}) {
         position: 'absolute',
         margin: 'auto',
         fontSize: "1rem",
-        top: normalisePosition(props.y - 1), 
-        left: normalisePosition(props.x - 1), 
+        top: normalisePosition(props.y - 1),
+        left: normalisePosition(props.x - 1)-6,
+        width: 100,
+        textAlign: 'center'
     };
 
     return (
@@ -82,7 +84,7 @@ export default function ControlPanel({ state, emit }) {
             <div className="control-panel">
                 {pins.buttons.map((button) => state.data &&
                     <ControlSwitch
-                        title={button.pin.test_stand.charAt(0) + ' ' + button.pin.abbrev + ' ' + button.pin.labjack_pin}
+                        title={button.pin.test_stand.charAt(0) + ' ' + button.pin.abbrev}
                         key={button.pin.name}
                         state={state}
                         emit={emit}
