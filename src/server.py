@@ -6,6 +6,7 @@ import json
 from datalog import Datalog
 from traceback import print_exc
 import sys
+import os
 from labjack import get_class
 from stands import ETH, LOX
 from pathlib import Path
@@ -98,6 +99,8 @@ class ControlPanelServer:
         self.labjacks['LOX'] = get_class(devMode)(LOX)
         self.labjacks['ETH'] = get_class(devMode)(ETH)
 
+        self.sequence_names = os.listdir('./sequences/')
+
         self.ip = ip
         self.port = port
         self.clients = set()
@@ -178,7 +181,7 @@ class ControlPanelServer:
 
     def load_sequence(self, name: str):
         # name='abort' means loading src/sequences/abort.py
-        with open(Path(__file__).parent / 'sequences' / (name + '.py')) as f:
+        with open(Path(__file__).parent / 'sequences' / name) as f:
             # instead of writing a parser, we just exec each line in the file (not a security issue as sequences are trusted)
             return [
                 utils.exec_expr_with_locals(line, Sleep=Sleep, Open=Open, Close=Close, LOX=LOX, ETH=ETH)
@@ -297,7 +300,8 @@ class ControlPanelServer:
         obj = {
             "type": msg_type,
             "time": round(time.time()*1000),
-            "data": data
+            "data": data,
+            "sequence_names": self.sequence_names
         }
         await ws.send(json.dumps(obj))
 

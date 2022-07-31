@@ -16,7 +16,7 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      data: null, mostRecentWarning: {}, showWarning: false,
+      data: null, mostRecentWarning: {}, showWarning: false, sequence_names: [],
       wsAddress: localStorage.getItem('wsaddr') || "192.168.0.5",
       defaultWSAddress: "192.168.0.5",
       events: [],
@@ -82,7 +82,7 @@ class App extends React.Component {
             newData(emptyDataPoint)
           }
           newData(formatDataPoint(data.data))
-          this.setState({ data: data.data })
+          this.setState({ data: data.data, sequence_names: data.sequence_names })
           if (data.data.latest_warning) {
             this.pushWarning(data.data.latest_warning[0], data.data.latest_warning[1])
           }

@@ -1,4 +1,4 @@
-import { Table, TableBody, TableCell, TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@material-ui/core';
+import { Table, TableBody, TableCell, TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Select, MenuItem } from '@material-ui/core';
 import React from 'react';
 import { Panel } from '../index'
 import {SafetyCard} from './safety-panel'
@@ -7,7 +7,7 @@ import { pinFromID } from './graph-panel'
 function SequenceRow(data) {
     return <TableRow style={data.style}>
         <TableCell component="th" scope="row">{data.name}</TableCell>
-        <TableCell align="center">{data.stand ?? ""}</TableCell>
+        <TableCell align="center">{data.stand || ""}</TableCell>
         <TableCell align="center">{data.stand ? pinFromID(data.pin).pin.abbrev : (data.ms.toString() + ' ms')}</TableCell>
     </TableRow>
 }
@@ -15,16 +15,25 @@ function SequenceRow(data) {
 export default function Sequences({ state, emit }) {
 
     var sequences = (state.data && state.data.current_sequence) || []
+    const sequenceItems = (state.sequence_names && state.sequence_names.map((name) => {
+        return <MenuItem value={name}> {name} </MenuItem>
+    })) || []
+    console.log(sequenceItems)
+    console.log(state.sequence_names)
 
     var current_executing = state.data === null ? null : state.data.command_in_flight
 
-    const [open, setOpen] = React.useState(false);
+    const [open, setOpen] = React.useState(false)
+    const [currSeq, setSeq] = React.useState(
+        (state.sequence_names && state.sequence_names[0]) || "sequences-not-found"
+    )
 
-    const handleChange = async () => {
-        await emit('SETSEQUENCE', prompt("Enter a sequence name"))
+    const handleChange = async (event) => {
+        await emit('SETSEQUENCE', event.target.value)
+        setSeq(event.target.value)
         // TODO: use setOpen(true) if the Python is invalid?
         // or use the most recent warning infra and delete the warning
-    };
+    }
 
     const abort = x => emit('ABORTSEQUENCE', x)
     const armed = state.data && state.data.arming_switch;
@@ -38,7 +47,16 @@ export default function Sequences({ state, emit }) {
                             Start
                         </h2>
                         <div>
-                            <button onClick={handleChange} disabled={!armed}>Choose sequence</button>
+                            <Select
+                              labelId="dropdown-seq-label"
+                              id="dropdown-seq"
+                              value={currSeq}
+                              label="sequence"
+                              onChange={handleChange}
+                              disabled={!armed}
+                            > 
+                              {sequenceItems}
+                            </Select>
                         </div><br/>
                         <button onClick={() => emit('BEGINSEQUENCE', null)} style={{backgroundColor:armed?'lime':'lightgrey',padding:10,cursor:armed&&'pointer'}} disabled={!armed}>Start</button><br/><br/>
                         <SafetyCard title="Abort">
