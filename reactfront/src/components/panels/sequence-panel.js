@@ -5,10 +5,11 @@ import {SafetyCard} from './safety-panel'
 import { pinFromID } from './graph-panel'
 
 function SequenceRow(data) {
-    return <TableRow style={data.style}>
-        <TableCell component="th" scope="row">{data.name}</TableCell>
-        <TableCell align="center">{data.stand ?? ""}</TableCell>
-        <TableCell align="center">{data.stand ? pinFromID(data.pin).pin.abbrev : (data.ms.toString() + ' ms')}</TableCell>
+    return <TableRow style={data.inFlight ? { background: '#94F690' } : {}}>
+        <TableCell align='right'>{data.name[0]+data.name.substring(1).toLowerCase()}</TableCell>
+        <TableCell>{data.stand
+            ? pinFromID(data.pin).pin.name
+            : (((data.inFlight ? data.remaining : data.ms) / 1000).toFixed(1) + 's')}</TableCell>
     </TableRow>
 }
 
@@ -47,16 +48,15 @@ export default function Sequences({ state, emit }) {
                     </div>
                 </div>
                 <div style={{ overflow: 'auto', width: '100%', height: '100%' }}>
-                    <Table stickyHeader aria-label="simple table">
+                    <Table stickyHeader aria-label="simple table" style={{tableLayout: 'fixed'}}>
                         <TableHead>
                             <TableRow>
-                                <TableCell align="left">Command</TableCell>
-                                <TableCell align="center">Stand</TableCell>
-                                <TableCell align="center">Value</TableCell>
+                                <TableCell align='right' style={{width:100}}>Command</TableCell>
+                                <TableCell>Parameter</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {current_executing && <SequenceRow style={{ background: '#94F690' }} {...current_executing} />}
+                            {current_executing && <SequenceRow inFlight {...current_executing} />}
                             {sequences.map((command) => <SequenceRow {...command} />)}
                         </TableBody>
                     </Table>

@@ -85,6 +85,10 @@ h2 { font-size: 1.2rem; }
   height: 557px;
 }
 
+.panel.safety {
+  width: 600px;
+}
+
 .panel.control {
   width: 800px;
 }
@@ -101,6 +105,14 @@ h2 { font-size: 1.2rem; }
 
 .panel.safety .safety-card {
   margin: 1rem;
+}
+
+.MuiTableCell-root {
+  padding: 8px 12px !important;
+}
+
+th {
+  font-weight: bold !important;
 }
 
 .alert {
