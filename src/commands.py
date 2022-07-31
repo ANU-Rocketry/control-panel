@@ -28,6 +28,7 @@ class Sleep(ServerCommand):
     def __init__(self, seconds: int):
         self.name = "SLEEP"
         self.ms = int(seconds * 1000)
+        self.remaining = self.ms
 
     async def act(self, server):
         if self.ms <= 0: return
@@ -36,7 +37,8 @@ class Sleep(ServerCommand):
 
         # break sleep into 5ms chunks so aborts will interrupt sleeps
         expiry = utils.time_ms() + self.ms # milliseconds
-        while utils.time_ms() < expiry:
+        while (remaining := expiry - utils.time_ms()) >= 0:
+            self.remaining = remaining
             if server.should_interrupt_sleep(): break
             await asyncio.sleep(0.005) # 5ms
         # update remaining time if we're pausing so that we can continue by calling act again
@@ -44,7 +46,7 @@ class Sleep(ServerCommand):
         return self.ms > 0
 
     def as_dict(self):
-        return { "name": self.name, "ms": self.ms }
+        return { "name": self.name, "ms": self.ms, "remaining": self.remaining }
 
 class Open(ServerCommand):
     def __init__(self, stand: Stand, pin: int = None):

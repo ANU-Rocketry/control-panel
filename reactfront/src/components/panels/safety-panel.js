@@ -13,7 +13,7 @@ export function SafetyCard(props) {
 
   return (
     <div className='safety-card'>
-      <h2 title={props.label} style={style}>
+      <h2 title={props.label} style={{...style, ...(props.style||{})}}>
         {props.title}
       </h2>
       {toggle}
@@ -22,10 +22,10 @@ export function SafetyCard(props) {
 }
 
 // Strings taken from server.py's UPSStatus enum
-const UPSSymbols = {"LINE_POWERED": "✅", "BATTERY_POWERED": "❌", "UNKNOWN": "❔"}
+const UPSSymbols = {"LINE_POWERED": "✅", "BATTERY_POWERED": "🔋", "UNKNOWN": "❔"}
 const UPSNames = {
-  "LINE_POWERED": "Line Powered",
-  "BATTERY_POWERED": "On Battery (No Power)",
+  "LINE_POWERED": "Powered",
+  "BATTERY_POWERED": "Battery",
   "UNKNOWN": "Unknown"
 }
 
@@ -49,25 +49,25 @@ export default function SafetyPanel({ state, emit, sockStatus, that }) {
   return (
     <Panel title="Safety" className='panel safety'>
       <div className="flex" style={{ justifyContent: 'flex-start' }}>
-        <SafetyCard title="Arming Switch"
+        <SafetyCard title="Arming"
           label="Controls if the state can change"
           isButton="false"
           switchValue={armingSwitchActive}
           setSwitchValue={toggleArmingSwitch} />
 
-        <SafetyCard title="Manual Control"
+        <SafetyCard title="Manual"
           label="Allow manual pin operation"
           isButton="false"
           switchValue={manualSwitchActive}
           setSwitchValue={toggleManualSwitch} />
 
-        <SafetyCard title="Data Logging"
+        <SafetyCard title="Logging"
           label="Logging data"
           isButton="false"
           switchValue={dataLoggingActive}
           setSwitchValue={toggleDataLogging} />
 
-        <SafetyCard title="R-Pi IP"
+        <SafetyCard title="Server IP"
           label="Local IP address of the Raspberry Pi. Must be on the same network. If it's incorrect no new data will appear">
           <input value={state.wsAddress} size='10' onChange={e => {
             that.setState({ wsAddress: e.target.value }, () => {
@@ -78,19 +78,22 @@ export default function SafetyPanel({ state, emit, sockStatus, that }) {
         </SafetyCard>
 
         <SafetyCard title="Ping"
-          label="Time delay to reach the server">
+          label="Time delay to reach the server"
+          style={{width:40}}>
           {state.ping ? state.ping : '0'}ms
         </SafetyCard>
 
-        {UPSStatus && (
-          <SafetyCard title="UPS Status">
-            {UPSInfo}
+        <div style={{paddingTop:6}}>
+          <SafetyCard title="Status">
+              {connectionStatus}
           </SafetyCard>
-        )}
 
-        <SafetyCard title="Connection Status">
-            {connectionStatus}
-        </SafetyCard>
+          {UPSStatus && (
+            <SafetyCard title="UPS">
+              {UPSInfo}
+            </SafetyCard>
+          )}
+        </div>
 
       </div>
 
