@@ -1,7 +1,4 @@
 
-from enum import Enum
-from labjack import get_class, LabJackBase
-
 class Stand:
     LOX = 'LOX'
     ETH = 'ETH'
