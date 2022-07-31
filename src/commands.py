@@ -38,7 +38,7 @@ class Sleep(ServerCommand):
             await asyncio.sleep(0.005) # 5ms
         # update remaining time if we're pausing so that we can continue by calling act again
         self.ms = max(0, expiry - utils.time_ms())
-        return self.ms > 0
+        return self.ms <= 0
 
     def as_dict(self):
         return { "name": self.name, "ms": self.ms, "remaining": self.remaining }
@@ -85,3 +85,4 @@ class ClientCommandString:
     SETSEQUENCE = 'SETSEQUENCE'
     BEGINSEQUENCE = 'BEGINSEQUENCE'
     ABORTSEQUENCE = 'ABORTSEQUENCE'
+    PAUSESEQUENCE = 'PAUSESEQUENCE'
