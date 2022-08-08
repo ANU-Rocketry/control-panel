@@ -28,30 +28,21 @@ Then every time you want to run it:
 
 You'll need a Raspberry Pi and your laptop, and some way of putting them on the same network. You can network with point-to-point ethernet or a hotspot + Linux compatible wifi dongle (don't need wifi dongle on newer Pi's). You cannot use ResNet as they block the ports we need.
 
+Set-up takes about 20 minutes of supervised work, then several hours (~1 for RPi 4b, 4 for RPi 2b) of waiting in the final step where you build Python 3.10 from source, plus a quick command at the end.
+
 1. Start up the Raspberry Pi and get internet access and a terminal
     * Option 1: If you have two ethernet cables and the router we use, plug the Pi into a LAN slot on the router, plug the external ethernet (eg ResNet) into the WAN slot, connect your laptop to the router's wifi, and SSH into `192.168.0.5`
     * Option 2: If you have a monitor, mouse, keyboard, and ethernet cable+port / wifi dongle / onboard wifi, you can just use those and open a terminal in the Raspbian desktop
     * Option 3: if you have a micro SD card reader and onboard wifi / a wifi dongle and a wifi network (hotspots are easy), you can configure it to connect to that wifi network by changing a config file on the SD card. See [this tutorial](https://www.raspberrypi-spy.co.uk/2017/04/manually-setting-up-pi-wifi-using-wpa_supplicant-conf/)
 1. Open a terminal
-    1. Go to your home folder (type `cd ~` in the terminal)
-    1. `sudo apt-get update`
-    1. `sudo apt-get install git screen python3-pip libusb-1.0-0 libusb-1.0-0-dev` (note the dashes where you'd expect periods to be in the libusb headers)
+    1. `sudo apt-get update && sudo apt-get install git screen python3-pip libusb-1.0-0 libusb-1.0-0-dev` (note the dashes where you'd expect periods to be in the libusb headers)
     1. `screen -S rocketry_session` (this opens a fresh terminal which you can close without stopping running processes, so your SSH window can be closed)
         1. If you need to leave and come back without stopping the process, press Ctrl+A then Ctrl+D and close the SSH session. When you get back, run `screen -r` to resume it.
 1. Build the LabJack Exodrvier
     1. Clone the Exodriver repository (`git clone https://github.com/labjack/exodriver`)
-    1. Go into the repository (`cd exodriver`)
-    1. Run installation script (`sudo ./install.sh`)
-    1. Go to your home folder (`cd ~`)
+    1. Run installation script (`cd exodriver && sudo ./install.sh && cd ~`)
 1. Install this repository
     1. Clone this repository (`git clone https://github.com/ANU-Rocketry/control-panel`)
-1. Install Python 3.10 from source (based off this: https://itheo.tech/installing-python-310-on-raspberry-pi)
-    1. `wget -qO - https://raw.githubusercontent.com/tvdsluijs/sh-python-installer/main/python.sh | sudo bash -s 3.10.0` (this will take an hour for a new Pi and **3-4 hours** for an older one!)
-        1. Once done, you can safely delete the `Python-XXX.tar.xz` and `Python-XXX` folders
-    1. `sudo python3.10 -m pip install --upgrade pip`
-    1. `cd control-panel/src`
-    1. `sudo python3.10 -m pip install -r requirements.txt`
-        1. The sudo is VERY IMPORTANT. Otherwise the startup script will not be able to find the pip modules because they'll be locally installed otherwise
 1. Configure startup script
     1. `sudo nano /etc/rc.local`
     1. Replace the contents with:
@@ -79,6 +70,11 @@ You'll need a Raspberry Pi and your laptop, and some way of putting them on the 
     1. `sudo apcupsd restart` or `sudo /etc/init.d/apcupsd restart` or `sudo reboot` - whichever works
     1. Confirm `apcaccess status` comes up with a status other than `COMMLOST` (it should say `STATUS   : ONBATT` or `STATUS   : ONLINE`)
 1. Run `ssh-copy-id pi@192.168.0.5` in a terminal on your laptop to copy your SSH key so you don't need a password when using `ssh pi@192.168.0.5`
+1. **[This takes several hours!]** Install Python 3.10 from source (based off this: https://itheo.tech/installing-python-310-on-raspberry-pi)
+    1. `wget -qO - https://raw.githubusercontent.com/tvdsluijs/sh-python-installer/main/python.sh | sudo bash -s 3.10.0` (this will take an hour for a new Pi and **3-4 hours** for an older one!)
+        1. Once done, you can safely delete the `Python-XXX.tar.xz` and `Python-XXX` folders
+    1. `sudo python3.10 -m pip install --upgrade pip && cd ~/control-panel/src && sudo python3.10 -m pip install -r requirements.txt`
+        1. The sudo is VERY IMPORTANT. Otherwise the startup script will not be able to find the pip modules because they'll be locally installed otherwise
 
 # Setting up the Pi at the testing site
 
@@ -94,6 +90,11 @@ Range/control site:
 * Plug the other Ubiquity into the router
     * The Ubiquity needs power over ethernet. Use the black POE to power outlet cable to power it, and plug the non-POE second ethernet cable into one of the router's LAN slots
 * Connect to the wifi on your laptop using the password on the box and navigate to `http://192.168.0.5:3000`. Set `R-Pi IP` to `192.168.0.5` in the browser.
+
+Sequences:
+* The sequences are specified in the `src/sequences/sequence_name.py` files on the Pi server. Use SSH to edit them (if you've got internet, it's better to update the repo and pull the changes on the Pi).
+* Sequences are written in a Python-like format where each line is a command from `src/commands.py` and the valve naming scheme is in `src/stands.py`. These are interpreted on the fly by the server in `src/server.py`'s `load_sequence` method.
+* To load a sequence, enter the name in the popup window, like "operation" or "abort" (this is just the filename without the `.py`)
 
 # How to debug
 
