@@ -33,22 +33,21 @@ You'll need a Raspberry Pi and your laptop, and some way of putting them on the 
     * Option 2: If you have a monitor, mouse, keyboard, and ethernet cable+port / wifi dongle / onboard wifi, you can just use those and open a terminal in the Raspbian desktop
     * Option 3: if you have a micro SD card reader and onboard wifi / a wifi dongle and a wifi network (hotspots are easy), you can configure it to connect to that wifi network by changing a config file on the SD card. See [this tutorial](https://www.raspberrypi-spy.co.uk/2017/04/manually-setting-up-pi-wifi-using-wpa_supplicant-conf/)
 1. Open a terminal
-1. Build the LabJack Exodrvier
     1. Go to your home folder (type `cd ~` in the terminal)
-    1. `sudo apt-get update`, `sudo apt-get install git`, `sudo apt-get install screen`
-    1. Install Python Pip if not already installed (`sudo apt install python3-pip`)
-    1. Install the libusb headers with `sudo apt-get install libusb-1.0-0 libusb-1.0-0-dev` (note the dashes where you'd expect periods to be)
+    1. `sudo apt-get update`
+    1. `sudo apt-get install git screen python3-pip libusb-1.0-0 libusb-1.0-0-dev` (note the dashes where you'd expect periods to be in the libusb headers)
+    1. `screen -S rocketry_session` (this opens a fresh terminal which you can close without stopping running processes, so your SSH window can be closed)
+        1. If you need to leave and come back without stopping the process, press Ctrl+A then Ctrl+D and close the SSH session. When you get back, run `screen -r` to resume it.
+1. Build the LabJack Exodrvier
     1. Clone the Exodriver repository (`git clone https://github.com/labjack/exodriver`)
     1. Go into the repository (`cd exodriver`)
     1. Run installation script (`sudo ./install.sh`)
-1. Install this repository
     1. Go to your home folder (`cd ~`)
+1. Install this repository
     1. Clone this repository (`git clone https://github.com/ANU-Rocketry/control-panel`)
 1. Install Python 3.10 from source (based off this: https://itheo.tech/installing-python-310-on-raspberry-pi)
-    1. `screen -S rocketry_session`
     1. `wget -qO - https://raw.githubusercontent.com/tvdsluijs/sh-python-installer/main/python.sh | sudo bash -s 3.10.0` (this will take an hour for a new Pi and **3-4 hours** for an older one!)
-        1. If you need to leave and come back without stopping the process, press Ctrl+A then Ctrl+D and close the SSH session. When you get back, run `screen -r` to resume it.
-        1. Once done, you can Ctrl+A then Ctrl+D if you like and you can safely delete the `Python-XXX.tar.xz` and `Python-XXX` folders
+        1. Once done, you can safely delete the `Python-XXX.tar.xz` and `Python-XXX` folders
     1. `sudo python3.10 -m pip install --upgrade pip`
     1. `cd control-panel/src`
     1. `sudo python3.10 -m pip install -r requirements.txt`
@@ -76,7 +75,7 @@ You'll need a Raspberry Pi and your laptop, and some way of putting them on the 
     1. The Pi is plugged into a UPS to make it resistant to power cuts. This daemon lets us tell whether we're running on line power or UPS battery power so we can indicate this on the front-end. This only works if the Pi has a serial connection to the UPS using a USB-A to USB-B cable (labelled "PowerChute USB Port" on the UPS)
     1. `sudo apt-get install apcupsd`
     1. `sudo nano /etc/default/apcupsd` and change `no` to `yes`
-    1. `sudo nano  /etc/apcupsd/apcupsd.conf` and set `UPSNAME rock-ups` (because it's an 8 char limit), `UPSCABLE usb`, `UPSTYPE usb`, `MINUTES 0` (avoid auto-shutdown), `DEVICE` (without the `/dev/tty*` part so it searches all serial connections)
+    1. `sudo nano  /etc/apcupsd/apcupsd.conf` and set `UPSNAME rock-ups` (because it's an 8 char limit), `UPSCABLE usb`, `UPSTYPE usb`, `DEVICE` (without the `/dev/tty*` part so it searches all serial connections), `MINUTES 0` (avoid auto-shutdown)
     1. `sudo apcupsd restart` or `sudo /etc/init.d/apcupsd restart` or `sudo reboot` - whichever works
     1. Confirm `apcaccess status` comes up with a status other than `COMMLOST` (it should say `STATUS   : ONBATT` or `STATUS   : ONLINE`)
 1. Run `ssh-copy-id pi@192.168.0.5` in a terminal on your laptop to copy your SSH key so you don't need a password when using `ssh pi@192.168.0.5`
