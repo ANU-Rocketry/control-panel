@@ -99,6 +99,7 @@ class ControlPanelServer:
             self.labjacks['LOX'] = get_class(devMode)(LOX)
             self.labjacks['ETH'] = get_class(devMode)(ETH)
         except:
+            print_exc()
             print('''
             Could not connect to the LabJacks. Are they both connected and powered?
             To run a local development server, run `python3 server.py --dev`
