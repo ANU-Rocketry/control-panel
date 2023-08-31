@@ -22,7 +22,7 @@ export default function Sequences({ state, emit }) {
     const aborting = state.data ? state.data.status === 3 : false
 
     const handleChange = async () => {
-        await emit('SETSEQUENCE', prompt("Enter a sequence name"))
+        await emit('SETSEQUENCE', prompt("Enter a sequence name like 'operation' or 'abort' (lowercase without quotes). (This loads from a sequence file in src/sequences on the server RPi, you must edit the files on the RPi to change the sequence.)"))
     }
 
     const abort = x => emit('ABORTSEQUENCE', x)
