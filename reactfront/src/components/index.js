@@ -39,6 +39,7 @@ export const BigSwitch = withStyles((theme) => ({
     height: 32,
     padding: 1,
     display: 'flex',
+    overflow: 'visible',
   },
   switchBase: {
     padding: 2,
@@ -54,6 +55,8 @@ export const BigSwitch = withStyles((theme) => ({
     },
   },
   thumb: {
+    marginLeft: 1,
+    marginTop: 1,
     width: 28,
     height: 28,
     boxShadow: 'none',
