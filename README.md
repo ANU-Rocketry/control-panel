@@ -5,10 +5,15 @@
 This project consists of two parts: a backend that runs on a Raspberry Pi written in Python, and a front end website client written using React.js. The two communicate over a point-to-point wifi connection.
 
 Contents:
-* [Setting up a computer for development](#development)
-* [Setting up a Raspberry Pi](#setting-up-a-raspberry-pi-for-the-first-time) (this should not be necessary)
-* [Setting up the Pi at the testing site](#setting-up-the-pi-at-the-testing-site)
-* [Debugging with the Raspberry Pi](#how-to-debug)
+- [ANU Rocketry Test Stand Control Panel](#anu-rocketry-test-stand-control-panel)
+- [Development](#development)
+- [Setting up a Raspberry Pi for the first time](#setting-up-a-raspberry-pi-for-the-first-time)
+- [Setting up the Pi at the testing site](#setting-up-the-pi-at-the-testing-site)
+- [How to debug](#how-to-debug)
+  - [Pushing new builds on the fly](#pushing-new-builds-on-the-fly)
+    - [Front end](#front-end)
+    - [Back end](#back-end)
+- [Unofficial brew install of sshpass](#unofficial-brew-install-of-sshpass)
 
 # Development
 
@@ -112,6 +117,7 @@ If you have any problems, just file a GitHub Issue, contact us on Microsoft Team
 
 ## Pushing new builds on the fly
 
+### Front end
 The startup script on the Pi runs a static server with `reactfront/build`, so you can update these files with `scp` and then reload the page to update the front end on any device:
 
 ```sh
@@ -127,3 +133,45 @@ npm run build
 scp -r build pi@192.168.0.5:/home/pi/control-panel/reactfront
 # Reload http://192.168.0.5:3000 in your browser
 ```
+
+### Back end
+This isn't automated yet but I want to move away from pulling the git on the Pi. 
+Instead, I want to make a deploy script that allows you to push the latest version
+of the code to the Pi on the fly. This is important as the Pi network is often
+difficult to connect to the internet. There are other advantages too, like being
+able to remove the build directory from the git repo.
+
+This process can be done manually with SCP and kill + restart the server. The 
+only problem is that the node modules folder is huge and takes a long time to
+copy over (~5 mins). What I do currently is delete the node modules folder on
+my machine and then copy it over to the Pi. You dont need internet to reinstall 
+node modules, you just need to have the node modules cached on your machine. You
+can also just copy the deleted modules folder back to your machine after scp.
+
+I want to automate this process with a script that creates a tarball of the build
+directory without the node modules folder, copies it over to the Pi, unzips it,
+and then restarts the server. 
+
+``sh
+# Unofficial brew install of sshpass
+brew install hudochenkov/sshpass/sshpass
+``
+```sh
+# THIS IS UNTESTED will probably need to be tweaked but shows the general idea
+# delete old build (on the raspberry pi!)
+sshpass -p "raspberry" ssh pi@pi@192.168.0.5 "rm -rf ~/control-panel"
+
+# Zip up the build folder without node modules
+zip -r control-panel.zip .
+
+# scp over new build (on your machine!)
+sshpass -p "raspberry" scp -r control-panel.zip pi@192.168.0.5:/home/pi
+sshpass -p "raspberry" ssh pi@192.168.0.5 "unzip control-panel.zip && rm control-panel.zip"
+
+# Restart the server
+sshpass -p "raspberry" ssh pi@192.168.0.5 "pkill python3.10 && cd ~/control-panel/ && chmod 700 startup.sh && sudo sh startup.sh &"
+```
+
+
+
+
