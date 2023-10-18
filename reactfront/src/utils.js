@@ -49,6 +49,15 @@ export function voltsToPsi(volts, barMax) {
     return bar * 14.504; // 1bar = 14.5psi
 }
 
+export function psiToVolts(psi, barMax) {
+    const resistance = 120; // ohm
+    const current1 = 0.004; // amps
+    const current2 = 0.02; // amps
+    const volts = psi/(barMax * 14.504) * resistance * current2 + resistance * current1
+    return volts;
+}
+
+
 export function formatDataPoint(dict) {
     return {
         // Epoch time in fractional seconds

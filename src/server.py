@@ -111,7 +111,7 @@ class ControlPanelServer:
         self.clients = set()
 
         print(f"Hosting server on {ip} port {port}")
-
+    
     async def timeout_counter(self):
         # run the abort sequence once when no devices have been connected for `ABORT_SEQUENCE_TIMOUT` seconds
         while True:
@@ -231,6 +231,8 @@ class ControlPanelServer:
                 if not self.sequence_running():
                     self.log_data(data, type="ARMING_SWITCH")
                     self.state.arming_switch = data
+                    print(data)
+                
 
             case ClientCommandString.MANUALSWITCH:
                 if not self.sequence_running():
@@ -275,11 +277,83 @@ class ControlPanelServer:
 
             case _:
                 self.push_warning(f"Unknown command: {header}")
+                
+    async def init_state_handler(self):
+        cycle = False # Available for use in the lambda functions below to be 
+        # used to cycle the things on and off
+        lox = self.labjacks['LOX']
+        eth = self.labjacks['ETH']
+        # Light stands are the same for both stands
+        lightStand = LOX.LightStand
+        
+        # It is the developers responsibility to make sure that the conditions
+        # do not effect each other incorrectly. (Later conditions can override earlier ones)
+        shared = lambda x : [
+          {
+            'condition': lambda: len(self.clients) == 0,
+            'effect': lambda: x._set_digital_state(lightStand.green[1], cycle),
+          },
+          {
+            'condition': lambda: len(self.clients) > 0,
+            'effect': lambda: x._set_digital_state(lightStand.green[1], True),
+          },
+          {
+            'condition': lambda: not self.state.arming_switch,
+            'effect': lambda: x._set_digital_state(lightStand.yellow[1], False),
+          },
+          {
+            'condition': lambda: self.state.arming_switch and not self.state.manual_switch,
+            'effect': lambda: x._set_digital_state(lightStand.yellow[1], True),
+          },
+          {
+            'condition': lambda: self.state.manual_switch,
+            'effect': lambda: x._set_digital_state(lightStand.yellow[1], cycle),
+          },
+          {
+            'condition': lambda: x.get_voltage(LOX.Sensors[1]) < 0.52,
+            'effect': lambda: x._set_digital_state(lightStand.red[1], False),
+          },
+          {
+            'condition': lambda: x.get_voltage(LOX.Sensors[1]) > 0.52 and
+                                 x.get_voltage(LOX.Sensors[1]) < 1.47, #0.52v ~= 2atm 
+            'effect': lambda: x._set_digital_state(lightStand.red[1], True),
+          },
+          {
+            'condition': lambda: x.get_voltage(LOX.Sensors[1]) > 1.47, #1.47v ~= 600psi
+            'effect': lambda: x._set_digital_state(lightStand.red[1], cycle),
+          },
+          {
+            'condition': lambda: x.get_voltage(LOX.Sensors[1]) > 1.47, #1.47v ~= 600psi
+            'effect': lambda: x._set_digital_state(lightStand.red[1], cycle),
+          },
+          {
+            'condition': lambda: self.state.status == SequenceStatus.IDLE,
+            'effect': lambda: x._set_digital_state(lightStand.buzzer[1], False),
+          },
+          {
+            'condition': lambda: self.state.status != SequenceStatus.IDLE,
+            'effect': lambda: x._set_digital_state(lightStand.buzzer[1], False),
+          }
+        ]
+          
+        # Implement stand specific conditions and effects here
+        outputs = [
+          *shared(lox),
+          *shared(eth)
+        ]
+        
+        while (True):
+          for output in outputs:
+              if output['condition']():
+                  output['effect']()
+          cycle = not cycle
+          await asyncio.sleep(1)
 
     async def start_server(self):
         asyncio.ensure_future(self.sync_state())
         asyncio.ensure_future(self.timeout_counter())
         asyncio.ensure_future(self.update_UPS_status())
+        asyncio.ensure_future(self.init_state_handler())
         async with websockets.serve(self.event_handler, self.ip, self.port):
             await asyncio.Future()
 

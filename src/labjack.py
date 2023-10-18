@@ -14,10 +14,10 @@ class LabJackBase(metaclass=ABCMeta):
     """Base class for LabJack and LabJackFake"""
 
     config: type
-
+          
     @abstractmethod
-    def __init__(self, standConfig: type):
-        pass
+    def _set_digital_state(self, pin_number: int, open: bool):
+        pass # don't call this (call set_valve_state), but do override it
 
     @abstractmethod
     def _set_valve_state(self, pin_number: int, open: bool):
@@ -25,6 +25,10 @@ class LabJackBase(metaclass=ABCMeta):
 
     @abstractmethod
     def get_valve_state(self, pin_number: int) -> bool:
+        pass
+    
+    @abstractmethod
+    def _get_digital_state(self, pin_number: int) -> bool:
         pass
 
     @abstractmethod
@@ -67,6 +71,10 @@ class LabJackBase(metaclass=ABCMeta):
             state["analog"] = {}
             for pin in self.analog_inputs:
                 state["analog"][pin] = self.get_voltage(pin)
+        if self.light_stand_pins:
+            state["light_stand"] = {}
+            for pin in self.light_stand_pins:
+                state["light_stand"][pin] = self._get_digital_state(pin)
         return state
 
     def _is_inverted_relay(self, pin_number):
@@ -89,6 +97,7 @@ class LabJack(LabJackBase):
         self.config = standConfig
         self.digital_pins = standConfig.Valves
         self.analog_inputs = standConfig.Sensors
+        self.light_stand_pins = standConfig.LightStand.LightStand
         # Import LabJackPython (Python imports are cached so this only happens once)
         import LabJackPython
         # if you get an error here do `sudo pip uninstall LabJackPython` and then `sudo pip install LabJackPython==2.0.4`
@@ -101,6 +110,19 @@ class LabJack(LabJackBase):
             x |= 1 << int(pin)
         # print(self.device.configIO())
         self.device.configIO(FIOAnalog=x, EIOAnalog=0)
+        
+    def _get_digital_state(self, pin_number: int) -> bool:
+        try:
+            return self.device.getDIOState(pin_number)
+        except Exception:
+            print(pin_number)
+            print_exc()
+            print(f"pin: {pin_number}")
+            sys.exit()
+
+    def _set_digital_state(self, pin_number: int, state: bool):
+        # Set the value in the hardware
+        self.device.setDIOState(pin_number, state=int(state))
 
     def _set_valve_state(self, pin_number: int, open: bool):
         """
@@ -114,19 +136,12 @@ class LabJack(LabJackBase):
         # Invert if the relay on state opposes the valve open state
         if self._is_inverted_relay(pin_number): open = not open
         # Set the value in the hardware
-        self.device.setDIOState(pin_number, state=int(open))
+        self._set_digital_state(pin_number, open)
 
     def get_valve_state(self, pin_number: int) -> bool:
         """Returns True if the valve is mechanically open and False otherwise"""
-        try:
-            val = self.device.getDIOState(pin_number)
-            if self._is_inverted_relay(pin_number): return not val
-            else: return val
-        except Exception:
-            print(pin_number)
-            print_exc()
-            print(f"pin: {pin_number}")
-            sys.exit()
+        if self._is_inverted_relay(pin_number): return not self._get_digital_state(pin_number)
+        else: return self._get_digital_state(pin_number)
 
     def get_voltage(self, pin_number: int) -> float:
         try:
@@ -147,18 +162,30 @@ class LabJackFake(LabJackBase):
         self.config = standConfig
         self.digital_pins = standConfig.Valves
         self.analog_inputs = standConfig.Sensors
+        self.light_stand_pins = standConfig.LightStand.LightStand
         self.serial_number = standConfig.SerialNumber
         self.state = {
             "digital": {},
-            "analog": {}
+            "analog": {},
+            "light_stand": {}
         }
-
-    def _set_valve_state(self, pin_number: int, state: bool):
-        self.state["digital"][pin_number] = state
 
     def _set_default_state(self, pin_number: int):
         default_on = [13, 19]  # only vent valves are default on
         self.state['digital'][pin_number] = True if pin_number in default_on else False
+
+    def _set_digital_state(self, pin_number: int, state: bool):
+        self.state["light_stand"][pin_number] = state
+    
+    def _set_valve_state(self, pin_number: int, state: bool):
+        self.state["digital"][pin_number] = state
+        
+    def _get_digital_state(self, pin_number: int) -> bool:
+        if pin_number in self.state["light_stand"]:
+            return self.state["light_stand"][pin_number]
+        else:
+            self.state["light_stand"][pin_number] = False
+            return self._get_digital_state(pin_number)
 
     def get_valve_state(self, pin_number: int) -> bool:
         if pin_number in self.state["digital"]:
