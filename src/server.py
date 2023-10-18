@@ -145,9 +145,9 @@ class ControlPanelServer:
     def push_warning(self, msg: str):
         self.state.latest_warning = ( utils.time_ms(), msg )
 
-    def get_UPS_status(self):
+    async def get_UPS_status(self):
         if not devMode:
-            status = utils.get_output('apcaccess status')
+            status = await utils.get_output('apcaccess status')
             # if there's a connection, it should say "STATUS   : ONBATT" or "STATUS   : ONLINE" on one of the lines
             if "STATUS   : ONBATT" in status:
                 return UPSStatus.BATTERY_POWERED
@@ -163,7 +163,7 @@ class ControlPanelServer:
     async def update_UPS_status(self):
         while True:
             old = self.state.UPS_status
-            self.state.UPS_status = self.get_UPS_status()
+            self.state.UPS_status = await self.get_UPS_status()
             if old != self.state.UPS_status:
                 self.push_warning(f"UPS status changed: {UPSStatusMessages[self.state.UPS_status]}")
             await asyncio.sleep(1)

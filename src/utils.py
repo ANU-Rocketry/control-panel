@@ -1,5 +1,6 @@
 
 import time
+import asyncio
 
 def get_local_ip() -> str:
     # Source: https://stackoverflow.com/a/166589
@@ -13,14 +14,19 @@ def get_local_ip() -> str:
 def time_ms() -> int:
     return int(time.time_ns() // 1_000_000)
 
-def get_output(cmd) -> str:
+async def get_output(cmd) -> str:
     """
     Get the STDOUT of a shell command as a string, suppressing STDERR.
     If there is only an error (including command not found), the return will be an empty string.
     """
-    import subprocess
-    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    return proc.communicate()[0].decode("utf-8")
+    process = await asyncio.create_subprocess_shell(
+        cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL
+    )
+
+    stdout, _ = await process.communicate()
+    return stdout.decode("utf-8")
 
 def exec_expr_with_locals(expr: str, **locals) -> object:
     """
