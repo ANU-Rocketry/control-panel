@@ -148,17 +148,27 @@ class ControlPanelServer:
     async def get_UPS_status(self):
         if not devMode:
             status = await utils.get_output('apcaccess status')
-            # if there's a connection, it should say "STATUS   : ONBATT" or "STATUS   : ONLINE" on one of the lines
-            if "STATUS   : ONBATT" in status:
-                return UPSStatus.BATTERY_POWERED
-            elif "STATUS   : ONLINE" in status:
-                return UPSStatus.LINE_POWERED
-            else:
-                return UPSStatus.UNKNOWN
         else:
+            options = [
+              'ONBATT',
+              'ONLINE',
+              'UNKNOWN'
+            ]
             # for test servers, switch the UPS status regularly
-            index = (int(time.time() / 60)) % len(UPSStatus.All)
-            return UPSStatus.All[index]
+            index = (int(time.time() / 60)) % len(options)
+            status = await utils.get_output('echo {}'.format(options[index]))
+            print(status)
+            
+        # if there's a connection, it should say "STATUS   : ONBATT" or 
+        # "STATUS   : ONLINE" on one of the lines. I have adjusted this to only
+        # look for the status and not the rest of the line. This is only important
+        # to the extent that the UPS cant be called "ONBATT" or "ONLINE"
+        if "ONBATT" in status:
+            return UPSStatus.BATTERY_POWERED
+        elif "ONLINE" in status:
+            return UPSStatus.LINE_POWERED
+        else:
+            return UPSStatus.UNKNOWN
 
     async def update_UPS_status(self):
         while True:
