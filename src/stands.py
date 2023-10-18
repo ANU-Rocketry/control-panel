@@ -7,15 +7,15 @@ class Stand:
 
 class LightStand(Stand):
     def __init__(self, stand):
-      self.green = (stand, 12)
-      self.yellow = (stand, 13)
+      self.green = (stand, 13)
+      self.yellow = (stand, 12)
       self.red = (stand, 18)
       self.buzzer = (stand, 19)
 
       self.LightStand = [self.green[1], self.yellow[1], self.red[1], self.buzzer[1]]
 
 class LOX:
-    SerialNumber = 1
+    SerialNumber = 2
 
     Main = ('LOX', 15)
     Fill = ('LOX', 16)
@@ -32,7 +32,7 @@ class LOX:
     Sensors = [N2Sensor[1], LOXSensor[1]]
 
 class ETH:
-    SerialNumber = 2
+    SerialNumber = 1
 
     Main = ('ETH', 15)
     Fill = ('ETH', 16)
