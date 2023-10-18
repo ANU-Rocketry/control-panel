@@ -82,7 +82,7 @@ class LabJackBase(metaclass=ABCMeta):
         # all other valves have relays at 1 (high voltage) iff the valves are mechanically open
         # this is part of the electronics
         # the interface of this class hides this implementation detail
-        return pin_number != LOX.Vent[1] and pin_number != ETH.Vent[1]
+        return pin_number == LOX.Vent[1] or pin_number == ETH.Vent[1]
 
 class LabJack(LabJackBase):
     """
