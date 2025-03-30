@@ -45,14 +45,14 @@ class LabJackBase(metaclass=ABCMeta):
         # make sure that we end up in an allowed state by coercing other valves as needed
         # ie if opening vent is requested, close pressurisation and then open vent rather than doing nothing
         # or going into a dangerous state
-        if open and pin_number == LOX.Pressure[1]:
-            self._set_valve_state(LOX.Vent[1], False)
-        if open and pin_number == ETH.Pressure[1]:
-            self._set_valve_state(ETH.Vent[1], False)
-        if open and pin_number == LOX.Vent[1]:
-            self._set_valve_state(LOX.Pressure[1], False)
-        if open and pin_number == ETH.Vent[1]:
-            self._set_valve_state(ETH.Pressure[1], False)
+        # if open and pin_number == LOX.Pressure[1]:
+        #     self._set_valve_state(LOX.Vent[1], False)
+        # if open and pin_number == ETH.Pressure[1]:
+        #     self._set_valve_state(ETH.Vent[1], False)
+        # if open and pin_number == LOX.Vent[1]:
+        #     self._set_valve_state(LOX.Pressure[1], False)
+        # if open and pin_number == ETH.Vent[1]:
+        #     self._set_valve_state(ETH.Pressure[1], False)
 
         self._set_valve_state(pin_number, open)
 
@@ -82,7 +82,10 @@ class LabJackBase(metaclass=ABCMeta):
         # all other valves have relays at 1 (high voltage) iff the valves are mechanically open
         # this is part of the electronics
         # the interface of this class hides this implementation detail
-        return pin_number == LOX.Vent[1] or pin_number == ETH.Vent[1]
+        if (self.config.name == "ETH"):
+          return pin_number == ETH.Vent[1]
+        else:
+          return pin_number == LOX.Vent[1]
 
 class LabJack(LabJackBase):
     """

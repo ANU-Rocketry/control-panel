@@ -58,15 +58,16 @@ export function psiToVolts(psi, barMax) {
 }
 
 
+// TODO Refactor this to use pins from json
 export function formatDataPoint(dict) {
     return {
         // Epoch time in fractional seconds
         time: dict.time,
         // Note: these bar max figures are also in the sensors list in control-panel.js
-        'LOX Tank': getPsi(dict.labjacks.LOX.analog["3"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
-        'LOX N2': voltsToPsi(dict.labjacks.LOX.analog["1"], 250 /* bar */),  // BADLY CALIBRATED!!!
-        'ETH Tank': getPsi(dict.labjacks.ETH.analog["3"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
-        'ETH N2': voltsToPsi(dict.labjacks.ETH.analog["1"], 250 /* bar */),  // BADLY CALIBRATED!!!
+        'LOX Tank': getPsi(dict.labjacks.LOX.analog["4"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
+        'LOX N2': voltsToPsi(dict.labjacks.LOX.analog["5"], 250 /* bar */),  // BADLY CALIBRATED!!!
+        'ETH Tank': getPsi(dict.labjacks.ETH.analog["4"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
+        'ETH N2': voltsToPsi(dict.labjacks.ETH.analog["5"], 250 /* bar */),  // BADLY CALIBRATED!!!
     }
 }
 
