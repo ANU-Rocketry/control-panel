@@ -178,7 +178,7 @@ class ControlPanelServer:
                 self.push_warning(f"UPS status changed: {UPSStatusMessages[self.state.UPS_status]}")
             await asyncio.sleep(1)
 
-    async def event_handler(self, ws, path):
+    async def event_handler(self, ws, path="None"):
         self.clients.add(ws)
         try:
             async for message in ws:
