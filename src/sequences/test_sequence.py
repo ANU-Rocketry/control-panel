@@ -1,3 +1,5 @@
-Open(LOX.Purge)
-Open(ETH.Purge)
-Sleep(seconds=15.0)
+Close(ETH.Vent)
+Close(LOX.Vent)
+Sleep(seconds=5.0)
+Open(ETH.Vent)
+Open(LOX.Vent)

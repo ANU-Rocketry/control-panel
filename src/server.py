@@ -312,62 +312,6 @@ class ControlPanelServer:
             import traceback
             traceback.print_exc()
             return None
-    
-    # Add this to your ControlPanelServer class
-    async def test_sequence_editor(self):
-        """
-        Test the sequence editor functionality directly with detailed diagnostics.
-        """
-        print("\n===== TESTING SEQUENCE EDITOR =====")
-        
-        # 1. Test saving a sequence
-        print("\n[TEST] Saving a test sequence...")
-        test_sequence = [
-            "Close(ETH.Vent)",
-            "Close(LOX.Vent)",
-            "Sleep(seconds=2.0)",
-            "Open(ETH.Vent)",
-            "Open(LOX.Vent)"
-        ]
-        
-        # Important: For testing, enable the arming switch
-        old_arming_switch = self.state.arming_switch
-        self.state.arming_switch = True
-        print(f"Temporarily enabled arming_switch for testing")
-        
-        print(f"Sequence to save: {test_sequence}")
-        success = await self.save_sequence("test_sequence", test_sequence)
-        print(f"save_sequence returned: {success}")
-        
-        # Check if the file exists on disk
-        file_path = Path(__file__).parent / 'sequences' / "test_sequence.py"
-        print(f"Checking if file exists at: {file_path}")
-        print(f"File exists: {file_path.exists()}")
-        
-        if file_path.exists():
-            print("\nFile content:")
-            with open(file_path, 'r') as f:
-                content = f.read()
-                print(content)
-                print(f"File size: {len(content)} bytes")
-        
-        # 2. Test reading the sequence back
-        print("\n[TEST] Reading the test sequence back...")
-        content = await self.get_sequence_content("test_sequence")
-        print(f"get_sequence_content returned: {content}")
-        
-        # Compare with original
-        print(f"Original sequence matches read sequence: {content == test_sequence}")
-        if content != test_sequence:
-            print(f"DIFFERENCE - Original: {test_sequence}")
-            print(f"DIFFERENCE - Read: {content}")
-        
-        # Restore arming switch state
-        self.state.arming_switch = old_arming_switch
-        print(f"Restored arming_switch to {old_arming_switch}")
-        
-        print("\n===== SEQUENCE EDITOR TESTING COMPLETE =====")
-    #NEW_CHANGES
 
     def set_datalogging_enabled(self, enabled):
         if enabled:
@@ -518,10 +462,6 @@ class ControlPanelServer:
           await asyncio.sleep(1)
 
     async def start_server(self):
-        # Run test in development mode
-        if devMode:
-            await self.test_sequence_editor()
-
         asyncio.ensure_future(self.sync_state())
         asyncio.ensure_future(self.timeout_counter())
         asyncio.ensure_future(self.update_UPS_status())

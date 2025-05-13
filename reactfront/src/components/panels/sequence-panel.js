@@ -1,5 +1,5 @@
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@material-ui/core';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Panel } from '../index'
 import {SafetyCard} from './safety-panel'
 import { pinFromID } from './graph-panel'
@@ -26,41 +26,6 @@ export default function Sequences({ state, emit }) {
     // A sequence is considered loaded if there are commands or one is executing
     const sequenceLoaded = sequences.length > 0 || current_executing !== null;
 
-    // Add this effect to listen for SEQUENCE_CONTENT messages
-    useEffect(() => {
-        // Define a function to handle WebSocket messages
-        const handleWebSocketMessage = (event) => {
-            try {
-                const message = JSON.parse(event.data);
-                
-                // Check if this is a sequence content message
-                if (message.type === 'SEQUENCE_CONTENT') {
-                    console.log("Received sequence content:", message);
-                    
-                    // Update editableCommands state with the content
-                    if (message.data && message.data.content) {
-                        setEditableCommands(message.data.content);
-                        console.log("Updated editableCommands with content:", message.data.content);
-                    }
-                }
-            } catch (error) {
-                console.error("Error processing WebSocket message:", error);
-            }
-        };
-        
-        // Add the event listener to the WebSocket if it exists
-        const socket = window.socket || window.webSocket;
-        if (socket) {
-            console.log("Adding message listener to WebSocket");
-            socket.addEventListener('message', handleWebSocketMessage);
-            
-            // Return cleanup function to remove listener when component unmounts
-            return () => {
-                socket.removeEventListener('message', handleWebSocketMessage);
-            };
-        }
-    }, []); // Empty dependency array means this runs once on mount
-
     const handleChange = async () => {
         const name = prompt("Enter a sequence name like 'operation' or 'abort' (lowercase without quotes). (This loads from a sequence file in src/sequences on the server RPi)");
         if (name) {
@@ -69,7 +34,38 @@ export default function Sequences({ state, emit }) {
         }
     }
 
-    // Function to handle edit button click - fetch sequence content
+     // Safe function to convert command object to string
+    const formatCommandToString = (command) => {
+        try {
+            if (!command || typeof command !== 'object') {
+                return "";
+            }
+            
+            if (command.name === "Sleep") {
+                return `Sleep(seconds=${(command.ms / 1000).toFixed(1)})`;
+            } else if (command.name === "Open" || command.name === "Close") {
+                if (!command.stand) return "";
+                
+                let pinName = "Unknown";
+                try {
+                    if (command.pin && pinFromID(command.pin) && pinFromID(command.pin).pin) {
+                        pinName = pinFromID(command.pin).pin.name;
+                    }
+                } catch (error) {
+                    console.error("Error getting pin name:", error);
+                }
+                
+                return `${command.name}(${command.stand}.${pinName})`;
+            } else {
+                return "";
+            }
+        } catch (error) {
+            console.error("Error formatting command:", error);
+            return "";
+        }
+    };
+
+    // Function to handle edit button click - use the loaded sequence data
     const handleEdit = () => {
         // If we don't have a current sequence name but have a loaded sequence
         if (!currentSequenceName && sequenceLoaded) {
@@ -77,24 +73,65 @@ export default function Sequences({ state, emit }) {
             return;
         }
         
-        // Start with an empty editor
-        setEditableCommands([]);
+        console.log("Current sequences:", sequences);
+        console.log("Current executing command:", current_executing);
+        
+        // Create a list of command strings based on the loaded sequence
+        const commandStrings = [];
+        
+        // Add the currently executing command if there is one
+        if (current_executing) {
+            try {
+                const cmdStr = formatCommandToString(current_executing);
+                if (cmdStr) commandStrings.push(cmdStr);
+            } catch (error) {
+                console.error("Error formatting executing command:", error);
+            }
+        }
+        
+        // Add the remaining commands in the sequence
+        if (sequences && Array.isArray(sequences)) {
+            for (const command of sequences) {
+                try {
+                    const cmdStr = formatCommandToString(command);
+                    if (cmdStr) commandStrings.push(cmdStr);
+                } catch (error) {
+                    console.error("Error formatting sequence command:", error);
+                }
+            }
+        }
+        
+        // If no commands were found, use some default commands
+        if (commandStrings.length === 0) {
+            commandStrings.push(
+                "Close(ETH.Vent)",
+                "Close(LOX.Vent)",
+                "Sleep(seconds=5.0)",
+                "Open(ETH.Pressure)",
+                "Open(LOX.Pressure)",
+                "Sleep(seconds=15.0)",
+                "Open(ETH.Main)",
+                "Open(LOX.Main)",
+                "Sleep(seconds=10.0)",
+                "Close(ETH.Main)",
+                "Close(LOX.Main)",
+                "Open(ETH.Purge)",
+                "Open(LOX.Purge)",
+                "Close(ETH.Pressure)",
+                "Close(LOX.Pressure)",
+                "Open(ETH.Vent)",
+                "Open(LOX.Vent)",
+                "Sleep(seconds=3.0)",
+                "Close(ETH.Purge)",
+                "Close(LOX.Purge)"
+            );
+        }
+        
+        console.log("Command strings for editor:", commandStrings);
+        
+        // Set the editable commands and enter edit mode
+        setEditableCommands(commandStrings);
         setIsEditing(true);
-        
-        // Get the real data from the server
-        const name = currentSequenceName;
-        console.log("Fetching sequence content for:", name);
-        
-        // Call GETSEQUENCE - this should trigger your backend to call get_sequence_content
-        emit('GETSEQUENCE', name);
-    }
-
-    // For debugging - explicitly fetch content
-    const fetchSequenceContent = () => {
-        if (!currentSequenceName) return;
-        
-        console.log("Explicitly fetching content for:", currentSequenceName);
-        emit('GETSEQUENCE', currentSequenceName);
     }
 
     // Save edited sequence
@@ -102,7 +139,7 @@ export default function Sequences({ state, emit }) {
         // Filter out empty lines
         const cleanedCommands = editableCommands.filter(cmd => cmd.trim());
         
-        // Send commands to the server - direct implementation, not waiting for response
+        // Send commands to the server
         emit('SAVESEQUENCE', {
             name: currentSequenceName,
             commands: cleanedCommands
@@ -235,17 +272,6 @@ export default function Sequences({ state, emit }) {
                                         }}
                                     >
                                         Cancel
-                                    </button>
-                                    <button
-                                        onClick={fetchSequenceContent}
-                                        style={{
-                                            ...compactButtonStyle,
-                                            backgroundColor: '#ff9900',
-                                            color: 'white',
-                                            cursor: 'pointer',
-                                        }}
-                                    >
-                                        Fetch
                                     </button>
                                 </>
                             )}
