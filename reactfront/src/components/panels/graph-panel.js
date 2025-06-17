@@ -13,8 +13,11 @@ window.enablePageScroll = enablePageScroll
 window.disablePageScroll = disablePageScroll
 
 
-export function pinFromID(labjack_pin) {
-  return pins.buttons.filter(pin => pin.pin.labjack_pin === labjack_pin)[0]
+export function pinFromID(labjack_pin, test_stand) {
+  return pins.buttons.filter(pin => 
+    pin.pin.labjack_pin === labjack_pin && 
+    pin.pin.test_stand === test_stand
+  )[0]
 }
 
 // We store yBounds persistently to interpolate between ranges smoothly

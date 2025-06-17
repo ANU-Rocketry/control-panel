@@ -5,10 +5,16 @@ import {SafetyCard} from './safety-panel'
 import { pinFromID } from './graph-panel'
 
 function SequenceRow(data) {
+    const getPinName = () => {
+        if (!data.stand) return null;
+        const pinData = pinFromID(data.pin, data.stand);
+        return (pinData && pinData.pin && pinData.pin.name) || `Unknown Pin ${data.pin}`;
+    };
+
     return <TableRow style={data.inFlight ? { background: '#94F690' } : {}}>
         <TableCell align='right'>{data.name[0]+data.name.substring(1).toLowerCase()}</TableCell>
         <TableCell colSpan='2'>{data.stand
-            ? pinFromID(data.pin).pin.name
+            ? getPinName()
             : (((data.inFlight ? data.remaining : data.ms) / 1000).toFixed(1) + 's')}</TableCell>
     </TableRow>
 }
@@ -27,7 +33,7 @@ export default function Sequences({ state, emit }) {
     const sequenceLoaded = sequences.length > 0 || current_executing !== null;
 
     const handleChange = async () => {
-        const name = prompt("Enter a sequence name like 'operation' or 'abort' (lowercase without quotes). (This loads from a sequence file in src/sequences on the server RPi)");
+        const name = prompt("Enter a sequence name like 'operation' (lowercase without quotes). (This loads from a sequence file in src/sequences on the server RPi)");
         if (name) {
             setCurrentSequenceName(name);
             await emit('SETSEQUENCE', name);
@@ -48,8 +54,8 @@ export default function Sequences({ state, emit }) {
                 
                 let pinName = "Unknown";
                 try {
-                    if (command.pin && pinFromID(command.pin) && pinFromID(command.pin).pin) {
-                        pinName = pinFromID(command.pin).pin.name;
+                    if (command.pin && pinFromID(command.pin, command.stand) && pinFromID(command.pin, command.stand).pin) {
+                        pinName = pinFromID(command.pin, command.stand).pin.name;
                     }
                 } catch (error) {
                     console.error("Error getting pin name:", error);

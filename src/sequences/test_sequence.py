@@ -1,5 +1,4 @@
-Close(ETH.Vent)
 Close(LOX.Vent)
-Sleep(seconds=5.0)
-Open(ETH.Vent)
+Open(LOX.Pressure)
 Open(LOX.Vent)
+Close(LOX.Purge)
