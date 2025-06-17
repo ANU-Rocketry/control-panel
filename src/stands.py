@@ -27,7 +27,8 @@ class LOX:
     Vent = ('LOX', 10)
     Purge = ('LOX', 8)
     Chill = ('LOX', 15)
-    Valves = [Main[1], Fill[1], Drain[1], Pressure[1], Vent[1], Purge[1]]
+    #added Chill to LOX valves
+    Valves = [Main[1], Fill[1], Drain[1], Pressure[1], Vent[1], Purge[1], Chill[1]]
 
     LightStand = LightStand('LOX')
 
