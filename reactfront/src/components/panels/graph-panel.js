@@ -12,12 +12,19 @@ import pins from '../../pins.json'
 window.enablePageScroll = enablePageScroll
 window.disablePageScroll = disablePageScroll
 
-
-export function pinFromID(labjack_pin, test_stand) {
-  return pins.buttons.filter(pin => 
-    pin.pin.labjack_pin === labjack_pin && 
-    pin.pin.test_stand === test_stand
-  )[0]
+//finds pin configuration data based on a LabJack pin number
+export function pinFromID(labjack_pin, test_stand = null) {
+  if (test_stand) {
+    // First try to find exact match with test_stand
+    const exactMatch = pins.buttons.filter(pin => 
+      pin.pin.labjack_pin === labjack_pin && 
+      pin.pin.test_stand === test_stand
+    )[0];
+    if (exactMatch) return exactMatch;
+  }
+  
+  // Fallback to original behavior (first match by labjack_pin only)
+  return pins.buttons.filter(pin => pin.pin.labjack_pin === labjack_pin)[0];
 }
 
 // We store yBounds persistently to interpolate between ranges smoothly
