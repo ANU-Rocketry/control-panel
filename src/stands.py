@@ -33,7 +33,7 @@ class LOX:
     LightStand = LightStand('LOX')
 
     N2Sensor = ('LOX', 5)
-    LOXSensor = ('LOX', 4)
+    LOXSensor = ('LOX', 7)
     Sensors = [N2Sensor[1], LOXSensor[1]]
 
 class ETH:
@@ -52,5 +52,5 @@ class ETH:
     LightStand = LightStand('LOX')
 
     N2Sensor = ('ETH', 5)
-    ETHSensor = ('ETH', 4)
+    ETHSensor = ('ETH', 7)
     Sensors = [N2Sensor[1], ETHSensor[1]]
