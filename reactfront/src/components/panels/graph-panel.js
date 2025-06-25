@@ -28,9 +28,10 @@ export function pinFromID(labjack_pin, test_stand = null) {
 }
 
 // We store yBounds persistently to interpolate between ranges smoothly
-let yBounds = null
-const minYBounds = [-10, 10]  // psi
-
+let pressureYBounds = null
+let flowYBounds = null
+const minPressureYBounds = [-10, 10]  // psi
+const minFlowYBounds = [0, 5]  // gpm
 
 // newData({ time: epoch_secs, series1: value1, ... })
 // You can update the data for any combination of series across any combination of dataloggers
@@ -40,7 +41,7 @@ export const newData = detail => document.dispatchEvent(new CustomEvent('datalog
 export const newEvent = detail => document.dispatchEvent(new CustomEvent('datalogger-new-event', { detail }))
 
 export function Datalogger({
-  series, unit, label
+  series, unit, label, yBoundsRef, minYBounds
 }) {
   const seriesKeys = Array.from(Object.keys(series))
 
@@ -74,17 +75,11 @@ export function Datalogger({
     forceUpdate = React.useReducer(x => x + 1, 0)[1]
 
     // Box model
-    const w = 600, h = 450;
+    const w = 600, h = 250; // Smaller height for multiple graphs, no preview needed
 
-    // We avoid new Date().getTime() when possible because we want the epoch times to come from the same source as the data point times
-    // This is so we can use system epoch times from systems without an accurate clock (e.g. a Raspberry Pi which was turned on without an
-    // internet connection. They have no real-time clock that runs when the Pi isn't powered keeping the clock in sync with world time.)
     if (!currentSeconds) currentSeconds = new Date().getTime() / 1000
     const startSeconds = store.minTime()
 
-    // Window of points to display
-    // Fixed representation: [start_epoch_seconds, end_epoch_seconds] (stays focused on a fixed time window)
-    // Sliding representation: [t_minus_seconds] (stays focused on the current time, up to a fixed number of seconds before)
     const [window, _setWindow] = React.useState([-3])
     const setWindow = w => {
       if (w.length === 1 || w[1] >= currentSeconds) {  // sliding rep
@@ -100,60 +95,44 @@ export function Datalogger({
       }
     }
 
-    // Window in a fixed representation relative to the current time
     const effectiveTimeWindow = window.length === 1
       ? [currentSeconds + window[0], currentSeconds]
       : window
-    // Window of 2 t-minus times
     const relativeTimeWindow = [effectiveTimeWindow[0] - currentSeconds, effectiveTimeWindow[1] - currentSeconds]
 
     const points = store.sample(effectiveTimeWindow, w)
-    const preview = store.samplePreview(w)
 
-    // interpolate the bounds over time
-    yBounds = interpolateInterval(yBounds, intervalUnion([points.min, points.max], minYBounds), 0.1)
-    const effectiveYBounds = expandInterval(yBounds, 0.2)
+    // Use the passed yBounds reference
+    yBoundsRef.current = interpolateInterval(yBoundsRef.current, intervalUnion([points.min, points.max], minYBounds), 0.1)
+    const effectiveYBounds = expandInterval(yBoundsRef.current, 0.2)
 
     const fullTimeBounds = [startSeconds, currentSeconds]
 
     // Box model
-    const margin = { l: 1, r: 1, t: 1, b: 1 }   // margin around the graph (between SVG bounding box and axes)
-    // Conversion from decimal in [0,1] range to pixel
+    const margin = { l: 1, r: 1, t: 1, b: 1 }
     const p2x = p => margin.l + p * (w - margin.l - margin.r)
-    const p2y = p => margin.t + p * (h - 50 - margin.t - margin.b)
-    const x2p = x => (x - margin.l) / (w - margin.l - margin.r) // inverse
-    // Conversion from t-minus time in seconds / value in unit to pixel
+    const p2y = p => margin.t + p * (h - margin.t - margin.b)
+    const x2p = x => (x - margin.l) / (w - margin.l - margin.r)
     const v2x = v => p2x((v - relativeTimeWindow[0]) / (relativeTimeWindow[1] - relativeTimeWindow[0]))
     const v2y = v => p2y(1 - (v - effectiveYBounds[0]) / (effectiveYBounds[1] - effectiveYBounds[0]))
-    const x2v = x => relativeTimeWindow[0] + x2p(x) * (relativeTimeWindow[1] - relativeTimeWindow[0]) // inverse
-
-    const previewMargin = { l: margin.l, r: margin.r, t: 6, b: 12 }
-    const p2previewY = p => previewMargin.t + p * (50 - previewMargin.t - previewMargin.b)
-    const v2previewY = v => p2previewY(1 - (v - preview.min) / (preview.max - preview.min))
-    const v2previewX = v => p2x(1 - v / (Math.min(fullTimeBounds[1] - 10, fullTimeBounds[0]) - fullTimeBounds[1]))
-    const previewX2v = x => (1 - x2p(x)) * (Math.min(fullTimeBounds[1] - 10, fullTimeBounds[0]) - fullTimeBounds[1]) // inverse
+    const x2v = x => relativeTimeWindow[0] + x2p(x) * (relativeTimeWindow[1] - relativeTimeWindow[0])
 
     // Horizontal axis ticks
     const xTicks = generateAxisTicks(...relativeTimeWindow, 4, 's')
-    const yTicks = generateAxisTicks(...effectiveYBounds, 6, 'psi')
+    const yTicks = generateAxisTicks(...effectiveYBounds, 4, unit)
 
     // Hover tooltip
-    // Mouse X position relative to the <svg>
     const [mousePosX, setMousePosX] = React.useState(null)
-    // Index of the closest point left of the mouse, for each series (-1 if it's NaN or outside the window)
     const tooltipIndices = seriesKeys.map(key => {
       if (!points[key] || !points[key].length) return null
       const t = currentSeconds + x2v(mousePosX)
-      // Search through the entire sequence of segments for the closest point before the cursor
       const i = binarySearch(i => points[key].fromPointIndex(i)[0], t, points[key].totalLength - 1)
       if (i === -1) return null
-      // Get the segment index and the index of the point in the segment
       const [seg, point] = points[key].splitPointIndex(i)
-      // If the point is at the end of the segment, the cursor is between segments
       if (point >= points[key][seg].length - 1 || seg < 0 || point < 0) return null
       return [seg, point]
     })
-    // Hover tooltip text
+    
     const tooltipText = tooltipIndices.map((valIndex, seriesIndex) => {
       if (valIndex === null) return ''
       const [seg, point] = valIndex
@@ -167,11 +146,7 @@ export function Datalogger({
     const [dragStartXAndTime, setDragStartXAndTime] = React.useState(null)
 
     const wheelHandler = e => {
-      // Annoyingly, using e.preventDefault() or e.stopPropagation() in the wheel or scroll events
-      // does not stop the scroll from also happening (tested on Chrome on an M1 Mac)
-      // So instead we use the scroll-lock library to disable scrolling when the mouse is over the graph view
       const d = e.deltaX + e.deltaY
-      // Scale both edges (zooming around the center, or if we're in a sliding rep we stay in a sliding rep by zooming around the right)
       const mid =
         window.length === 1 ? effectiveTimeWindow[1]
         : mousePosX ? currentSeconds + x2v(mousePosX)
@@ -191,7 +166,6 @@ export function Datalogger({
     }
 
     const handleMouseMove = e => {
-      // Show tooltip on hover
       const x = getXFromEvent(e)
       setMousePosX(x)
       if (mouseDown) {
@@ -211,6 +185,11 @@ export function Datalogger({
       }
     }
 
+    const verticalLabels = events
+      .map(({ time, ...e }) => ({ x: v2x(time - currentSeconds), ...e }))
+      .filter(({ x }) => x >= p2x(0) - 10 && x <= p2x(1))
+    const showVerticalLabelText = effectiveTimeWindow[1] - effectiveTimeWindow[0] < 15
+
     const downloadSVG = () => {
       const svg = svgRef.current
       const svgData = new XMLSerializer().serializeToString(svg)
@@ -218,69 +197,18 @@ export function Datalogger({
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = 'graph.svg'
+      link.download = `${label.replace(/\s+/g, '_').toLowerCase()}_graph.svg`
       link.click()
     }
 
-    const verticalLabels = events
-      .map(({ time, ...e }) => ({ x: v2x(time - currentSeconds), ...e }))
-      .filter(({ x }) => x >= p2x(0) - 10 && x <= p2x(1))
-    const showVerticalLabelText = effectiveTimeWindow[1] - effectiveTimeWindow[0] < 15
-
-    const jumpToPresent = () => setWindow([window[0] - window[1]])
-
-    React.useEffect(() => {
-      document.body.addEventListener('mouseup', () => {
-        setMouseDown(false)
-        setDragStartXAndTime(null)
-        setPreviewMouseDown(false)
-        setPreviewDragStartTime(null)
-        setPreviewResizeHandleMouseDown(false)
-        setPreviewResizeHandleDragData(null)
-      })
-    }, [])
-
-    const [previewResizeHandleMouseDown, setPreviewResizeHandleMouseDown] = React.useState(false)
-    const [previewResizeHandleDragData, setPreviewResizeHandleDragData] = React.useState(null)
-    const [previewMouseDown, setPreviewMouseDown] = React.useState(false)
-    const [previewDragStartTime, setPreviewDragStartTime] = React.useState(null)
-
-    const handlePreviewMouseOut = e => {
-      enablePageScroll()
-    }
-    const handlePreviewMouseDown = e => {
-      setPreviewMouseDown(true)
-      setPreviewDragStartTime([previewX2v(getXFromEvent(e)), effectiveTimeWindow])
-    }
-    const handlePreviewResizeHandleMouseDown = (e, i) => {
-      setPreviewResizeHandleMouseDown(true)
-      setPreviewResizeHandleDragData(i)
-    }
-    const handlePreviewMouseMove = e => {
-      const x = getXFromEvent(e)
-      if (previewMouseDown) {
-        const [dragStartTime, startWindow] = previewDragStartTime
-        let dt = previewX2v(x) - dragStartTime
-        let newWindow = [startWindow[0] + dt, startWindow[1] + dt]
-        setWindow(boundIntervalKeepingLength(newWindow, fullTimeBounds))
-      }
-      if (previewResizeHandleMouseDown) {
-        const i = previewResizeHandleDragData
-        let newWindow = [...effectiveTimeWindow]
-        newWindow[i] = clamp(currentSeconds + previewX2v(x), Math.min(fullTimeBounds[1] - 10, fullTimeBounds[0]), fullTimeBounds[1])
-        if (i === 0) newWindow[0] = Math.min(newWindow[1] - 0.01, newWindow[0])
-        else newWindow[1] = Math.max(newWindow[0] + 0.01, newWindow[1])
-        setWindow(newWindow)
-      }
-    }
-
     return (
-      <div onMouseMove={e => previewMouseDown ? handlePreviewMouseMove(e) : handleMouseMove(e)}>
-        <svg viewBox={`0 0 ${w} ${h-50}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h-50}
+      <div style={{ marginBottom: '10px' }}>
+        <h4 style={{ margin: '5px 0', fontSize: '14px' }}>{label}</h4>
+        <svg viewBox={`0 0 ${w} ${h}`} xmlns="http://www.w3.org/2000/svg" width={w} height={h}
           style={{ userSelect: 'none', fontFamily: 'sans-serif', display: 'block' }}
           ref={svgRef}
           onMouseOver={() => disablePageScroll()} onMouseOut={handleMouseOut}
-          onMouseDown={handleMouseDown} onWheel={wheelHandler}
+          onMouseDown={handleMouseDown} onWheel={wheelHandler} onMouseMove={handleMouseMove}
         >
           {/* Horizontal axis gridlines */}
           {xTicks.map(({ tick, label }) => (
@@ -304,15 +232,13 @@ export function Datalogger({
           {/* Series (plotting data curves as polylines) */}
           {seriesKeys.map(key => (
             <g key={key}>
-              {/* Min/max shading polygons, these should be O(n log n) to partition into triangles and render */}
               {points[key] && points[key].map((segment, i) => segment.length && segment.decimated && (
                 <polygon key={i} points={segment.getMinMaxPoints(v2x, v2y, currentSeconds)}
                   fill={series[key].color} opacity='0.5' stroke="none" strokeWidth="0" />
               ))}
-              {/* Data points */}
               {points[key] && points[key].map((segment, i) => segment.length && (
                 <polyline key={i} points={segment.getPoints(v2x, v2y, currentSeconds)}
-                  fill="none" stroke={series[key].color} strokeWidth="1" />
+                  fill="none" stroke={series[key].color} strokeWidth="2" />
               ))}
             </g>
           ))}
@@ -343,49 +269,8 @@ export function Datalogger({
             </g>
           ))}
         </svg>
-        <svg viewBox={`0 0 ${w} ${50}`} xmlns="http://www.w3.org/2000/svg" width={w} height={50}
-          style={{ userSelect: 'none', fontFamily: 'sans-serif', display: 'block' }}
-          onMouseOut={handlePreviewMouseOut} onMouseMove={handlePreviewMouseMove}
-          onMouseDown={handlePreviewMouseDown}
-        >
-          {/* Selected time window */}
-          <rect x={v2previewX(relativeTimeWindow[0])} y={-2}
-            width={v2previewX(relativeTimeWindow[1]) - v2previewX(relativeTimeWindow[0])} height={54}
-            fill="#eee" stroke="#999" strokeWidth="2" />
-          {/* Preview graph */}
-          {seriesKeys.map(key => (
-            <g key={key}>
-              {preview[key] && preview[key].map((segment, i) => segment.length && (
-                <polyline key={i} points={segment.getPoints(v2previewX, v2previewY, currentSeconds)}
-                  fill="none" stroke={series[key].color} strokeWidth="1" />
-              ))}
-            </g>
-          ))}
-          {/* X seconds ago / now labels */}
-          <text x='2' y='50' alignmentBaseline='text-after-edge' textAnchor='start' fontSize='12' fill='grey'>
-            {Math.max(10, Math.round(fullTimeBounds[1] - fullTimeBounds[0]))}s ago
-          </text>
-          <text x={w-2} y='50' alignmentBaseline='text-after-edge' textAnchor='end' fontSize='12' fill='grey'>
-            now
-          </text>
-          {/* Preview window resize handles */}
-          <rect x={v2previewX(relativeTimeWindow[1])-4}
-            y={10} width={8} height={30} fill="#999" stroke="none" strokeWidth="0" rx="4" />
-          <rect x={v2previewX(relativeTimeWindow[0])-4}
-            y={10} width={8} height={30} fill="#999" stroke="none" strokeWidth="0" rx="4" />
-          <rect x={v2previewX(relativeTimeWindow[1])-6} onMouseDown={e => handlePreviewResizeHandleMouseDown(e, 1)}
-            y="0" width="16" height="50" fill="transparent" stroke="none" strokeWidth="0" cursor="col-resize" />
-          <rect x={v2previewX(relativeTimeWindow[0])-10} onMouseDown={e => handlePreviewResizeHandleMouseDown(e, 0)}
-            y="0" width="16" height="50" fill="transparent" stroke="none" strokeWidth="0" cursor="col-resize" />
-          {/* Jump to present button */}
-          {window.length !== 1 && (
-            <g cursor='pointer' onClick={jumpToPresent}>
-              <rect x={w-16} y='2' width="15" height="18" fill="#999" stroke="none" strokeWidth="0" rx="4" />
-              <polyline points={`${w-11},6 ${w-5},11 ${w-11},16`} fill="none" stroke="#fff" strokeWidth="2" />
-            </g>
-          )}
-        </svg>
         <button onClick={downloadSVG}>Download SVG</button>
+
       </div>
     )
   }
@@ -393,8 +278,12 @@ export function Datalogger({
   return Component
 }
 
+// Create separate dataloggers for pressure and flow
 const PressureDatalogger = Datalogger({
   unit: 'psi',
+  label: 'Pressure Sensors',
+  yBoundsRef: { current: pressureYBounds },
+  minYBounds: minPressureYBounds,
   series: {
     'LOX Tank': { color: '#000' },
     'LOX N2': { color: '#f00' },
@@ -403,12 +292,21 @@ const PressureDatalogger = Datalogger({
   },
 })
 
+const FlowDatalogger = Datalogger({
+  unit: 'GPM',
+  label: 'Flow Sensors',
+  yBoundsRef: { current: flowYBounds },
+  minYBounds: minFlowYBounds,
+  series: {
+    'LOX Flow': { color: '#ff6600' }, // Orange for flow
+  },
+})
+
 export default function GraphPanel({ state }) {
-  // Instead of using a cumbersome charting library, we use JSX with SVG to declaratively
-  // and efficiently construct highly customisable graphs
   return (
     <Panel title="Graphs" className='panel graphs'>
       <PressureDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
+      <FlowDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
     </Panel>
   )
 }

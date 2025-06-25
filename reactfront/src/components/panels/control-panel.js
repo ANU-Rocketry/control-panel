@@ -1,6 +1,6 @@
 import { Switch } from '@material-ui/core';
 import React from 'react';
-import { getPsi, sensorData } from '../../utils';
+import { getPsi, getGPM, sensorData } from '../../utils';
 import { Panel } from '../index'
 import pins from '../../pins.json'
 
@@ -55,24 +55,41 @@ function ControlSwitch({ state, emit, ...props}) {
 
 function ControlCard({ state, emit, ...props }) {
     const box = controlWidgetStyle({ enabled: true, ...props });
-    let volts = null, psi = null;
+    let volts = null, displayValue = null, unit = '';
+    
     if (state.data) {
         volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin]
         const sensor = sensorData[props.sensorName]
-        psi = getPsi(volts, sensor.barMax, sensor.zero, sensor.span)
-    }
-
-    const atmosphere = 14.6959 //psi
-    // Display as pressurised if it's more than 2 atmospheres
-    const pressurised = psi && psi > atmosphere * 2
-    if (pressurised) {
-        box.backgroundColor = 'tomato'
+        
+        if (sensor) {
+            if (sensor.type === 'flow') {
+                // Flow sensor - display in GPM
+                displayValue = getGPM(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
+                unit = 'GPM';
+                
+                // Color coding for flow: green if flowing, gray if not
+                if (displayValue > sensor.minFlow + 0.1) { // Small threshold to avoid noise
+                    box.backgroundColor = 'lightgreen';
+                }
+            } else {
+                // Pressure sensor - display in PSI
+                displayValue = getPsi(volts, sensor.barMax, sensor.zero, sensor.span);
+                unit = 'PSI';
+                
+                const atmosphere = 14.6959 //psi
+                // Display as pressurised if it's more than 2 atmospheres
+                const pressurised = displayValue && displayValue > atmosphere * 2
+                if (pressurised) {
+                    box.backgroundColor = 'tomato'
+                }
+            }
+        }
     }
 
     return (
         <div style={box}>
             <div>{props.title}</div>
-            {psi && <div>{psi.toFixed(1)} PSI</div>}
+            {displayValue !== null && <div>{displayValue.toFixed(1)} {unit}</div>}
             {volts && <div>({volts.toFixed(2)}V)</div>}
         </div>
     );

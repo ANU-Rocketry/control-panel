@@ -14,6 +14,15 @@ export function getPsi(volts, barMax, zero, span) {
     return psi;
 }
 
+// Convert voltage to flow rate in GPM for flow sensors
+export function getGPM(volts, minFlow, maxFlow, minVolts = 0.0, maxVolts = 5.0) {
+    // Linear interpolation between voltage range and flow range
+    const voltageRange = maxVolts - minVolts;
+    const flowRange = maxFlow - minFlow;
+    const gpm = ((volts - minVolts) / voltageRange) * flowRange + minFlow;
+    return Math.max(0, gpm); // Don't allow negative flow
+}
+
 export const sensorData = {
     eth_tank: {
         barMax: 100,
@@ -37,6 +46,16 @@ export const sensorData = {
         barMax: 250,
         zero: 4,
         span: 16,
+    },
+    // New cryogenic flow sensor - PT420 calibration from sheet
+    lox_cryo: {
+        minFlow: 0.80, // GPM
+        maxFlow: 29.00, // GPM
+        minVolts: 0.0,
+        maxVolts: 5.0,
+        type: 'flow',
+        kFactor: 1686.86990, // from calibration sheet
+        serialNumber: '130228-06'
     },
 }
 
@@ -68,6 +87,7 @@ export function formatDataPoint(dict) {
         'LOX N2': voltsToPsi(dict.labjacks.LOX.analog["7"], 250 /* bar */),  // BADLY CALIBRATED!!!
         'ETH Tank': getPsi(dict.labjacks.ETH.analog["4"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
         'ETH N2': voltsToPsi(dict.labjacks.ETH.analog["7"], 250 /* bar */),  // BADLY CALIBRATED!!!
+        'LOX Flow': getGPM(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow), // New flow sensor
     }
 }
 
@@ -77,4 +97,5 @@ export const emptyDataPoint = {
     'LOX N2': NaN,
     'ETH Tank': NaN,
     'ETH N2': NaN,
+    'LOX Flow': NaN,
 }

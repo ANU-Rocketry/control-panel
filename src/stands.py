@@ -34,7 +34,8 @@ class LOX:
 
     N2Sensor = ('LOX', 5)
     LOXSensor = ('LOX', 7)
-    Sensors = [N2Sensor[1], LOXSensor[1]]
+    CryoFlowSensor = ('LOX', 2)  # New cryogenic flow sensor
+    Sensors = [N2Sensor[1], LOXSensor[1], CryoFlowSensor[1]]
 
 class ETH:
     SerialNumber = 1
