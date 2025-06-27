@@ -33,7 +33,7 @@ class LOX:
     LightStand = LightStand('LOX')
 
     N2Sensor = ('LOX', 5)
-    LOXSensor = ('LOX', 7)
+    LOXSensor = ('LOX', 4)
     CryoFlowSensor = ('LOX', 2)  # New cryogenic flow sensor
     Sensors = [N2Sensor[1], LOXSensor[1], CryoFlowSensor[1]]
 
@@ -53,5 +53,5 @@ class ETH:
     LightStand = LightStand('LOX')
 
     N2Sensor = ('ETH', 5)
-    ETHSensor = ('ETH', 7)
+    ETHSensor = ('ETH', 4)
     Sensors = [N2Sensor[1], ETHSensor[1]]
