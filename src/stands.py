@@ -27,13 +27,15 @@ class LOX:
     Vent = ('LOX', 10)
     Purge = ('LOX', 8)
     Chill = ('LOX', 15)
-    Valves = [Main[1], Fill[1], Drain[1], Pressure[1], Vent[1], Purge[1]]
+    #added Chill to LOX valves
+    Valves = [Main[1], Fill[1], Drain[1], Pressure[1], Vent[1], Purge[1], Chill[1]]
 
     LightStand = LightStand('LOX')
 
     N2Sensor = ('LOX', 5)
     LOXSensor = ('LOX', 4)
-    Sensors = [N2Sensor[1], LOXSensor[1]]
+    CryoFlowSensor = ('LOX', 2)  # New cryogenic flow sensor
+    Sensors = [N2Sensor[1], LOXSensor[1], CryoFlowSensor[1]]
 
 class ETH:
     SerialNumber = 1
