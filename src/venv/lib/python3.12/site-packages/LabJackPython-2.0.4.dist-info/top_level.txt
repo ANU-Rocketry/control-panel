@@ -1,6 +1,0 @@
-LabJackPython
-Modbus
-u12
-u3
-u6
-ue9
