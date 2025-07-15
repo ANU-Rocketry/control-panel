@@ -78,8 +78,8 @@ h2 { font-size: 1.2rem; }
 
 .control-panel {
   background-image: url(labjack.svg);
-  background-size: contain;
-  background-position: center 50px;
+  background-size: 112%;
+  background-position: -65px 20px;
   background-repeat: no-repeat;
   position: relative;
   width: 800px;
