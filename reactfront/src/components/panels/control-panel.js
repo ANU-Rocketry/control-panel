@@ -46,9 +46,6 @@ function ControlSwitch({ state, emit, ...props}) {
                 {value ? "Open" : "Closed"}
                 </label>
             </div>}
-            <h4 style={label}>
-                {props.title}
-            </h4>
         </div>
     );
 }
