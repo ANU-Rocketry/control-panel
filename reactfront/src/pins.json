@@ -84,7 +84,7 @@
                 "test_stand": "LOX", "labjack_pin": 5, "sensorNumber": 0,
                 "full_name": "LOX Nitrogen Pressurant Sensor", "abbrev": "lox_n2"
             },
-            "position": { "width": 3, "height": 3, "x": 24.9, "y": 2.5 }
+            "position": { "width": 2.9, "height": 3, "x": 24.9, "y": 2.5 }
         }, {
             "pin": {
                 "test_stand": "LOX", "labjack_pin": 4, "sensorNumber": 1,
@@ -96,7 +96,7 @@
                 "test_stand": "ETH", "labjack_pin": 5, "sensorNumber": 2,
                 "full_name": "Ethanol Nitrogen Pressurant Sensor", "abbrev": "eth_n2"
             },
-            "position": { "width": 3, "height": 3, "x": 2, "y": 2.5 }
+            "position": { "width": 2.9, "height": 3, "x": 1.8, "y": 2.5 }
         }, {
             "pin": {
                 "test_stand": "ETH", "labjack_pin": 4, "sensorNumber": 3,
