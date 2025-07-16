@@ -411,7 +411,7 @@ export default function GraphPanel({ state }) {
         maxWidth: '1000px',  // Adjust this value as needed
         width: '800px',     // Or use fixed width
         height: '650px',
-        overflow: 'auto'
+        overflow: 'hidden'
       }}>
       <PressureDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
     </Panel>
