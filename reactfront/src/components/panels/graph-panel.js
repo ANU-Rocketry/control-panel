@@ -74,7 +74,7 @@ export function Datalogger({
     forceUpdate = React.useReducer(x => x + 1, 0)[1]
 
     // Box model
-    const w = 600, h = 450;
+    const w = 790, h = 510;
 
     // We avoid new Date().getTime() when possible because we want the epoch times to come from the same source as the data point times
     // This is so we can use system epoch times from systems without an accurate clock (e.g. a Raspberry Pi which was turned on without an
@@ -407,7 +407,12 @@ export default function GraphPanel({ state }) {
   // Instead of using a cumbersome charting library, we use JSX with SVG to declaratively
   // and efficiently construct highly customisable graphs
   return (
-    <Panel title="Graphs" className='panel graphs'>
+    <Panel title="Graphs" className='panel graphs' style={{ 
+        maxWidth: '1000px',  // Adjust this value as needed
+        width: '800px',     // Or use fixed width
+        height: '650px',
+        overflow: 'auto'
+      }}>
       <PressureDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
     </Panel>
   )

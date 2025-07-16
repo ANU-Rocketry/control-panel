@@ -94,7 +94,10 @@ function ControlCard({ state, emit, ...props }) {
 
 export default function ControlPanel({ state, emit }) {
     return (
-        <Panel title="Control Panel" className='panel control'>
+        <Panel title="Control Panel" className='panel control' style={{ 
+            height: '650px',   // Or use fixed width
+            overflow: 'hidden'
+        }}>
             <div className="control-panel">
                 {pins.buttons.map((button) => state.data &&
                     <ControlSwitch
