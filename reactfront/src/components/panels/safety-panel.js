@@ -9,11 +9,11 @@ export function SafetyCard(props) {
     toggle = <ToggleSwitch value={props.switchValue} setValue={props.setSwitchValue} />
   }
 
-  const style = props.label ? {cursor:'help',borderBottom:'1px dotted #333'} : {}
+  const style = props.label ? { cursor: 'help', borderBottom: '1px dotted #333' } : {}
 
   return (
     <div className='safety-card'>
-      <h2 title={props.label} style={{...style, ...(props.style||{})}}>
+      <h2 title={props.label} style={{ ...style, ...(props.style || {}) }}>
         {props.title}
       </h2>
       {toggle}
@@ -22,7 +22,7 @@ export function SafetyCard(props) {
 }
 
 // Strings taken from server.py's UPSStatus enum
-const UPSSymbols = {"LINE_POWERED": "✅", "BATTERY_POWERED": "🔋", "UNKNOWN": "❔"}
+const UPSSymbols = { "LINE_POWERED": "✅", "BATTERY_POWERED": "🔋", "UNKNOWN": "❔" }
 const UPSNames = {
   "LINE_POWERED": "Powered",
   "BATTERY_POWERED": "Battery",
@@ -43,8 +43,8 @@ export default function SafetyPanel({ state, emit, sockStatus, that }) {
   const UPSInfo = UPSSymbols[UPSStatus] + " " + UPSNames[UPSStatus]
 
   let connectionStatus = sockStatus === WebSocket.OPEN
-    ? <div style={{color : "green"}}>Connected</div>
-    : <div style={{color : "red"}}> Disconnected</div>
+    ? <div style={{ color: "green" }}>Connected</div>
+    : <div style={{ color: "red" }}> Disconnected</div>
 
   return (
     <Panel title="Safety" className='panel safety'>
@@ -79,13 +79,13 @@ export default function SafetyPanel({ state, emit, sockStatus, that }) {
 
         <SafetyCard title="Ping"
           label="Time delay to reach the server"
-          style={{width:40}}>
+          style={{ width: 40 }}>
           {state.ping ? state.ping : '0'}ms
         </SafetyCard>
 
-        <div style={{paddingTop:6}}>
+        <div style={{ paddingTop: 6, display: 'flex', gap: '10px' }}>
           <SafetyCard title="Status">
-              {connectionStatus}
+            {connectionStatus}
           </SafetyCard>
 
           {UPSStatus && (

@@ -71,7 +71,7 @@
                 "test_stand": "LOX", "labjack_pin": 8,
                 "full_name": "Oxidiser (LOX) Line Nitrogen Purge Valve", "abbrev": "purge", "name": "LOX Purge"
             },
-            "position": { "width": 2, "height": 1, "x": 26, "y": 6.8 }
+            "position": { "width": 2, "height": 1, "x": 25.8, "y": 6.8 }
         }, {
             "pin": {
                 "test_stand": "LOX", "labjack_pin": 15,

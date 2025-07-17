@@ -4,8 +4,8 @@ import { getPsi, getGPM, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
 import { Panel } from '../index'
 import pins from '../../pins.json'
 
-function normalisePosition (num) {
-    return num*26;
+function normalisePosition(num) {
+    return num * 26;
 }
 
 function controlWidgetStyle({ x, y, width, height, enabled }) {
@@ -17,11 +17,11 @@ function controlWidgetStyle({ x, y, width, height, enabled }) {
         height: normalisePosition(height),
         top: normalisePosition(y),
         left: normalisePosition(x),
-        ...(!enabled ? {cursor:'help'} : {})
+        ...(!enabled ? { cursor: 'help' } : {})
     };
 }
 
-function ControlSwitch({ state, emit, ...props}) {
+function ControlSwitch({ state, emit, ...props }) {
     const value = state.data === null ? false : state.data.labjacks[props.test_stand]["digital"][props.labjack_pin]
     const setValue = x => state.data.labjacks[props.test_stand]["digital"][props.labjack_pin]
         ? emit('CLOSE', { name: props.test_stand, pin: parseInt(props.labjack_pin) })
@@ -33,7 +33,7 @@ function ControlSwitch({ state, emit, ...props}) {
         <div>
             {state.data && <div style={box} title={!props.enabled ? 'Please enable the arming and manual control switches to toggle' : ''}>
                 <Switch checked={value} onChange={() => setValue(!value)} disabled={!props.enabled} />
-                <label className={(value ? 'active' : 'inactive') + ' control-label ' + (props.enabled ? '':'disabled')}><br/>
+                <label className={(value ? 'active' : 'inactive') + ' control-label ' + (props.enabled ? '' : 'disabled')}><br />
                 </label>
             </div>}
         </div>
@@ -43,16 +43,16 @@ function ControlSwitch({ state, emit, ...props}) {
 function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorHistory, ...props }) {
     const box = controlWidgetStyle({ enabled: true, ...props });
     let volts = null, displayValue = null, unit = '';
-    
+
     // Create unique sensor key
     const sensorKey = `${props.test_stand}_${props.labjack_pin}`;
-    
+
     let currentValue = null;
-    
+
     if (state.data) {
         volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin]
         const sensor = sensorData[props.sensorName]
-        
+
         if (sensor) {
             if (sensor.type === 'flow') {
                 // Flow sensor - display in GPM
@@ -65,14 +65,14 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
             }
         }
     }
-    
+
     // Update sensor history only when currentValue changes
     useEffect(() => {
         if (currentValue !== null && currentValue !== undefined && !isNaN(currentValue)) {
             updateSensorHistory(sensorKey, currentValue);
         }
     }, [currentValue, sensorKey, updateSensorHistory]);
-    
+
     // Use stored average if available, otherwise use current value
     const storedAverage = sensorAverages[sensorKey];
     if (storedAverage) {
@@ -80,7 +80,7 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
     } else {
         displayValue = currentValue;
     }
-    
+
     // Apply color coding using CSS classes
     if (state.data && sensorData[props.sensorName]) {
         const sensor = sensorData[props.sensorName];
@@ -116,21 +116,21 @@ export default function ControlPanel({ state, emit }) {
     // State to track sensor value batches and current averages
     const [sensorBatches, setSensorBatches] = useState({}); // Current batch being collected
     const [sensorAverages, setSensorAverages] = useState({}); // Current display averages
-    
+
     // Function to update sensor history
     const updateSensorHistory = useCallback((sensorKey, newValue) => {
         if (newValue === null || newValue === undefined || isNaN(newValue)) {
             return; // Skip invalid values
         }
-        
+
         setSensorBatches(prev => {
             const currentBatch = prev[sensorKey] || [];
             const newBatch = [...currentBatch, newValue];
-            
+
             // If we've collected a full batch, calculate average and reset
             if (newBatch.length >= SENSOR_BATCH_SIZE) {
                 const average = newBatch.reduce((sum, val) => sum + val, 0) / newBatch.length;
-                
+
                 // Update the display average
                 setSensorAverages(prevAvg => ({
                     ...prevAvg,
@@ -139,14 +139,14 @@ export default function ControlPanel({ state, emit }) {
                         count: newBatch.length
                     }
                 }));
-                
+
                 // Reset batch
                 return {
                     ...prev,
                     [sensorKey]: []
                 };
             }
-            
+
             // Continue collecting values
             return {
                 ...prev,
@@ -156,7 +156,7 @@ export default function ControlPanel({ state, emit }) {
     }, []);
 
     return (
-        <Panel title="Control Panel" className='panel control' style={{ 
+        <Panel title="Control Panel" className='panel control' style={{
             height: '650px',
             overflow: 'hidden',
             width: '790px',
