@@ -14,10 +14,8 @@
     "scroll-lock": "^2.1.5"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "start:node17": "export NODE_OPTIONS=--openssl-legacy-provider && react-scripts start",
-    "build": "react-scripts build",
-    "build:node17": "export NODE_OPTIONS=--openssl-legacy-provider && react-scripts build",
+    "start": "NODE_OPTIONS=--openssl-legacy-provider react-scripts start",
+    "build": "NODE_OPTIONS=--openssl-legacy-provider react-scripts build",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

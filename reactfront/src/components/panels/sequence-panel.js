@@ -284,7 +284,7 @@ export default function Sequences({ state, emit }) {
                         </div>
                     </div>
                 </div>
-                <div style={{ overflow: 'auto', width: '100%', height: '100%' }}>
+                <div style={{ overflow: 'auto', width: '600px', height: '100%' }}>
                     {!isEditing ? (
                         // Normal table view when not editing
                         <Table stickyHeader aria-label="simple table" style={{tableLayout: 'fixed'}}>

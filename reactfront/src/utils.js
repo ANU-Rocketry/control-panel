@@ -1,4 +1,3 @@
-
 export function getPsi(volts, barMax, zero, span) {
     // volts: voltage reading from volts pin
     // barMax: the sensor measures from 0 bar to `barMax` bar
@@ -59,6 +58,70 @@ export const sensorData = {
     },
 }
 
+// Sensor averaging configuration
+export const SENSOR_BATCH_SIZE = 20;
+
+// Utility function to calculate batch average
+export function calculateBatchAverage(values) {
+    if (!values || values.length === 0) return null;
+    return values.reduce((sum, val) => sum + val, 0) / values.length;
+}
+
+// Utility function to process sensor batch
+export function processSensorBatch(currentBatch, newValue, batchSize = SENSOR_BATCH_SIZE) {
+    if (newValue === null || newValue === undefined || isNaN(newValue)) {
+        return { batch: currentBatch, shouldUpdate: false, average: null };
+    }
+
+    const newBatch = [...currentBatch, newValue];
+    
+    if (newBatch.length >= batchSize) {
+        const average = calculateBatchAverage(newBatch);
+        return { 
+            batch: [], // Reset batch
+            shouldUpdate: true, 
+            average: average,
+            count: newBatch.length
+        };
+    }
+    
+    return { 
+        batch: newBatch, 
+        shouldUpdate: false, 
+        average: null 
+    };
+}
+
+// Create sensor batch update function
+export function createSensorBatchUpdater(setBatches, setAverages) {
+    return (sensorKey, newValue) => {
+        if (newValue === null || newValue === undefined || isNaN(newValue)) {
+            return; // Skip invalid values
+        }
+        
+        setBatches(prev => {
+            const currentBatch = prev[sensorKey] || [];
+            const result = processSensorBatch(currentBatch, newValue);
+            
+            if (result.shouldUpdate) {
+                // Update the display average
+                setAverages(prevAvg => ({
+                    ...prevAvg,
+                    [sensorKey]: {
+                        value: result.average,
+                        count: result.count
+                    }
+                }));
+            }
+            
+            return {
+                ...prev,
+                [sensorKey]: result.batch
+            };
+        });
+    };
+}
+
 // Calibration function for dodgy old sensors
 export function voltsToPsi(volts, barMax) {
     const resistance = 120; // ohm
@@ -75,7 +138,6 @@ export function psiToVolts(psi, barMax) {
     const volts = psi/(barMax * 14.504) * resistance * current2 + resistance * current1
     return volts;
 }
-
 
 // TODO Refactor this to use pins from json
 export function formatDataPoint(dict) {

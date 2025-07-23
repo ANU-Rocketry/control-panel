@@ -1,4 +1,3 @@
-
 :root {
   --top-bar-height: 54px;
   --top-bar-color: rgba(18, 43, 81);
@@ -75,18 +74,18 @@ h2 { font-size: 1.2rem; }
   padding: 0.5rem 1rem;
 }
 
-
 .control-panel {
   background-image: url(labjack.svg);
-  background-size: contain;
+  background-size: 112%;
+  background-position: -75px 20px;
   background-repeat: no-repeat;
   position: relative;
-  width: 800px;
+  width: 790px;
   height: 557px;
 }
 
 .panel.safety {
-  width: 600px;
+  width: 800px;
 }
 
 .panel.control {
@@ -176,3 +175,33 @@ input[type='file'] {
   line-height: var(--top-bar-height);
 }
 
+/* Sensor display styles */
+.sensor-batch-info {
+  display: block;
+  font-size: 0.8em;
+  color: #666;
+}
+
+.sensor-collection-info {
+  display: block;
+  font-size: 0.8em;
+  color: #999;
+}
+
+.sensor-flow-active {
+  background-color: lightgreen;
+}
+
+.sensor-pressure-high {
+  background-color: rgba(255, 99, 71, 0.7);
+}
+
+/* Control card sensor value display */
+.sensor-value-display {
+  margin-bottom: 4px;
+}
+
+.sensor-voltage-display {
+  font-size: 0.9em;
+  color: #666;
+}
