@@ -1,4 +1,3 @@
-
 from abc import ABCMeta, abstractmethod
 from traceback import print_exc
 import sys

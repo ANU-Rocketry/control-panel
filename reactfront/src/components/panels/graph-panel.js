@@ -29,7 +29,7 @@ export function pinFromID(labjack_pin, test_stand = null) {
 
 // We store yBounds persistently to interpolate between ranges smoothly
 let yBounds = null
-const minYBounds = [-10, 10]  // psi
+const minYBounds = [-10, 10]  // bar
 
 
 // newData({ time: epoch_secs, series1: value1, ... })
@@ -135,7 +135,7 @@ export function Datalogger({
 
     // Horizontal axis ticks
     const xTicks = generateAxisTicks(...relativeTimeWindow, 4, 's')
-    const yTicks = generateAxisTicks(...effectiveYBounds, 6, 'psi')
+    const yTicks = generateAxisTicks(...effectiveYBounds, 6, 'bar')
 
     // Hover tooltip
     // Mouse X position relative to the <svg>
@@ -394,7 +394,7 @@ export function Datalogger({
 }
 
 const PressureDatalogger = Datalogger({
-  unit: 'psi',
+  unit: 'bar',
   series: {
     'LOX Tank': { color: '#000' },
     'LOX N2': { color: '#f00' },

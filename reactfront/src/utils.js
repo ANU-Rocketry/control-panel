@@ -1,4 +1,4 @@
-export function getPsi(volts, barMax, zero, span) {
+export function getBar(volts, barMax, zero, span) {
     // volts: voltage reading from volts pin
     // barMax: the sensor measures from 0 bar to `barMax` bar
     // zero: current in milliamps at 0 bar
@@ -9,8 +9,8 @@ export function getPsi(volts, barMax, zero, span) {
     // (volts - zero) / span * barMax = bar
     const resistance = 120; // ohm
     const bar = (volts/resistance - zero/1000) / (span/1000) * barMax;
-    const psi = bar * 14.504; // 1bar = 14.5psi
-    return psi;
+    // const psi = bar * 14.504; // 1bar = 14.5psi
+    return bar;
 }
 
 // Convert voltage to flow rate in GPM for flow sensors
@@ -123,19 +123,21 @@ export function createSensorBatchUpdater(setBatches, setAverages) {
 }
 
 // Calibration function for dodgy old sensors
-export function voltsToPsi(volts, barMax) {
+export function voltsToBar(volts, barMax) {
     const resistance = 120; // ohm
     const current1 = 0.004; // amps
     const current2 = 0.02; // amps
     const bar = barMax/(resistance * current2) * (volts - resistance * current1)
-    return bar * 14.504; // 1bar = 14.5psi
+    // return bar * 14.504; // 1bar = 14.5psi
+    return bar;
 }
 
-export function psiToVolts(psi, barMax) {
+export function barToVolts(bar, barMax) {
     const resistance = 120; // ohm
     const current1 = 0.004; // amps
     const current2 = 0.02; // amps
-    const volts = psi/(barMax * 14.504) * resistance * current2 + resistance * current1
+    // const volts = bar/(barMax * 14.504) * resistance * current2 + resistance * current1
+    const volts = bar/(barMax) * resistance * current2 + resistance * current1
     return volts;
 }
 
@@ -145,10 +147,10 @@ export function formatDataPoint(dict) {
         // Epoch time in fractional seconds
         time: dict.time,
         // Note: these bar max figures are also in the sensors list in control-panel.js
-        'LOX Tank': getPsi(dict.labjacks.LOX.analog["4"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
-        'LOX N2': voltsToPsi(dict.labjacks.LOX.analog["5"], 250 /* bar */),  // BADLY CALIBRATED!!!
-        'ETH Tank': getPsi(dict.labjacks.ETH.analog["4"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
-        'ETH N2': voltsToPsi(dict.labjacks.ETH.analog["5"], 250 /* bar */),  // BADLY CALIBRATED!!!
+        'LOX Tank': getBar(dict.labjacks.LOX.analog["4"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
+        'LOX N2': voltsToBar(dict.labjacks.LOX.analog["5"], 250 /* bar */),  // BADLY CALIBRATED!!!
+        'ETH Tank': getBar(dict.labjacks.ETH.analog["4"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
+        'ETH N2': voltsToBar(dict.labjacks.ETH.analog["5"], 250 /* bar */),  // BADLY CALIBRATED!!!
         'LOX Flow': getGPM(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow), // New flow sensor
     }
 }

@@ -1,6 +1,6 @@
 import { Switch } from '@material-ui/core';
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPsi, getGPM, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
+import { getBar, getGPM, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
 import { Panel } from '../index'
 import pins from '../../pins.json'
 
@@ -59,9 +59,12 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
                 currentValue = getGPM(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
                 unit = 'GPM';
             } else {
-                // Pressure sensor - display in PSI
-                currentValue = getPsi(volts, sensor.barMax, sensor.zero, sensor.span);
-                unit = 'PSI';
+                // // Pressure sensor - display in PSI
+                // currentValue = getPsi(volts, sensor.barMax, sensor.zero, sensor.span);
+                // unit = 'PSI';
+                // Pressure sensor - display in Bar
+                currentValue = getBar(volts, sensor.barMax, sensor.zero, sensor.span);
+                unit = 'Bar';
             }
         }
     }
@@ -91,9 +94,10 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
             }
         } else {
             // Pressure sensor color coding
-            const atmosphere = 14.6959 //psi
+            // const atmosphere = 14.6959 //psi
             // Display as pressurised if it's more than 2 atmospheres
-            const pressurised = displayValue && displayValue > atmosphere * 2
+            // const pressurised = displayValue && displayValue > atmosphere * 2
+            const pressurised = displayValue && displayValue > 2
             if (pressurised) {
                 box.backgroundColor = 'rgba(255, 99, 71, 0.7)';
             }
