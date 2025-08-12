@@ -29,7 +29,7 @@ export function pinFromID(labjack_pin, test_stand = null) {
 
 // We store yBounds persistently to interpolate between ranges smoothly
 let yBounds = null
-const minYBounds = [-10, 10]  // bar
+const minYBounds = [-0.7, 0.7]  // bar (converted from -10, 10 psi)
 
 
 // newData({ time: epoch_secs, series1: value1, ... })
