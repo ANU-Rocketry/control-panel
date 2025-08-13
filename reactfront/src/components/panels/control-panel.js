@@ -30,6 +30,16 @@ function controlWidgetStyle({ x, y, width, height, enabled, shape }) {
         };
     }
 
+    // Apply pill styling if specified
+    if (shape === 'pill') {
+        return {
+            ...baseStyle,
+            borderRadius: `${normalisePosition(width) / 2}px`, // Pill shape with semicircles at width ends, radius = width/2
+            overflow: 'hidden'
+        };
+    }
+
+
     return baseStyle;
 }
 
@@ -46,7 +56,6 @@ function ControlSwitch({ state, emit, ...props }) {
             {state.data && <div style={box} title={!props.enabled ? 'Please enable the arming and manual control switches to toggle' : ''}>
                 <Switch checked={value} onChange={() => setValue(!value)} disabled={!props.enabled} />
                 <label className={(value ? 'active' : 'inactive') + ' control-label ' + (props.enabled ? '' : 'disabled')}><br />
-                {value ? "Open" : "Closed"}
                 </label>
             </div>}
         </div>
@@ -111,14 +120,29 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
         }
     }
 
+    // Get text styling based on shape
+    const getTextStyle = (isVoltageDisplay = false) => {
+        if (props.shape === 'semicircle') {
+            return isVoltageDisplay
+                ? { marginLeft: '12px' }
+                : { marginTop: '28px' };
+        }
+        if (props.shape === 'pill') {
+            return isVoltageDisplay
+                ? {}
+                : { marginTop: '70px' };
+        }
+        return {};
+    };
+
     return (
         <div style={box}>
             {displayValue !== null && (
-                <div className="sensor-value-display" style={props.shape === 'semicircle' ? { marginTop: '28px' } : {}}>
+                <div className="sensor-value-display" style={getTextStyle()}>
                     {displayValue.toFixed(1)} {unit}
                 </div>
             )}
-            {volts && <div className="sensor-voltage-display" style={props.shape === 'semicircle' ? { marginLeft: '12px' } : {}}>({volts.toFixed(2)}V)</div>}
+            {volts && <div className="sensor-voltage-display" style={getTextStyle(true)}>({volts.toFixed(2)}V)</div>}
         </div>
     );
 }
@@ -177,10 +201,29 @@ export default function ControlPanel({ state, emit }) {
                 <div className="control-panel-label eth">
                     ETH
                 </div>
-                
+
                 {/* LOX Label - Top Right */}
                 <div className="control-panel-label lox">
                     LOX
+                </div>
+
+                {/* Switch Legend - Bottom Left */}
+                <div style={{
+                    position: 'absolute',
+                    bottom: '-25px',
+                    left: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '20px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Switch checked={true} disabled={true} size="small" className="legend-open-switch" />
+                        <span style={{ position: 'relative', top: '-12px' }}>Open</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Switch checked={false} disabled={true} size="small" />
+                        <span style={{ position: 'relative', top: '-12px' }}>Closed</span>
+                    </div>
                 </div>
 
                 {pins.buttons.map((button) => state.data &&

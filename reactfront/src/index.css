@@ -120,6 +120,15 @@ h2 { font-size: 1.2rem; }
   z-index: 10;
 }
 
+/* Red styling for legend open switch only */
+.legend-open-switch.MuiSwitch-root .MuiSwitch-switchBase.Mui-checked {
+    color: rgb(255, 0, 72) !important;
+}
+
+.legend-open-switch.MuiSwitch-root .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track {
+    background-color:rgb(255, 0, 72) !important;
+}
+
 .panel.safety .safety-card {
   margin: 1rem;
 }
