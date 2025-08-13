@@ -8,8 +8,8 @@ function normalisePosition(num) {
     return num * 26;
 }
 
-function controlWidgetStyle({ x, y, width, height, enabled }) {
-    return {
+function controlWidgetStyle({ x, y, width, height, enabled, shape }) {
+    const baseStyle = {
         position: 'absolute',
         borderStyle: 'solid',
         borderColor: 'transparent', // temp hack to keep alignment, should change margins instead
@@ -19,6 +19,18 @@ function controlWidgetStyle({ x, y, width, height, enabled }) {
         left: normalisePosition(x),
         ...(!enabled ? { cursor: 'help' } : {})
     };
+
+    // Apply semicircle styling if specified
+    if (shape === 'semicircle') {
+        return {
+            ...baseStyle,
+            top: normalisePosition(y) - 30,
+            borderRadius: `0 0 ${normalisePosition(width)}px ${normalisePosition(width)}px`, // Bottom semicircle (upside down)
+            overflow: 'hidden'
+        };
+    }
+
+    return baseStyle;
 }
 
 function ControlSwitch({ state, emit, ...props }) {
@@ -34,6 +46,7 @@ function ControlSwitch({ state, emit, ...props }) {
             {state.data && <div style={box} title={!props.enabled ? 'Please enable the arming and manual control switches to toggle' : ''}>
                 <Switch checked={value} onChange={() => setValue(!value)} disabled={!props.enabled} />
                 <label className={(value ? 'active' : 'inactive') + ' control-label ' + (props.enabled ? '' : 'disabled')}><br />
+                {value ? "Open" : "Closed"}
                 </label>
             </div>}
         </div>
@@ -59,9 +72,6 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
                 currentValue = getGPM(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
                 unit = 'GPM';
             } else {
-                // // Pressure sensor - display in PSI
-                // currentValue = getPsi(volts, sensor.barMax, sensor.zero, sensor.span);
-                // unit = 'PSI';
                 // Pressure sensor - display in Bar
                 currentValue = getBar(volts, sensor.barMax, sensor.zero, sensor.span);
                 unit = 'Bar';
@@ -94,9 +104,6 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
             }
         } else {
             // Pressure sensor color coding
-            // const atmosphere = 14.6959 //psi
-            // Display as pressurised if it's more than 2 atmospheres
-            // const pressurised = displayValue && displayValue > atmosphere * 2
             const pressurised = displayValue && displayValue > 2
             if (pressurised) {
                 box.backgroundColor = 'rgba(255, 99, 71, 0.7)';
@@ -107,11 +114,11 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
     return (
         <div style={box}>
             {displayValue !== null && (
-                <div className="sensor-value-display">
+                <div className="sensor-value-display" style={props.shape === 'semicircle' ? { marginTop: '28px' } : {}}>
                     {displayValue.toFixed(1)} {unit}
                 </div>
             )}
-            {volts && <div className="sensor-voltage-display">({volts.toFixed(2)}V)</div>}
+            {volts && <div className="sensor-voltage-display" style={props.shape === 'semicircle' ? { marginLeft: '12px' } : {}}>({volts.toFixed(2)}V)</div>}
         </div>
     );
 }
@@ -166,6 +173,16 @@ export default function ControlPanel({ state, emit }) {
             width: '790px',
         }}>
             <div className="control-panel">
+                {/* ETH Label - Top Left */}
+                <div className="control-panel-label eth">
+                    ETH
+                </div>
+                
+                {/* LOX Label - Top Right */}
+                <div className="control-panel-label lox">
+                    LOX
+                </div>
+
                 {pins.buttons.map((button) => state.data &&
                     <ControlSwitch
                         title={button.pin.test_stand.charAt(0) + ' ' + button.pin.abbrev}
