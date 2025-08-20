@@ -31,7 +31,7 @@ export function pinFromID(labjack_pin, test_stand = null) {
 let pressureYBounds = null
 let flowYBounds = null
 const minPressureYBounds = [-0.7, 0.7]  // bar (converted from -10, 10 psi)
-const minFlowYBounds = [0, 5]  // GPM
+const minFlowYBounds = [-0.2, 0.2]  // LPS
 
 
 // newData({ time: epoch_secs, series1: value1, ... })
@@ -411,7 +411,7 @@ const PressureDatalogger = Datalogger({
 
 // Create flow datalogger (only LOX Flow)
 const FlowDatalogger = Datalogger({
-  unit: 'GPM',
+  unit: 'LPS',
   label: 'Flow',
   yBoundsRef: { current: flowYBounds },
   minYBoundsRef: minFlowYBounds,
@@ -478,7 +478,7 @@ export default function GraphPanel({ state }) {
           fontWeight: 'bold',
           color: '#666'
         }}>
-          {showPressure ? 'Pressure Sensors (Bar)' : 'Flow Sensors (GPM)'}
+          {showPressure ? 'Pressure Sensors (Bar)' : 'Flow Sensors (LPS)'}
         </span>
       </div>
 

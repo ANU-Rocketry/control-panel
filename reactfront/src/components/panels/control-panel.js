@@ -1,6 +1,6 @@
 import { Switch } from '@material-ui/core';
 import React, { useState, useEffect, useCallback } from 'react';
-import { getBar, getGPM, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
+import { getBar, getGPM, getLPS, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
 import { Panel } from '../index'
 import pins from '../../pins.json'
 
@@ -77,10 +77,10 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
 
         if (sensor) {
             if (sensor.type === 'flow') {
-                // Flow sensor - display in GPM
-                currentValue = getGPM(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
-                unit = 'GPM';
-            } else {
+                // Flow sensor - display in LPS (Litres Per Second)
+                currentValue = getLPS(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
+                unit = 'LPS';
+            }  else {
                 // Pressure sensor - display in Bar
                 currentValue = getBar(volts, sensor.barMax, sensor.zero, sensor.span);
                 unit = 'Bar';
@@ -108,7 +108,9 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
         const sensor = sensorData[props.sensorName];
         if (sensor.type === 'flow') {
             // Color coding for flow: green if flowing, gray if not
-            if (displayValue > sensor.minFlow + 0.1) { // Small threshold to avoid noise
+            // Convert minimum flow threshold to LPS: 0.1 GPM = 0.006309 LPS
+            const minFlowThresholdLPS = 0.1 * 0.06309; // ~0.0063 LPS
+            if (displayValue > minFlowThresholdLPS) {
                 box.backgroundColor = 'lightgreen';
             }
         } else {

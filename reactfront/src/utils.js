@@ -22,6 +22,17 @@ export function getGPM(volts, minFlow, maxFlow, minVolts = 0.0, maxVolts = 5.0) 
     return Math.max(0, gpm); // Don't allow negative flow
 }
 
+// Convert voltage to flow rate in LPS (Litres Per Second) for flow sensors
+export function getLPS(volts, minFlow, maxFlow, minVolts = 0.0, maxVolts = 5.0) {
+    // Linear interpolation between voltage range and flow range
+    const voltageRange = maxVolts - minVolts;
+    const flowRange = maxFlow - minFlow;
+    const gpm = ((volts - minVolts) / voltageRange) * flowRange + minFlow;
+    // Convert GPM to LPS: 1 GPM = 3.78541 litres/min = 3.78541/60 litres/sec = 0.06309 LPS
+    const lps = gpm * 0.06309;
+    return Math.max(0, lps); // Don't allow negative flow
+}
+
 export const sensorData = {
     eth_tank: {
         barMax: 100,
@@ -54,7 +65,10 @@ export const sensorData = {
         maxVolts: 5.0,
         type: 'flow',
         kFactor: 1686.86990, // from calibration sheet
-        serialNumber: '130228-06'
+        serialNumber: '130228-06',
+        // LPS conversion values for display
+        minFlowLPS: 0.80 * 0.06309, // ~0.050 LPS
+        maxFlowLPS: 29.00 * 0.06309, // ~1.830 LPS
     },
 }
 
@@ -151,7 +165,7 @@ export function formatDataPoint(dict) {
         'LOX N2': voltsToBar(dict.labjacks.LOX.analog["5"], 250 /* bar */),  // BADLY CALIBRATED!!!
         'ETH Tank': getBar(dict.labjacks.ETH.analog["4"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
         'ETH N2': voltsToBar(dict.labjacks.ETH.analog["5"], 250 /* bar */),  // BADLY CALIBRATED!!!
-        'LOX Flow': getGPM(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow), // New flow sensor
+        'LOX Flow': getLPS(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow), // New flow sensor in LPS
     }
 }
 
