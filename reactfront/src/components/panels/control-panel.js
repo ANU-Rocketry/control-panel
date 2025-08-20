@@ -1,6 +1,6 @@
 import { Switch } from '@material-ui/core';
 import React, { useState, useEffect, useCallback } from 'react';
-import { getBar, getGPM, getLPS, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
+import { getBar, getLPS, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
 import { Panel } from '../index'
 import pins from '../../pins.json'
 
