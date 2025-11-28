@@ -84,6 +84,24 @@ h2 { font-size: 1.2rem; }
   height: 557px;
 }
 
+/* ETH and LOX labels for control panel */
+.control-panel-label {
+  position: absolute;
+  font-size: 24px;
+  font-weight: bold;
+  color: #000;
+  z-index: 10;
+  top: 5px;
+}
+
+.control-panel-label.eth {
+  left: 60px;
+}
+
+.control-panel-label.lox {
+  right: 80px;
+}
+
 .panel.safety {
   width: 800px;
 }
@@ -100,6 +118,15 @@ h2 { font-size: 1.2rem; }
 .control-panel .MuiSwitch-root {
   transform:translate(-11px, -11px);
   z-index: 10;
+}
+
+/* Red styling for legend open switch only */
+.legend-open-switch.MuiSwitch-root .MuiSwitch-switchBase.Mui-checked {
+    color: rgb(255, 0, 72) !important;
+}
+
+.legend-open-switch.MuiSwitch-root .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track {
+    background-color:rgb(255, 0, 72) !important;
 }
 
 .panel.safety .safety-card {

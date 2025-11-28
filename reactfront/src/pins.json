@@ -84,25 +84,25 @@
                 "test_stand": "LOX", "labjack_pin": 5, "sensorNumber": 0,
                 "full_name": "LOX Nitrogen Pressurant Sensor", "abbrev": "lox_n2"
             },
-            "position": { "width": 2.9, "height": 3, "x": 24.9, "y": 2.5 }
+            "position": { "width": 2.9, "height": 3, "x": 24.85, "y": 2.51, "shape":"semicircle" }
         }, {
             "pin": {
                 "test_stand": "LOX", "labjack_pin": 4, "sensorNumber": 1,
                 "full_name": "LOX Tank Pressure Sensor", "abbrev": "lox_tank"
             },
-            "position": { "width": 3.1, "height": 3.8, "x": 15.8, "y": 9.2 }
+            "position": { "width": 3.1, "height": 6.8, "x": 15.75, "y": 6.9, "shape": "pill" }
         }, {
             "pin": {
                 "test_stand": "ETH", "labjack_pin": 5, "sensorNumber": 2,
                 "full_name": "Ethanol Nitrogen Pressurant Sensor", "abbrev": "eth_n2"
             },
-            "position": { "width": 2.9, "height": 3, "x": 1.8, "y": 2.5 }
+            "position": { "width": 2.9, "height": 3, "x": 1.7, "y": 2.5, "shape":"semicircle" }
         }, {
             "pin": {
                 "test_stand": "ETH", "labjack_pin": 4, "sensorNumber": 3,
                 "full_name": "Ethanol Tank Pressure Sensor", "abbrev": "eth_tank"
             },
-            "position": { "width": 3, "height": 3.8, "x": 9.2, "y": 9.2 }
+            "position": { "width": 3, "height": 6.8, "x": 9.2, "y": 6.9, "shape": "pill" }
         }, {
             "pin": {
                 "test_stand": "LOX", "labjack_pin": 2, "sensorNumber": 4,

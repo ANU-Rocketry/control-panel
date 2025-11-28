@@ -28,8 +28,10 @@ export function pinFromID(labjack_pin, test_stand = null) {
 }
 
 // We store yBounds persistently to interpolate between ranges smoothly
-let yBounds = null
-const minYBounds = [-10, 10]  // psi
+let pressureYBounds = null
+let flowYBounds = null
+const minPressureYBounds = [-0.7, 0.7]  // bar (converted from -10, 10 psi)
+const minFlowYBounds = [-0.2, 0.2]  // LPS
 
 
 // newData({ time: epoch_secs, series1: value1, ... })
@@ -40,7 +42,7 @@ export const newData = detail => document.dispatchEvent(new CustomEvent('datalog
 export const newEvent = detail => document.dispatchEvent(new CustomEvent('datalogger-new-event', { detail }))
 
 export function Datalogger({
-  series, unit, label
+  series, unit, label, yBoundsRef, minYBoundsRef
 }) {
   const seriesKeys = Array.from(Object.keys(series))
 
@@ -111,8 +113,8 @@ export function Datalogger({
     const preview = store.samplePreview(w)
 
     // interpolate the bounds over time
-    yBounds = interpolateInterval(yBounds, intervalUnion([points.min, points.max], minYBounds), 0.1)
-    const effectiveYBounds = expandInterval(yBounds, 0.2)
+    yBoundsRef.current = interpolateInterval(yBoundsRef.current, intervalUnion([points.min, points.max], minYBoundsRef), 0.1)
+    const effectiveYBounds = expandInterval(yBoundsRef.current, 0.2)
 
     const fullTimeBounds = [startSeconds, currentSeconds]
 
@@ -135,7 +137,7 @@ export function Datalogger({
 
     // Horizontal axis ticks
     const xTicks = generateAxisTicks(...relativeTimeWindow, 4, 's')
-    const yTicks = generateAxisTicks(...effectiveYBounds, 6, 'psi')
+    const yTicks = generateAxisTicks(...effectiveYBounds, 6, unit)
 
     // Hover tooltip
     // Mouse X position relative to the <svg>
@@ -218,7 +220,7 @@ export function Datalogger({
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = 'graph.svg'
+      link.download = `graph-${label || 'data'}.svg`
       link.click()
     }
 
@@ -385,7 +387,7 @@ export function Datalogger({
             </g>
           )}
         </svg>
-        <button onClick={downloadSVG}>Download SVG</button>
+        <button onClick={downloadSVG}>Download {label} SVG</button>
       </div>
     )
   }
@@ -393,8 +395,12 @@ export function Datalogger({
   return Component
 }
 
+// Create pressure datalogger (without LOX Flow)
 const PressureDatalogger = Datalogger({
-  unit: 'psi',
+  unit: 'bar',
+  label: 'Pressure',
+  yBoundsRef: { current: pressureYBounds },
+  minYBoundsRef: minPressureYBounds,
   series: {
     'LOX Tank': { color: '#000' },
     'LOX N2': { color: '#f00' },
@@ -403,17 +409,85 @@ const PressureDatalogger = Datalogger({
   },
 })
 
+// Create flow datalogger (only LOX Flow)
+const FlowDatalogger = Datalogger({
+  unit: 'LPS',
+  label: 'Flow',
+  yBoundsRef: { current: flowYBounds },
+  minYBoundsRef: minFlowYBounds,
+  series: {
+    'LOX Flow': { color: '#8B4513' }, // Brown color for flow
+  },
+})
+
 export default function GraphPanel({ state }) {
+  // State to toggle between pressure and flow view
+  const [showPressure, setShowPressure] = React.useState(true);
+
   // Instead of using a cumbersome charting library, we use JSX with SVG to declaratively
   // and efficiently construct highly customisable graphs
   return (
     <Panel title="Graphs" className='panel graphs' style={{ 
         maxWidth: '1000px',  // Adjust this value as needed
         width: '800px',     // Or use fixed width
-        height: '650px',
+        height: '650px',    // Back to original height since we're only showing one graph
         overflow: 'hidden'
       }}>
-      <PressureDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
+      {/* Toggle buttons */}
+      <div style={{ 
+        marginBottom: '15px', 
+        display: 'flex', 
+        gap: '10px', 
+        alignItems: 'center',
+        paddingBottom: '10px',
+        borderBottom: '1px solid #ddd'
+      }}>
+        <button 
+          onClick={() => setShowPressure(true)}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: showPressure ? '#2196f3' : '#f5f5f5',
+            color: showPressure ? 'white' : '#333',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: showPressure ? 'bold' : 'normal'
+          }}
+        >
+          Pressure Sensors
+        </button>
+        <button 
+          onClick={() => setShowPressure(false)}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: !showPressure ? '#2196f3' : '#f5f5f5',
+            color: !showPressure ? 'white' : '#333',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: !showPressure ? 'bold' : 'normal'
+          }}
+        >
+          Flow Sensors
+        </button>
+        <span style={{ 
+          marginLeft: '20px', 
+          fontSize: '16px', 
+          fontWeight: 'bold',
+          color: '#666'
+        }}>
+          {showPressure ? 'Pressure Sensors (Bar)' : 'Flow Sensors (LPS)'}
+        </span>
+      </div>
+
+      {/* Conditionally render the appropriate graph */}
+      {showPressure ? (
+        <PressureDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
+      ) : (
+        <FlowDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
+      )}
     </Panel>
   )
 }

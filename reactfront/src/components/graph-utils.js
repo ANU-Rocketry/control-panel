@@ -1,4 +1,3 @@
-
 // Round a decimal to the nearest power of 1, 2 or 5 in log space
 function roundToNiceDecimalIncrement(num) {
   if (num < 0) return roundToNiceDecimalIncrement(-num)

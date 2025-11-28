@@ -1,6 +1,6 @@
 import { Switch } from '@material-ui/core';
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPsi, getGPM, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
+import { getBar, getLPS, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
 import { Panel } from '../index'
 import pins from '../../pins.json'
 
@@ -8,8 +8,8 @@ function normalisePosition(num) {
     return num * 26;
 }
 
-function controlWidgetStyle({ x, y, width, height, enabled }) {
-    return {
+function controlWidgetStyle({ x, y, width, height, enabled, shape }) {
+    const baseStyle = {
         position: 'absolute',
         borderStyle: 'solid',
         borderColor: 'transparent', // temp hack to keep alignment, should change margins instead
@@ -19,6 +19,28 @@ function controlWidgetStyle({ x, y, width, height, enabled }) {
         left: normalisePosition(x),
         ...(!enabled ? { cursor: 'help' } : {})
     };
+
+    // Apply semicircle styling if specified
+    if (shape === 'semicircle') {
+        return {
+            ...baseStyle,
+            top: normalisePosition(y) - 30,
+            borderRadius: `0 0 ${normalisePosition(width)}px ${normalisePosition(width)}px`, // Bottom semicircle (upside down)
+            overflow: 'hidden'
+        };
+    }
+
+    // Apply pill styling if specified
+    if (shape === 'pill') {
+        return {
+            ...baseStyle,
+            borderRadius: `${normalisePosition(width) / 2}px`, // Pill shape with semicircles at width ends, radius = width/2
+            overflow: 'hidden'
+        };
+    }
+
+
+    return baseStyle;
 }
 
 function ControlSwitch({ state, emit, ...props }) {
@@ -55,13 +77,13 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
 
         if (sensor) {
             if (sensor.type === 'flow') {
-                // Flow sensor - display in GPM
-                currentValue = getGPM(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
-                unit = 'GPM';
-            } else {
-                // Pressure sensor - display in PSI
-                currentValue = getPsi(volts, sensor.barMax, sensor.zero, sensor.span);
-                unit = 'PSI';
+                // Flow sensor - display in LPS (Litres Per Second)
+                currentValue = getLPS(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
+                unit = 'LPS';
+            }  else {
+                // Pressure sensor - display in Bar
+                currentValue = getBar(volts, sensor.barMax, sensor.zero, sensor.span);
+                unit = 'Bar';
             }
         }
     }
@@ -86,28 +108,43 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
         const sensor = sensorData[props.sensorName];
         if (sensor.type === 'flow') {
             // Color coding for flow: green if flowing, gray if not
-            if (displayValue > sensor.minFlow + 0.1) { // Small threshold to avoid noise
+            // Convert minimum flow threshold to LPS: 0.1 GPM = 0.006309 LPS
+            const minFlowThresholdLPS = 0.1 * 0.06309; // ~0.0063 LPS
+            if (displayValue > minFlowThresholdLPS) {
                 box.backgroundColor = 'lightgreen';
             }
         } else {
             // Pressure sensor color coding
-            const atmosphere = 14.6959 //psi
-            // Display as pressurised if it's more than 2 atmospheres
-            const pressurised = displayValue && displayValue > atmosphere * 2
+            const pressurised = displayValue && displayValue > 2
             if (pressurised) {
                 box.backgroundColor = 'rgba(255, 99, 71, 0.7)';
             }
         }
     }
 
+    // Get text styling based on shape
+    const getTextStyle = (isVoltageDisplay = false) => {
+        if (props.shape === 'semicircle') {
+            return isVoltageDisplay
+                ? { marginLeft: '12px' }
+                : { marginTop: '28px' };
+        }
+        if (props.shape === 'pill') {
+            return isVoltageDisplay
+                ? {}
+                : { marginTop: '70px' };
+        }
+        return {};
+    };
+
     return (
         <div style={box}>
             {displayValue !== null && (
-                <div className="sensor-value-display">
+                <div className="sensor-value-display" style={getTextStyle()}>
                     {displayValue.toFixed(1)} {unit}
                 </div>
             )}
-            {volts && <div className="sensor-voltage-display">({volts.toFixed(2)}V)</div>}
+            {volts && <div className="sensor-voltage-display" style={getTextStyle(true)}>({volts.toFixed(2)}V)</div>}
         </div>
     );
 }
@@ -162,6 +199,35 @@ export default function ControlPanel({ state, emit }) {
             width: '790px',
         }}>
             <div className="control-panel">
+                {/* ETH Label - Top Left */}
+                <div className="control-panel-label eth">
+                    ETH
+                </div>
+
+                {/* LOX Label - Top Right */}
+                <div className="control-panel-label lox">
+                    LOX
+                </div>
+
+                {/* Switch Legend - Bottom Left */}
+                <div style={{
+                    position: 'absolute',
+                    bottom: '-25px',
+                    left: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '20px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Switch checked={true} disabled={true} size="small" className="legend-open-switch" />
+                        <span style={{ position: 'relative', top: '-12px' }}>Open</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Switch checked={false} disabled={true} size="small" />
+                        <span style={{ position: 'relative', top: '-12px' }}>Closed</span>
+                    </div>
+                </div>
+
                 {pins.buttons.map((button) => state.data &&
                     <ControlSwitch
                         title={button.pin.test_stand.charAt(0) + ' ' + button.pin.abbrev}
