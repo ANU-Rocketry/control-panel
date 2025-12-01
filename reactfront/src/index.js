@@ -9,6 +9,7 @@ import ControlPanel from './components/panels/control-panel';
 import { formatDataPoint, emptyDataPoint } from './utils';
 import { undefOnBadRef } from "./components/graph-utils.js"
 import { Snackbar, Button } from '@material-ui/core'
+import CalibrationPanel from './components/panels/calibration-panel';
 
 class App extends React.Component {
 
@@ -116,6 +117,7 @@ class App extends React.Component {
     }));
   }
 
+  
   render() {
     return (
       <div>
@@ -128,6 +130,9 @@ class App extends React.Component {
           <div className='panel-row-2'>
             <ControlPanel state={this.state} emit={this.emit} />
             <GraphPanel state={this.state} emit={this.emit} />
+          </div>
+          <div className='panel-row-3'>
+            <CalibrationPanel />
           </div>
           {this.state.showWarning && (
             <Snackbar open
