@@ -166,18 +166,18 @@ export default function CalibrationPanel() {
             <div style={{ padding: '10px', border: '1px solid #ccc', marginBottom: '10px' }}>
                 <h3>{getSensorName(sensorKey)}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '150px 150px', gap: '10px' }}>
-                    <label>Min Flow (GPM):</label>
+                    <label>Min Flow (LPS):</label>
                     <input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         value={sensor.minFlow}
                         onChange={(e) => handleUpdate(sensorKey, 'minFlow', e.target.value)}
                     />
                     
-                    <label>Max Flow (GPM):</label>
+                    <label>Max Flow (LPS):</label>
                     <input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         value={sensor.maxFlow}
                         onChange={(e) => handleUpdate(sensorKey, 'maxFlow', e.target.value)}
                     />
@@ -215,8 +215,8 @@ export default function CalibrationPanel() {
                     </Button>
                 </div>
                 <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                    <strong>Defaults:</strong> minFlow={defaultSensor.minFlow}GPM, 
-                    maxFlow={defaultSensor.maxFlow}GPM, 
+                    <strong>Defaults:</strong> minFlow={defaultSensor.minFlow.toFixed(6)}LPS, 
+                    maxFlow={defaultSensor.maxFlow.toFixed(6)}LPS, 
                     kFactor={defaultSensor.kFactor}
                 </div>
             </div>

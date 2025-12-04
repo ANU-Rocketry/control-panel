@@ -25,54 +25,12 @@ export function getGPM(volts, minFlow, maxFlow, minVolts = 0.0, maxVolts = 5.0) 
 // Convert voltage to flow rate in LPS (Litres Per Second) for flow sensors
 export function getLPS(volts, minFlow, maxFlow, minVolts = 0.0, maxVolts = 5.0) {
     // Linear interpolation between voltage range and flow range
+    // minFlow and maxFlow should be in LPS units
     const voltageRange = maxVolts - minVolts;
     const flowRange = maxFlow - minFlow;
-    const gpm = ((volts - minVolts) / voltageRange) * flowRange + minFlow;
-    // Convert GPM to LPS: 1 GPM = 3.78541 litres/min = 3.78541/60 litres/sec = 0.06309 LPS
-    const lps = gpm * 0.06309;
+    const lps = ((volts - minVolts) / voltageRange) * flowRange + minFlow;
     return Math.max(0, lps); // Don't allow negative flow
 }
-
-//previous fixed calibration data
-
-// export const sensorData = {
-//     eth_tank: {
-//         barMax: 100,
-//         zero: 3.99, // mA at 0 bar
-//         span: 16.02, // mA span
-//     },
-//     lox_tank: {
-//         barMax: 100,
-//         zero: 3.99,
-//         span: 16.04,
-//     },
-
-//     // uncalibrated
-//     eth_n2: {
-//         barMax: 250,
-//         zero: 4,
-//         span: 16,
-//     },
-//     // uncalibrated
-//     lox_n2: {
-//         barMax: 250,
-//         zero: 4,
-//         span: 16,
-//     },
-//     // New cryogenic flow sensor - PT420 calibration from sheet
-//     lox_cryo: {
-//         minFlow: 0.80, // GPM
-//         maxFlow: 29.00, // GPM
-//         minVolts: 0.0,
-//         maxVolts: 5.0,
-//         type: 'flow',
-//         kFactor: 1686.86990, // from calibration sheet
-//         serialNumber: '130228-06',
-//         // LPS conversion values for display
-//         minFlowLPS: 0.80 * 0.06309, // ~0.050 LPS
-//         maxFlowLPS: 29.00 * 0.06309, // ~1.830 LPS
-//     },
-// }
 
 // Default calibration values
 export const defaultSensorCalibration = {
@@ -97,8 +55,8 @@ export const defaultSensorCalibration = {
         span: 16,
     },
     lox_cryo: {
-        minFlow: 0.80,
-        maxFlow: 29.00,
+        minFlow: 0.050472,  // LPS (was 0.80 GPM)
+        maxFlow: 1.82961,   // LPS (was 29.00 GPM)
         minVolts: 0.0,
         maxVolts: 5.0,
         type: 'flow',
@@ -219,7 +177,7 @@ export function formatDataPoint(dict) {
         'LOX N2': getBar(dict.labjacks.LOX.analog["5"], sensorData.lox_n2.barMax, sensorData.lox_n2.zero, sensorData.lox_n2.span),
         'ETH Tank': getBar(dict.labjacks.ETH.analog["4"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
         'ETH N2': getBar(dict.labjacks.ETH.analog["5"], sensorData.eth_n2.barMax, sensorData.eth_n2.zero, sensorData.eth_n2.span),
-        'LOX Flow': getLPS(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow), // New flow sensor in LPS
+        'LOX Flow': getLPS(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow), // Flow sensor in LPS
     }
 }
 
@@ -230,3 +188,44 @@ export const emptyDataPoint = {
     'ETH Tank': NaN,
     'ETH N2': NaN,
 }
+
+//previous fixed calibration data
+
+// export const sensorData = {
+//     eth_tank: {
+//         barMax: 100,
+//         zero: 3.99, // mA at 0 bar
+//         span: 16.02, // mA span
+//     },
+//     lox_tank: {
+//         barMax: 100,
+//         zero: 3.99,
+//         span: 16.04,
+//     },
+
+//     // uncalibrated
+//     eth_n2: {
+//         barMax: 250,
+//         zero: 4,
+//         span: 16,
+//     },
+//     // uncalibrated
+//     lox_n2: {
+//         barMax: 250,
+//         zero: 4,
+//         span: 16,
+//     },
+//     // New cryogenic flow sensor - PT420 calibration from sheet
+//     lox_cryo: {
+//         minFlow: 0.80, // GPM
+//         maxFlow: 29.00, // GPM
+//         minVolts: 0.0,
+//         maxVolts: 5.0,
+//         type: 'flow',
+//         kFactor: 1686.86990, // from calibration sheet
+//         serialNumber: '130228-06',
+//         // LPS conversion values for display
+//         minFlowLPS: 0.80 * 0.06309, // ~0.050 LPS
+//         maxFlowLPS: 29.00 * 0.06309, // ~1.830 LPS
+//     },
+// }
