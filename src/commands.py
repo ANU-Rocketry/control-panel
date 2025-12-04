@@ -53,7 +53,7 @@ class Open(ServerCommand):
         if server.sequence_command_allowed():
             server.labjacks[self.stand].open_valve(self.pin)
         asyncio.ensure_future(server.broadcast('VALVE', {
-            'time': utils.time_ms(), 'header': 'OPEN', 'pin': self.pin
+            'time': utils.time_ms(), 'header': 'OPEN', 'pin': self.pin, 'stand': self.stand
         }))
         return True
     def as_dict(self):
@@ -69,12 +69,12 @@ class Close(ServerCommand):
         if server.sequence_command_allowed():
             server.labjacks[self.stand].close_valve(self.pin)
         asyncio.ensure_future(server.broadcast('VALVE', {
-            'time': utils.time_ms(), 'header': 'CLOSE', 'pin': self.pin
+            'time': utils.time_ms(), 'header': 'CLOSE', 'pin': self.pin, 'stand': self.stand
         }))
         return True
     def as_dict(self):
         return { "name": self.name, "stand": self.stand, "pin": self.pin }
-
+    
 class ClientCommandString:
     PING = 'PING'
     ARMINGSWITCH = 'ARMINGSWITCH'
