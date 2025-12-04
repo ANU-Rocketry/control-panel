@@ -22,3 +22,4 @@ class Datalog():
                 code, str(data).replace('\n', '')]
         self.writer.writerow(data)
         self.file_stream.flush()
+        

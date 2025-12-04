@@ -37,17 +37,47 @@ export default function CalibrationPanel() {
     const handleSave = (sensorKey) => {
     const sensor = calibration[sensorKey];
     
-    // Validate that all fields have valid numbers
-    const hasEmptyFields = Object.values(sensor).some(val => val === '' || isNaN(parseFloat(val)));
+    console.log('Saving:', sensorKey);
+    console.log('Sensor data:', sensor);
     
-    if (hasEmptyFields) {
-        alert('Please fill in all fields with valid numbers before saving');
+    const cleanedSensor = {};
+    
+    Object.entries(sensor).forEach(([key, val]) => {
+        // Keep string fields as strings
+        if (key === 'type' || key === 'serialNumber') {
+            cleanedSensor[key] = val;
+        } else {
+            // Convert to number
+            const numVal = parseFloat(val);
+            
+            // Check if it's a valid number
+            if (val === '' || val === null || val === undefined || isNaN(numVal)) {
+                console.error(`Invalid value for ${key}:`, val);
+                alert(`Please enter a valid number for ${key}`);
+                return;
+            }
+            
+            cleanedSensor[key] = numVal;
+        }
+    });
+    
+    // Check if we have all required fields
+    const requiredFields = sensorKey === 'lox_cryo' 
+        ? ['minFlow', 'maxFlow', 'minVolts', 'maxVolts', 'kFactor']
+        : ['barMax', 'zero', 'span'];
+    
+    const missingFields = requiredFields.filter(field => !(field in cleanedSensor));
+    
+    if (missingFields.length > 0) {
+        alert(`Missing required fields: ${missingFields.join(', ')}`);
         return;
     }
     
-    updateSensorCalibration(sensorKey, calibration[sensorKey]);
+    console.log('Cleaned sensor data:', cleanedSensor);
+    
+    updateSensorCalibration(sensorKey, cleanedSensor);
     alert(`Calibration saved for ${sensorKey}`);
-    window.location.reload(); // Reload to apply changes
+    window.location.reload();
 };
 
     const handleReset = (sensorKey) => {
@@ -136,18 +166,18 @@ export default function CalibrationPanel() {
             <div style={{ padding: '10px', border: '1px solid #ccc', marginBottom: '10px' }}>
                 <h3>{getSensorName(sensorKey)}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '150px 150px', gap: '10px' }}>
-                    <label>Min Flow (GPM):</label>
+                    <label>Min Flow (LPS):</label>
                     <input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         value={sensor.minFlow}
                         onChange={(e) => handleUpdate(sensorKey, 'minFlow', e.target.value)}
                     />
                     
-                    <label>Max Flow (GPM):</label>
+                    <label>Max Flow (LPS):</label>
                     <input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         value={sensor.maxFlow}
                         onChange={(e) => handleUpdate(sensorKey, 'maxFlow', e.target.value)}
                     />
@@ -185,8 +215,8 @@ export default function CalibrationPanel() {
                     </Button>
                 </div>
                 <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                    <strong>Defaults:</strong> minFlow={defaultSensor.minFlow}GPM, 
-                    maxFlow={defaultSensor.maxFlow}GPM, 
+                    <strong>Defaults:</strong> minFlow={defaultSensor.minFlow.toFixed(6)}LPS, 
+                    maxFlow={defaultSensor.maxFlow.toFixed(6)}LPS, 
                     kFactor={defaultSensor.kFactor}
                 </div>
             </div>
