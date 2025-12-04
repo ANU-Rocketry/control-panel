@@ -9,6 +9,7 @@ import ControlPanel from './components/panels/control-panel';
 import { formatDataPoint, emptyDataPoint } from './utils';
 import { undefOnBadRef } from "./components/graph-utils.js"
 import { Snackbar, Button } from '@material-ui/core'
+import CalibrationPanel from './components/panels/calibration-panel';
 
 class App extends React.Component {
 
@@ -94,7 +95,7 @@ class App extends React.Component {
           // several hour offset in extreme conditions it seems
           // Example: data.data = { "header": "OPEN", "data": { "name": "LOX", "pin": 13 } }
           const time = data.time / 1000
-          const pin = pinFromID(data.data.pin).pin
+          const pin = pinFromID(data.data.pin, data.data.stand).pin
           const label = (data.data.header === 'CLOSE' ? 'Closed' : 'Opened') + ' ' + pin.test_stand + ' ' + pin.abbrev
           newEvent({ time, label })
           this.setState({ events: [...this.state.events, { ...data.data, label, time }] })
@@ -116,6 +117,7 @@ class App extends React.Component {
     }));
   }
 
+  
   render() {
     return (
       <div>
@@ -128,6 +130,9 @@ class App extends React.Component {
           <div className='panel-row-2'>
             <ControlPanel state={this.state} emit={this.emit} />
             <GraphPanel state={this.state} emit={this.emit} />
+          </div>
+          <div className='panel-row-3'>
+            <CalibrationPanel />
           </div>
           {this.state.showWarning && (
             <Snackbar open
