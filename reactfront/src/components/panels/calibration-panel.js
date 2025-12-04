@@ -37,17 +37,47 @@ export default function CalibrationPanel() {
     const handleSave = (sensorKey) => {
     const sensor = calibration[sensorKey];
     
-    // Validate that all fields have valid numbers
-    const hasEmptyFields = Object.values(sensor).some(val => val === '' || isNaN(parseFloat(val)));
+    console.log('Saving:', sensorKey);
+    console.log('Sensor data:', sensor);
     
-    if (hasEmptyFields) {
-        alert('Please fill in all fields with valid numbers before saving');
+    const cleanedSensor = {};
+    
+    Object.entries(sensor).forEach(([key, val]) => {
+        // Keep string fields as strings
+        if (key === 'type' || key === 'serialNumber') {
+            cleanedSensor[key] = val;
+        } else {
+            // Convert to number
+            const numVal = parseFloat(val);
+            
+            // Check if it's a valid number
+            if (val === '' || val === null || val === undefined || isNaN(numVal)) {
+                console.error(`Invalid value for ${key}:`, val);
+                alert(`Please enter a valid number for ${key}`);
+                return;
+            }
+            
+            cleanedSensor[key] = numVal;
+        }
+    });
+    
+    // Check if we have all required fields
+    const requiredFields = sensorKey === 'lox_cryo' 
+        ? ['minFlow', 'maxFlow', 'minVolts', 'maxVolts', 'kFactor']
+        : ['barMax', 'zero', 'span'];
+    
+    const missingFields = requiredFields.filter(field => !(field in cleanedSensor));
+    
+    if (missingFields.length > 0) {
+        alert(`Missing required fields: ${missingFields.join(', ')}`);
         return;
     }
     
-    updateSensorCalibration(sensorKey, calibration[sensorKey]);
+    console.log('Cleaned sensor data:', cleanedSensor);
+    
+    updateSensorCalibration(sensorKey, cleanedSensor);
     alert(`Calibration saved for ${sensorKey}`);
-    window.location.reload(); // Reload to apply changes
+    window.location.reload();
 };
 
     const handleReset = (sensorKey) => {
