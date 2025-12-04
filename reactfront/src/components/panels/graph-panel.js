@@ -224,6 +224,61 @@ export function Datalogger({
       link.click()
     }
 
+    const downloadCSV = () => {
+      // Build CSV content with header
+      let csv = 'Timestamp (s),' + seriesKeys.join(',') + '\n'
+      
+      // Collect all data points from all series
+      const dataByTime = new Map()
+      
+      seriesKeys.forEach(seriesKey => {
+        const seriesData = store.arrays[seriesKey]
+        if (!seriesData || !seriesData.series) return
+        
+        // Iterate through all segments
+        seriesData.series.forEach(segment => {
+          const arr = segment.arrays[0]
+          if (!arr) return
+          
+          // Extract all data points from this segment
+          for (let i = 0; i < arr.chunks; i++) {
+            const time = arr.time(i)
+            const value = arr.mean(i)
+            
+            if (!dataByTime.has(time)) {
+              const initData = {}
+              seriesKeys.forEach(k => initData[k] = null)
+              dataByTime.set(time, initData)
+            }
+            dataByTime.get(time)[seriesKey] = value
+          }
+        })
+      })
+
+      // Sort by timestamp and write CSV rows
+      const sortedTimes = Array.from(dataByTime.keys()).sort((a, b) => a - b)
+      const startTime = sortedTimes.length > 0 ? sortedTimes[0] : 0
+      
+      sortedTimes.forEach(time => {
+        const data = dataByTime.get(time)
+        const timestamp = (time - startTime).toFixed(3)
+        const values = seriesKeys.map(key => 
+          (data[key] !== null ? data[key] : 0).toFixed(3)
+        )
+        csv += [timestamp, ...values].join(',') + '\n'
+      })
+
+      // Download CSV file
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0]
+      link.download = `sensor_data_${label || 'data'}_${timestamp}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    }
+
     const verticalLabels = events
       .map(({ time, ...e }) => ({ x: v2x(time - currentSeconds), ...e }))
       .filter(({ x }) => x >= p2x(0) - 10 && x <= p2x(1))
@@ -388,6 +443,7 @@ export function Datalogger({
           )}
         </svg>
         <button onClick={downloadSVG}>Download {label} SVG</button>
+        <button onClick={downloadCSV} style={{marginLeft: "10px"}}>Download {label} CSV</button>
       </div>
     )
   }

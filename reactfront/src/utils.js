@@ -216,9 +216,9 @@ export function formatDataPoint(dict) {
         time: dict.time,
         // Note: these bar max figures are also in the sensors list in control-panel.js
         'LOX Tank': getBar(dict.labjacks.LOX.analog["4"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
-        'LOX N2': voltsToBar(dict.labjacks.LOX.analog["5"], 250 /* bar */),  // BADLY CALIBRATED!!!
+        'LOX N2': getBar(dict.labjacks.LOX.analog["5"], sensorData.lox_n2.barMax, sensorData.lox_n2.zero, sensorData.lox_n2.span),
         'ETH Tank': getBar(dict.labjacks.ETH.analog["4"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
-        'ETH N2': voltsToBar(dict.labjacks.ETH.analog["5"], 250 /* bar */),  // BADLY CALIBRATED!!!
+        'ETH N2': getBar(dict.labjacks.ETH.analog["5"], sensorData.eth_n2.barMax, sensorData.eth_n2.zero, sensorData.eth_n2.span),
         'LOX Flow': getLPS(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow), // New flow sensor in LPS
     }
 }
