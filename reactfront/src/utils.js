@@ -33,97 +33,43 @@ export function getLPS(volts, minFlow, maxFlow, minVolts = 0.0, maxVolts = 5.0) 
     return Math.max(0, lps); // Don't allow negative flow
 }
 
-//previous fixed calibration data
-
-// export const sensorData = {
-//     eth_tank: {
-//         barMax: 100,
-//         zero: 3.99, // mA at 0 bar
-//         span: 16.02, // mA span
-//     },
-//     lox_tank: {
-//         barMax: 100,
-//         zero: 3.99,
-//         span: 16.04,
-//     },
-
-//     // uncalibrated
-//     eth_n2: {
-//         barMax: 250,
-//         zero: 4,
-//         span: 16,
-//     },
-//     // uncalibrated
-//     lox_n2: {
-//         barMax: 250,
-//         zero: 4,
-//         span: 16,
-//     },
-//     // New cryogenic flow sensor - PT420 calibration from sheet
-//     lox_cryo: {
-//         minFlow: 0.80, // GPM
-//         maxFlow: 29.00, // GPM
-//         minVolts: 0.0,
-//         maxVolts: 5.0,
-//         type: 'flow',
-//         kFactor: 1686.86990, // from calibration sheet
-//         serialNumber: '130228-06',
-//         // LPS conversion values for display
-//         minFlowLPS: 0.80 * 0.06309, // ~0.050 LPS
-//         maxFlowLPS: 29.00 * 0.06309, // ~1.830 LPS
-//     },
-// }
-
-// Default calibration values
-export const defaultSensorCalibration = {
+export const sensorData = {
     eth_tank: {
         barMax: 100,
-        zero: 3.99,
-        span: 16.02,
+        zero: 3.99, // mA at 0 bar
+        span: 16.02, // mA span
     },
     lox_tank: {
         barMax: 100,
         zero: 3.99,
         span: 16.04,
     },
+
+    // uncalibrated
     eth_n2: {
         barMax: 250,
         zero: 4,
         span: 16,
     },
+    // uncalibrated
     lox_n2: {
         barMax: 250,
         zero: 4,
         span: 16,
     },
+    // New cryogenic flow sensor - PT420 calibration from sheet
     lox_cryo: {
-        minFlow: 0.80,
-        maxFlow: 29.00,
+        minFlow: 0.80, // GPM
+        maxFlow: 29.00, // GPM
         minVolts: 0.0,
         maxVolts: 5.0,
         type: 'flow',
-        kFactor: 1686.86990,
-        serialNumber: '130228-06'
+        kFactor: 1686.86990, // from calibration sheet
+        serialNumber: '130228-06',
+        // LPS conversion values for display
+        minFlowLPS: 0.80 * 0.06309, // ~0.050 LPS
+        maxFlowLPS: 29.00 * 0.06309, // ~1.830 LPS
     },
-}
-
-// Load calibration from localStorage or use defaults
-export let sensorData = JSON.parse(localStorage.getItem('sensorCalibration')) || { ...defaultSensorCalibration };
-
-// Function to update and save calibration
-export function updateSensorCalibration(sensorKey, newCalibration) {
-    sensorData[sensorKey] = { ...sensorData[sensorKey], ...newCalibration };
-    localStorage.setItem('sensorCalibration', JSON.stringify(sensorData));
-}
-
-// Function to reset calibration to defaults
-export function resetSensorCalibration(sensorKey = null) {
-    if (sensorKey) {
-        sensorData[sensorKey] = { ...defaultSensorCalibration[sensorKey] };
-    } else {
-        sensorData = { ...defaultSensorCalibration };
-    }
-    localStorage.setItem('sensorCalibration', JSON.stringify(sensorData));
 }
 
 // Sensor averaging configuration
