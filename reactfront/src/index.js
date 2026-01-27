@@ -128,11 +128,11 @@ class App extends React.Component {
             <Sequences state={this.state} emit={this.emit} />
           </div>
           <div className='panel-row-2'>
-            <ControlPanel state={this.state} emit={this.emit} />
+            <div className='left-column'>
+              <ControlPanel state={this.state} emit={this.emit} />
+              <CalibrationPanel />
+            </div>
             <GraphPanel state={this.state} emit={this.emit} />
-          </div>
-          <div className='panel-row-3'>
-            <CalibrationPanel />
           </div>
           {this.state.showWarning && (
             <Snackbar open

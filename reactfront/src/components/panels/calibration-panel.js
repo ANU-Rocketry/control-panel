@@ -224,12 +224,7 @@ export default function CalibrationPanel() {
     };
 
     return (
-        <Panel title="Sensor Calibration" className='panel calibration' style={{
-            maxWidth: '800px',
-            width: '100%',
-            height: 'auto',
-            overflow: 'auto'
-        }}>
+        <Panel title="Sensor Calibration" className='panel calibration'>
             <div style={{ padding: '20px' }}>
                 <div style={{ marginBottom: '20px' }}>
                     <Button 
