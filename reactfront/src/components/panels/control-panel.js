@@ -193,11 +193,7 @@ export default function ControlPanel({ state, emit }) {
     }, []);
 
     return (
-        <Panel title="Control Panel" className='panel control' style={{
-            height: '650px',
-            overflow: 'hidden',
-            width: '790px',
-        }}>
+        <Panel title="Control Panel" className='panel control'>
             <div className="control-panel">
                 {/* ETH Label - Top Left */}
                 <div className="control-panel-label eth">

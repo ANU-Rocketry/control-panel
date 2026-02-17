@@ -226,7 +226,7 @@ export function Datalogger({
 
     const downloadCSV = () => {
       // Build CSV content with header
-      let csv = 'Timestamp (s),' + seriesKeys.join(',') + '\n'
+      let csv = 'Timestamp (s),' + seriesKeys.join(',') + ',Valve Events\n'
       
       // Collect all data points from all series
       const dataByTime = new Map()
@@ -255,6 +255,36 @@ export function Datalogger({
         })
       })
 
+      // Create a map of events by timestamp (with tolerance for matching)
+      const eventsByTime = new Map()
+      const timeToleranceSeconds = 0.05 // 50ms tolerance for matching events to data points
+      
+      events.forEach(event => {
+        if (!event.time) return
+        // Find the closest data timestamp to this event
+        let closestTime = null
+        let minDiff = Infinity
+        
+        dataByTime.forEach((_, dataTime) => {
+          const diff = Math.abs(dataTime - event.time)
+          if (diff < minDiff && diff < timeToleranceSeconds) {
+            minDiff = diff
+            closestTime = dataTime
+          }
+        })
+        
+        if (closestTime !== null) {
+          if (!eventsByTime.has(closestTime)) {
+            eventsByTime.set(closestTime, [])
+          }
+          // Only add if this exact event label doesn't already exist at this timestamp (deduplication)
+          const existingEvents = eventsByTime.get(closestTime)
+          if (!existingEvents.includes(event.label)) {
+            existingEvents.push(event.label)
+          }
+        }
+      })
+
       // Sort by timestamp and write CSV rows
       const sortedTimes = Array.from(dataByTime.keys()).sort((a, b) => a - b)
       const startTime = sortedTimes.length > 0 ? sortedTimes[0] : 0
@@ -265,7 +295,12 @@ export function Datalogger({
         const values = seriesKeys.map(key => 
           (data[key] !== null ? data[key] : 0).toFixed(3)
         )
-        csv += [timestamp, ...values].join(',') + '\n'
+        
+        // Get valve events for this timestamp
+        const valveEvents = eventsByTime.get(time) || []
+        const eventsStr = valveEvents.length > 0 ? `"${valveEvents.join('; ')}"` : ''
+        
+        csv += [timestamp, ...values, eventsStr].join(',') + '\n'
       })
 
       // Download CSV file

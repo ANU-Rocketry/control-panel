@@ -13,6 +13,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   height: 100%;
+  zoom: 0.95;
 }
 
 code {
@@ -45,6 +46,18 @@ html, body, #root, #root > div {
 .panel-row-2 {
   height: calc(100% - 300px);
   display: flex;
+}
+
+/* New left column for stacking Control and Calibration panels */
+.left-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+}
+
+.left-column .panel {
+  width: 800px;
+  margin: 12px;
 }
 
 h1,h2,h3,h4,h5,h6 {
@@ -108,6 +121,12 @@ h2 { font-size: 1.2rem; }
 
 .panel.control {
   width: 800px;
+  height: auto;
+}
+
+.panel.calibration {
+  width: 800px;
+  height: auto;
 }
 
 .panel.graphs {
