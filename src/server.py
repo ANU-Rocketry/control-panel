@@ -376,7 +376,6 @@ class ControlPanelServer:
                     self.state.command_in_flight = None
                     self.state.current_sequence = []
             
-            #NEW_CHANGES 
             case ClientCommandString.SAVESEQUENCE:
                 if self.state.arming_switch:  # Require arming switch for safety
                     success = await self.save_sequence(data['name'], data['commands'])
@@ -385,7 +384,6 @@ class ControlPanelServer:
             case ClientCommandString.GETSEQUENCE:
                 content = await self.get_sequence_content(data)
                 await self.emit(ws, 'SEQUENCE_CONTENT', {'name': data, 'content': content})
-            #NEW_CHANGES
 
             case _:
                 self.push_warning(f"Unknown command: {header}")

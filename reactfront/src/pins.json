@@ -36,7 +36,15 @@
                 "full_name": "Fuel (Ethanol) Line Nitrogen Purge Valve", "abbrev": "purge", "name": "ETH Purge"
             },
             "position": { "width": 2, "height": 1, "x": 2.5, "y": 7.2 }
-        }, {
+        },
+        {
+            "pin": {
+                "test_stand": "ETH", "labjack_pin": 10,
+                "full_name": "Fuel (Ethanol) Igniter", "abbrev": "igniter", "name": "ETH Igniter"
+            },
+            "position": { "width": 2, "height": 1.5, "x": 2.5, "y": 7.2 }
+        }, 
+         {
             "pin": {
                 "test_stand": "LOX", "labjack_pin": 14,
                 "full_name": "Main Oxidiser (LOX) Valve", "abbrev": "main", "name": "LOX Main"
