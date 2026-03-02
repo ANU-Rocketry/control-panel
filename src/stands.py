@@ -48,13 +48,15 @@ class ETH:
     Pressure = ('ETH', 8)
     Vent = ('ETH', 9)
     Purge = ('ETH', 14)
+    Igniter = ('ETH', 10)  # New igniter valve for ethanol
     
-    Valves = [Main[1], Fill[1], Drain[1], Pressure[1], Vent[1], Purge[1]]
+    Valves = [Main[1], Fill[1], Drain[1], Pressure[1], Vent[1], Purge[1], Igniter[1]]
 
-    LightStand = LightStand('ETH')
+    # Light stands for both ETH and LOX are same
+    LightStand = LightStand('LOX')
 
     N2Sensor = ('ETH', 5)
     ETHSensor = ('ETH', 4)
     Sensors = [N2Sensor[1], ETHSensor[1]]
 
-    Igniter = ('ETH', 10)  # New igniter valve for ethanol
+
