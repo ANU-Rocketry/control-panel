@@ -201,7 +201,7 @@ export default function Sequences({ state, emit }) {
     };
 
     return (
-        <Panel title="Sequences">
+        <Panel title="Sequences" className="panel sequences">
             <div className="flex">
                 <div style={{ width: '200px', borderRight: '1px solid #999', height: '100%' }}>
                     <div className='frame'>

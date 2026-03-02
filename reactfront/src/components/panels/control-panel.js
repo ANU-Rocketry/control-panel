@@ -191,7 +191,7 @@ export default function ControlPanel({ state, emit }) {
             };
         });
     }, []);
-
+    
     return (
         <Panel title="Control Panel" className='panel control'>
             <div className="control-panel">
@@ -203,25 +203,6 @@ export default function ControlPanel({ state, emit }) {
                 {/* LOX Label - Top Right */}
                 <div className="control-panel-label lox">
                     LOX
-                </div>
-
-                {/* Switch Legend - Bottom Left */}
-                <div style={{
-                    position: 'absolute',
-                    bottom: '-25px',
-                    left: '10px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '20px'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Switch checked={true} disabled={true} size="small" className="legend-open-switch" />
-                        <span style={{ position: 'relative', top: '-12px' }}>Open</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Switch checked={false} disabled={true} size="small" />
-                        <span style={{ position: 'relative', top: '-12px' }}>Closed</span>
-                    </div>
                 </div>
 
                 {pins.buttons.map((button) => state.data &&
@@ -249,6 +230,24 @@ export default function ControlPanel({ state, emit }) {
                         updateSensorHistory={updateSensorHistory}
                     />
                 )}
+            </div>
+
+            {/* Switch Legend - 20px below the P&ID diagram */}
+            <div style={{
+                marginBottom: '10px',
+                marginLeft: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '20px',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Switch checked={true} disabled={true} size="small" className="legend-open-switch" />
+                    <span>Open</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Switch checked={false} disabled={true} size="small" />
+                    <span>Closed</span>
+                </div>
             </div>
         </Panel>
     )
