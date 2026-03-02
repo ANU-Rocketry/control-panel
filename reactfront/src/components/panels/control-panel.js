@@ -57,6 +57,20 @@ function ControlSwitch({ state, emit, ...props }) {
                 <Switch checked={value} onChange={() => setValue(!value)} disabled={!props.enabled} />
                 <label className={(value ? 'active' : 'inactive') + ' control-label ' + (props.enabled ? '' : 'disabled')}><br />
                 </label>
+                {props.label && (
+                    <span style={{
+                        position: 'absolute',
+                        bottom: '-18px',
+                        left: '0',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap',
+                        color: '#333',
+                        fontFamily: 'system-ui'
+                    }}>
+                        {props.label}
+                    </span>
+                )}
             </div>}
         </div>
     );
@@ -153,6 +167,7 @@ export default function ControlPanel({ state, emit }) {
     // State to track sensor value batches and current averages
     const [sensorBatches, setSensorBatches] = useState({}); // Current batch being collected
     const [sensorAverages, setSensorAverages] = useState({}); // Current display averages
+    const [showIgniterConfirm, setShowIgniterConfirm] = useState(false);
 
     // Function to update sensor history
     const updateSensorHistory = useCallback((sensorKey, newValue) => {
@@ -191,8 +206,9 @@ export default function ControlPanel({ state, emit }) {
             };
         });
     }, []);
-
+    
     return (
+        <>
         <Panel title="Control Panel" className='panel control'>
             <div className="control-panel">
                 {/* ETH Label - Top Left */}
@@ -205,31 +221,19 @@ export default function ControlPanel({ state, emit }) {
                     LOX
                 </div>
 
-                {/* Switch Legend - Bottom Left */}
-                <div style={{
-                    position: 'absolute',
-                    bottom: '-25px',
-                    left: '10px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '20px'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Switch checked={true} disabled={true} size="small" className="legend-open-switch" />
-                        <span style={{ position: 'relative', top: '-12px' }}>Open</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Switch checked={false} disabled={true} size="small" />
-                        <span style={{ position: 'relative', top: '-12px' }}>Closed</span>
-                    </div>
-                </div>
-
                 {pins.buttons.map((button) => state.data &&
                     <ControlSwitch
                         title={button.pin.test_stand.charAt(0) + ' ' + button.pin.abbrev}
                         key={button.pin.name}
                         state={state}
-                        emit={emit}
+                        emit={button.pin.abbrev === 'igniter'
+                            ? (header, data) => {
+                                if (header === 'OPEN') { setShowIgniterConfirm(true); return; }
+                                emit(header, data);
+                            }
+                            : emit
+                        }
+                        label={button.pin.abbrev === 'igniter' ? 'Igniter' : undefined}
                         {...button.pin}
                         {...button.position}
                         enabled={state.data && state.data.arming_switch && state.data.manual_switch}
@@ -250,6 +254,86 @@ export default function ControlPanel({ state, emit }) {
                     />
                 )}
             </div>
+
+            {/* Switch Legend - 20px below the P&ID diagram */}
+            <div style={{
+                marginBottom: '10px',
+                marginLeft: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '20px',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Switch checked={true} disabled={true} size="small" className="legend-open-switch" />
+                    <span>Open</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Switch checked={false} disabled={true} size="small" />
+                    <span>Closed</span>
+                </div>
+            </div>
         </Panel>
+
+        {/* Igniter confirmation modal */}
+        {showIgniterConfirm && (
+            <div style={{
+                position: 'fixed',
+                top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 9999,
+            }}>
+                <div style={{
+                    backgroundColor: 'white',
+                    padding: '32px',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
+                    maxWidth: '380px',
+                    width: '100%',
+                    textAlign: 'center',
+                }}>
+                    <p style={{ fontSize: '16px', marginBottom: '24px', marginTop: 0 }}>
+                        Are you sure you want to start the igniter?
+                    </p>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                        <button
+                            onClick={() => {
+                                emit('OPEN', { name: 'ETH', pin: 10 });
+                                setShowIgniterConfirm(false);
+                            }}
+                            style={{
+                                padding: '8px 28px',
+                                backgroundColor: '#d32f2f',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                            }}
+                        >
+                            Yes
+                        </button>
+                        <button
+                            onClick={() => setShowIgniterConfirm(false)}
+                            style={{
+                                padding: '8px 28px',
+                                backgroundColor: '#666',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                            }}
+                        >
+                            No
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     )
 }

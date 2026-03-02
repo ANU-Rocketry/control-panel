@@ -13,7 +13,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   height: 100%;
-  zoom: 0.95;
+  zoom: 0.94;
 }
 
 code {
@@ -94,7 +94,7 @@ h2 { font-size: 1.2rem; }
   background-repeat: no-repeat;
   position: relative;
   width: 790px;
-  height: 557px;
+  height: 569px;
 }
 
 /* ETH and LOX labels for control panel */
@@ -116,22 +116,30 @@ h2 { font-size: 1.2rem; }
 }
 
 .panel.safety {
-  width: 800px;
+  width: 790px;
 }
 
 .panel.control {
-  width: 800px;
+  width: 790px;
   height: auto;
 }
 
-.panel.calibration {
+.panel.sequences {
   width: 800px;
+}
+
+.panel.calibration {
+  width: 790px;
   height: auto;
 }
 
 .panel.graphs {
   width: calc(100% - 850px);
   height: 640px;
+}
+
+.panel.safety .safety-card {
+  margin: 1rem;
 }
 
 .control-panel .MuiSwitch-root {
@@ -146,10 +154,6 @@ h2 { font-size: 1.2rem; }
 
 .legend-open-switch.MuiSwitch-root .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track {
     background-color:rgb(255, 0, 72) !important;
-}
-
-.panel.safety .safety-card {
-  margin: 1rem;
 }
 
 .MuiTableCell-root {
