@@ -117,5 +117,17 @@
                 "full_name": "Cryogenic Flow Sensor", "abbrev": "lox_cryo"
             },
             "position": { "width": 3.5, "height": 3, "x": 26.5, "y": 17 }
+        }, {
+            "pin": {
+                "test_stand": "ETH", "labjack_pin": 2, "sensorNumber": 5,
+                "full_name": "ETH Thermocouple Temperature", "abbrev": "eth_temp", "type": "temperature"
+            },
+            "position": { "width": 3.5, "height": 3, "x": 5, "y": 17 }
+        }, {
+            "pin": {
+                "test_stand": "LOX", "labjack_pin": 0, "sensorNumber": 6,
+                "full_name": "LOX Thermocouple Temperature", "abbrev": "lox_temp", "type": "temperature"
+            },
+            "position": { "width": 3.5, "height": 3, "x": 22, "y": 17 }
         }]
 }

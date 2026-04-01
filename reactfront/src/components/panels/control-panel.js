@@ -86,18 +86,23 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
     let currentValue = null;
 
     if (state.data) {
-        volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin]
         const sensor = sensorData[props.sensorName]
 
         if (sensor) {
-            if (sensor.type === 'flow') {
-                // Flow sensor - display in LPS (Litres Per Second)
-                currentValue = getLPS(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
-                unit = 'LPS';
-            }  else {
-                // Pressure sensor - display in Bar
-                currentValue = getBar(volts, sensor.barMax, sensor.zero, sensor.span);
-                unit = 'Bar';
+            if (sensor.type === 'temperature') {
+                currentValue = state.data.labjacks[props.test_stand]["temperature"] ?? null;
+                unit = '°C';
+            } else {
+                volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin]
+                if (sensor.type === 'flow') {
+                    // Flow sensor - display in LPS (Litres Per Second)
+                    currentValue = getLPS(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
+                    unit = 'LPS';
+                } else {
+                    // Pressure sensor - display in Bar
+                    currentValue = getBar(volts, sensor.barMax, sensor.zero, sensor.span);
+                    unit = 'Bar';
+                }
             }
         }
     }
@@ -158,7 +163,7 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
                     {displayValue.toFixed(1)} {unit}
                 </div>
             )}
-            {volts && <div className="sensor-voltage-display" style={getTextStyle(true)}>({volts.toFixed(2)}V)</div>}
+            {volts && unit !== '°C' && <div className="sensor-voltage-display" style={getTextStyle(true)}>({volts.toFixed(2)}V)</div>}
         </div>
     );
 }

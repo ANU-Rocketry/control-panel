@@ -63,6 +63,12 @@ export const defaultSensorCalibration = {
         kFactor: 1686.86990,
         serialNumber: '130228-06'
     },
+    eth_temp: {
+        type: 'temperature',
+    },
+    lox_temp: {
+        type: 'temperature',
+    },
 }
 
 // Load calibration from localStorage or use defaults
