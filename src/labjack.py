@@ -34,6 +34,10 @@ class LabJackBase(metaclass=ABCMeta):
     def get_voltage(self, pin_number: int) -> float:
         pass
 
+    @abstractmethod
+    def get_thermocouple_temp(self) -> float | None:
+        pass
+
     def open_valve(self, pin_number: int):
         self.set_valve_state(pin_number, True)
 
@@ -74,6 +78,8 @@ class LabJackBase(metaclass=ABCMeta):
             state["light_stand"] = {}
             for pin in self.light_stand_pins:
                 state["light_stand"][pin] = self._get_digital_state(pin)
+        if hasattr(self.config, 'Thermocouple'):
+            state["temperature"] = self.get_thermocouple_temp()
         return state
 
     def _is_inverted_relay(self, pin_number):
@@ -112,7 +118,9 @@ class LabJack(LabJackBase):
             x |= 1 << int(pin)
         # print(self.device.configIO())
         self.device.configIO(FIOAnalog=x, EIOAnalog=0)
-        
+        self._tc_cache = None
+        self._tc_last_read = 0.0
+
     def _get_digital_state(self, pin_number: int) -> bool:
         try:
             return self.device.getDIOState(pin_number)
@@ -154,6 +162,38 @@ class LabJack(LabJackBase):
             print(f"pin {pin_number}")
             sys.exit()
 
+    def get_thermocouple_temp(self) -> float | None:
+        if not hasattr(self.config, 'Thermocouple'):
+            return None
+        now = time.time()
+        if now - self._tc_last_read < 1.0:
+            return self._tc_cache
+        tc = self.config.Thermocouple
+        sck, cs, so = tc['sck'], tc['cs'], tc['so']
+        try:
+            self._set_digital_state(cs, False)
+            time.sleep(0.0001)
+            raw = 0
+            for _ in range(16):
+                self._set_digital_state(sck, False)
+                time.sleep(0.000002)
+                bit = self._get_digital_state(so)
+                raw = (raw << 1) | (1 if bit else 0)
+                self._set_digital_state(sck, True)
+                time.sleep(0.000002)
+            self._set_digital_state(cs, True)
+            temp = None if (raw & 0x4) else ((raw >> 3) & 0xFFF) * 0.25
+        except Exception:
+            try:
+                self._set_digital_state(cs, True)
+            except Exception:
+                pass
+            print_exc()
+            temp = None
+        self._tc_cache = temp
+        self._tc_last_read = now
+        return temp
+
 class LabJackFake(LabJackBase):
     """
     FAKE LabJack class for mock testing when you don't have access to a real LabJack. Mirrors the LabJack class interface.
@@ -171,6 +211,7 @@ class LabJackFake(LabJackBase):
             "analog": {},
             "light_stand": {}
         }
+        self._tc_last_read = 0.0
 
     def _set_default_state(self, pin_number: int):
         default_on = [13, 19]  # only vent valves are default on
@@ -201,3 +242,6 @@ class LabJackFake(LabJackBase):
         high = math.sin(time.time() + pin_number + self.serial_number) * 0.4
         low = math.sin(time.time() / 10 + pin_number + 7) * 2
         return high + low + 1 + (random.random() - 0.5) * 0.2 + spike
+
+    def get_thermocouple_temp(self) -> float | None:
+        return round(25.0 + math.sin(time.time() * 0.1 + self.serial_number) * 5.0, 2)

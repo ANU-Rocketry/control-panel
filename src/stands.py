@@ -37,6 +37,9 @@ class LOX:
     CryoFlowSensor = ('LOX', 2)  # New cryogenic flow sensor
     Sensors = [N2Sensor[1], LOXSensor[1], CryoFlowSensor[1]]
 
+    # MAX6675 thermocouple SPI pins: SCK=FIO1, CS=FIO0, SO=FIO3
+    Thermocouple = {'sck': 1, 'cs': 0, 'so': 3}
+
 class ETH:
     SerialNumber = 1
     
@@ -58,5 +61,8 @@ class ETH:
     N2Sensor = ('ETH', 5)
     ETHSensor = ('ETH', 4)
     Sensors = [N2Sensor[1], ETHSensor[1]]
+
+    # MAX6675 thermocouple SPI pins: SCK=FIO3, CS=FIO2, SO=EIO3
+    Thermocouple = {'sck': 3, 'cs': 2, 'so': 11}
 
 
