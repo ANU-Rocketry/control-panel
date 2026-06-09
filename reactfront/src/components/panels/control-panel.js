@@ -1,6 +1,6 @@
 import { Switch } from '@material-ui/core';
 import React, { useState, useEffect, useCallback } from 'react';
-import { getBar, getLPS, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
+import { getBar, getLPS, getLoadCellKg, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
 import { Panel } from '../index'
 import pins from '../../pins.json'
 
@@ -80,29 +80,30 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
     const box = controlWidgetStyle({ enabled: true, ...props });
     let volts = null, displayValue = null, unit = '';
 
-    // Create unique sensor key
     const sensorKey = `${props.test_stand}_${props.labjack_pin}`;
-
+    const sensor = sensorData[props.sensorName];
     let currentValue = null;
 
-    if (state.data) {
-        const sensor = sensorData[props.sensorName]
-
-        if (sensor) {
-            if (sensor.type === 'temperature') {
-                currentValue = (state.data.labjacks[props.test_stand]["temperature"] ?? 0.0) + (sensor.offset || 0.0);
-                unit = '°C';
+    if (state.data && sensor) {
+        if (sensor.type === 'temperature') {
+            currentValue = (state.data.labjacks[props.test_stand]["temperature"] ?? 0.0) + (sensor.offset || 0.0);
+            unit = '°C';
+        } else if (sensor.type === 'force') {
+            // Load cell — single analog pin FIO0, DC voltage
+            const b = state.data.labjacks[props.test_stand]?.["analog"]?.[props.labjack_pin];
+            if (b !== undefined) {
+                volts = b;
+                currentValue = getLoadCellKg(b, sensor.supplyVoltage, sensor.calibrationVoltage);
+            }
+            unit = 'kg';
+        } else {
+            volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin];
+            if (sensor.type === 'flow') {
+                currentValue = getLPS(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
+                unit = 'LPS';
             } else {
-                volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin]
-                if (sensor.type === 'flow') {
-                    // Flow sensor - display in LPS (Litres Per Second)
-                    currentValue = getLPS(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
-                    unit = 'LPS';
-                } else {
-                    // Pressure sensor - display in Bar
-                    currentValue = getBar(volts, sensor.barMax, sensor.minVolts, sensor.maxVolts);
-                    unit = 'Bar';
-                }
+                currentValue = getBar(volts, sensor.barMax, sensor.minVolts, sensor.maxVolts);
+                unit = 'Bar';
             }
         }
     }
@@ -162,10 +163,12 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
         <div style={box}>
             {displayValue !== null && (
                 <div className="sensor-value-display" style={getTextStyle()}>
-                    {displayValue.toFixed(1)} {unit}
+                    {displayValue.toFixed(2)} {unit}
                 </div>
             )}
-            {volts && unit !== '°C' && <div className="sensor-voltage-display" style={getTextStyle(true)}>({volts.toFixed(2)}V)</div>}
+            {volts !== null && volts !== undefined && unit !== '°C' && (
+                <div className="sensor-voltage-display" style={getTextStyle(true)}>({volts.toFixed(3)}V)</div>
+            )}
         </div>
     );
 }

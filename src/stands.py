@@ -62,7 +62,8 @@ class ETH:
     N2Sensor = ('ETH', 5)
     ETHSensor = ('ETH', 4)
     InletPressureSensor = ('ETH', 7)
-    Sensors = [N2Sensor[1], ETHSensor[1], InletPressureSensor[1]]
+    LoadCell = ('ETH', 0)  # FIO0 - DC voltage from load cell amplifier
+    Sensors = [N2Sensor[1], ETHSensor[1], InletPressureSensor[1], LoadCell[1]]
 
     # MAX6675 thermocouple SPI pins: SCK=FIO3, CS=FIO2, SO=EIO3
     Thermocouple = {'sck': 3, 'cs': 2, 'so': 11}

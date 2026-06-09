@@ -13,6 +13,17 @@ export function getBar(volts, barMax, minVolts, maxVolts) {
 //     return Math.max(0, gpm); // Don't allow negative flow
 // }
 
+// Convert load cell voltage to weight in kg
+// x = supplyVoltage (Volts) — adjustable, set to match your supply
+// a = calibrationVoltage (Volts) — adjustable, measured voltage at zero load
+// b = measuredVoltage (Volts) — live reading from FIO0
+// Step 1: y = (x * 2 * 201) / 1500   → sensitivity in mV/kg
+// Step 2: c = ((a - b) * 1000) / y   → weight in kg
+export function getLoadCellKg(b, supplyVoltage, calibrationVoltage) {
+    const y = (supplyVoltage * 2 * 201) / 1500;   // mV/kg sensitivity
+    return ((calibrationVoltage - b) * 1000) / y;  // kg
+}
+
 // Convert voltage to flow rate in LPS (Litres Per Second) for flow sensors
 export function getLPS(volts, minFlow, maxFlow, minVolts = 0.0, maxVolts = 5.0) {
     // Linear interpolation between voltage range and flow range
@@ -69,6 +80,11 @@ export const defaultSensorCalibration = {
     lox_temp: {
         type: 'temperature',
         offset: 0.0,
+    },
+    eth_load_cell: {
+        type: 'force',
+        supplyVoltage: 5.0,       // x — supply voltage in Volts
+        calibrationVoltage: 0.0,  // a — measured voltage from FIO0 at zero load
     },
 }
 
@@ -204,6 +220,10 @@ export function formatDataPoint(dict) {
         'LOX Flow Raw': dict.labjacks.LOX.analog["2"],
         'ETH Temp': dict.labjacks.ETH.temperature != null ? dict.labjacks.ETH.temperature + (sensorData.eth_temp.offset || 0.0) : NaN,
         'LOX Temp': dict.labjacks.LOX.temperature != null ? dict.labjacks.LOX.temperature + (sensorData.lox_temp.offset || 0.0) : NaN,
+        'ETH Load Cell': dict.labjacks.ETH.analog?.["0"] !== undefined
+            ? getLoadCellKg(dict.labjacks.ETH.analog["0"], sensorData.eth_load_cell.supplyVoltage, sensorData.eth_load_cell.calibrationVoltage)
+            : NaN,
+        'ETH Load Cell V': dict.labjacks.ETH.analog?.["0"] ?? NaN,
     }
 }
 
@@ -224,6 +244,8 @@ export const emptyDataPoint = {
     'LOX Flow Raw': NaN,
     'ETH Temp': NaN,
     'LOX Temp': NaN,
+    'ETH Load Cell': NaN,
+    'ETH Load Cell V': NaN,
 }
 
 //previous fixed calibration data

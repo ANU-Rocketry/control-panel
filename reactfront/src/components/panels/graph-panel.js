@@ -30,10 +30,12 @@ export function pinFromID(labjack_pin, test_stand = null) {
 // We store yBounds persistently to interpolate between ranges smoothly
 let pressureYBounds = null
 let flowYBounds = null
+let forceYBounds = null
 let rawFlowYBounds = null
 let tempYBounds = null
 const minPressureYBounds = [-0.7, 0.7]  // bar (converted from -10, 10 psi)
 const minFlowYBounds = [-0.2, 0.2]  // LPS
+const minForceYBounds = [-0.5, 0.5]  // kN
 const minRawFlowYBounds = [-0.1, 0.1]  // V
 const minTempYBounds = [-5, 5]  // °C
 
@@ -517,6 +519,20 @@ const PressureDatalogger = Datalogger({
   },
 })
 
+// Create force datalogger (load cell thrust)
+const ForceDatalogger = Datalogger({
+  unit: 'kg',
+  label: 'Load Cell',
+  yBoundsRef: { current: forceYBounds },
+  minYBoundsRef: minForceYBounds,
+  series: {
+    'ETH Load Cell': { color: '#c0392b' },
+  },
+  hiddenSeries: {
+    'ETH Load Cell V': { color: '#c0392b' },
+  },
+})
+
 // Create flow datalogger (only LOX Flow)
 const FlowDatalogger = Datalogger({
   unit: 'LPS',
@@ -542,6 +558,7 @@ const VoltageDatalogger = Datalogger({
     'ETH N2 V':    { color: '#09f' },
     'ETH Inlet V': { color: '#f90' },
     'LOX Flow Raw': { color: '#8B4513' },
+    'ETH Load Cell V': { color: '#c0392b' },
   },
 })
 
@@ -564,6 +581,7 @@ export default function GraphPanel({ state }) {
   const tabs = [
     { id: 'pressure',  label: 'Pressure Sensors',  subtitle: 'Pressure Sensors (Bar)' },
     { id: 'flow',      label: 'Flow Sensors',       subtitle: 'Flow Sensors (LPS)' },
+    { id: 'force',     label: 'Load Cell',  subtitle: 'Load Cell (kg)' },
     { id: 'voltage',   label: 'Voltage Graph',     subtitle: 'Raw Voltages (V)' },
     { id: 'temperature', label: 'Temperature Sensors', subtitle: 'Temperature (°C)' },
   ];
@@ -615,6 +633,9 @@ export default function GraphPanel({ state }) {
       )}
       {activeTab === 'flow' && (
         <FlowDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
+      )}
+      {activeTab === 'force' && (
+        <ForceDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
       )}
       {activeTab === 'voltage' && (
         <VoltageDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
