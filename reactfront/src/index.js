@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 import { TopBar } from "./components/index"
-import SafetyPanel from './components/panels/safety-panel';
 import GraphPanel, { newData, newEvent, pinFromID } from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';
 import ControlPanel from './components/panels/control-panel';
@@ -140,10 +139,9 @@ class App extends React.Component {
   render() {
     return (
       <div>
-        <TopBar />
+        <TopBar state={this.state} emit={this.emit} sockStatus={this.state.socketStatus} that={this} />
         <div className='panels-root'>
           <div className='panel-row-1'>
-            <SafetyPanel state={this.state} emit={this.emit} sockStatus={this.state.socketStatus} that={this} />
             <Sequences state={this.state} emit={this.emit} />
           </div>
           <div className='panel-row-2'>

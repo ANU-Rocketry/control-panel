@@ -1,5 +1,5 @@
 :root {
-  --top-bar-height: 54px;
+  --top-bar-height: 170px;
   --top-bar-color: rgba(18, 43, 81);
   --background-color: rgba(18, 43, 81, 0.1);
   background-color: var(--background-color);
@@ -28,7 +28,7 @@ html, body, #root, #root > div {
 .panels-root {
   position: absolute;
   top: var(--top-bar-height);
-  height: calc(100% - 64px);
+  height: calc(100% - var(--top-bar-height) - 10px);
 }
 
 .panel {
@@ -73,7 +73,7 @@ h2 { font-size: 1.2rem; }
   display: flex;
   height: 100%;
   justify-content: space-around;
-  align-items: flex-start;
+  
 }
 
 .active, .inactive {
@@ -211,12 +211,14 @@ input[type='file'] {
 .top-bar {
   width: 100%;
   height: var(--top-bar-height);
+  box-sizing: border-box;
   display: flex;
-  align-items: left;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 10px;
   background-color: var(--top-bar-color);
   color: white;
-  padding: 0 10px;
-  gap: 6px;
+  padding: 10px 16px;
   margin: 0;
   position: fixed;
   top: 0;
@@ -225,11 +227,85 @@ input[type='file'] {
   z-index: 10000;
 }
 
+.top-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-bar-left img {
+  height: 32px;
+}
+
 .top-bar h1 {
-  height: var(--top-bar-height);
   margin: 0;
   padding: 0;
-  line-height: var(--top-bar-height);
+  font-size: 1.4rem;
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  font-size: 0.95rem;
+}
+
+.top-bar-toggles {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.top-bar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-bar-toggle span {
+  font-weight: 500;
+}
+
+.top-bar .inactive {
+  color: #b8c2d9;
+}
+
+.header-abort-button {
+  padding: 8px 22px;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+}
+
+.top-bar-panel-switch {
+  font-size: 18px;
+  display: flex;
+  gap: 8px;
+}
+
+.top-bar-panel-switch button {
+  padding: 4px 14px;
+  font-size: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.top-bar-status-text {
+  display: flex;
+  gap: 18px;
+  font-size: 1.1rem;
+  color: #d7ddec;
 }
 
 /* Sensor display styles */
