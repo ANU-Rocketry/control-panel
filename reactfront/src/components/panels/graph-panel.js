@@ -35,7 +35,7 @@ let rawFlowYBounds = null
 let tempYBounds = null
 const minPressureYBounds = [-0.7, 0.7]  // bar (converted from -10, 10 psi)
 const minFlowYBounds = [-0.2, 0.2]  // LPS
-const minForceYBounds = [-0.5, 0.5]  // kN
+const minForceYBounds = [-0.5, 0.5]  // kg
 const minRawFlowYBounds = [-0.1, 0.1]  // V
 const minTempYBounds = [-5, 5]  // °C
 
@@ -557,7 +557,7 @@ const VoltageDatalogger = Datalogger({
     'ETH Tank V':  { color: '#3d6' },
     'ETH N2 V':    { color: '#09f' },
     'ETH Inlet V': { color: '#f90' },
-    'LOX Flow Raw': { color: '#8B4513' },
+    // OLD: 'LOX Flow Raw' was analog voltage for cryo flow, replaced by UART — no raw voltage to show
     'ETH Load Cell V': { color: '#c0392b' },
   },
 })

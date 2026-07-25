@@ -62,9 +62,9 @@ export default function CalibrationPanel() {
     });
     
     // Check if we have all required fields
-    const requiredFields = sensorKey === 'lox_cryo'
-        ? ['minFlow', 'maxFlow', 'minVolts', 'maxVolts']
-        : (sensorKey === 'eth_temp' || sensorKey === 'lox_temp')
+    // OLD: lox_cryo used to require ['minFlow', 'maxFlow', 'minVolts', 'maxVolts'] here
+    // when it was analog 4-20mA — no longer applicable now that it streams over UART.
+    const requiredFields = (sensorKey === 'eth_temp' || sensorKey === 'lox_temp')
         ? ['offset']
         : sensorKey === 'eth_load_cell'
         ? ['supplyVoltage', 'calibrationVoltage']
@@ -107,7 +107,10 @@ export default function CalibrationPanel() {
         { key: 'lox_n2', name: 'LOX N2 Pressure' },
         { key: 'eth_inlet', name: 'ETH Motor Inlet Pressure' },
         { key: 'lox_inlet', name: 'LOX Motor Inlet Pressure' },
-        { key: 'lox_cryo', name: 'LOX Cryo Flow' },
+        // OLD: lox_cryo used to need voltage calibration here when it was analog 4-20mA.
+        // Now the microcontroller computes L/s and streams it over UART, so there's
+        // nothing left to calibrate on this panel — kept commented out for reference.
+        // { key: 'lox_cryo', name: 'LOX Cryo Flow' },
         { key: 'eth_temp', name: 'ETH Temperature' },
         { key: 'lox_temp', name: 'LOX Temperature' },
         { key: 'eth_load_cell', name: 'ETH Load Cell' },

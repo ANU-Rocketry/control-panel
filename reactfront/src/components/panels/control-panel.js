@@ -1,6 +1,7 @@
 import { Switch } from '@material-ui/core';
 import React, { useState, useEffect, useCallback } from 'react';
-import { getBar, getLPS, getLoadCellKg, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
+import { getBar, getLoadCellKg, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
+// OLD: import { getLPS } from '../../utils'; — used for analog cryo flow voltage conversion, replaced by UART
 import { Panel } from '../index'
 import pins from '../../pins.json'
 
@@ -96,15 +97,17 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
                 currentValue = getLoadCellKg(b, sensor.supplyVoltage, sensor.calibrationVoltage);
             }
             unit = 'kg';
+        } else if (sensor.type === 'flow') {
+            // Cryo flow meter streams pre-computed L/s over UART — no voltage conversion needed
+            currentValue = state.data.labjacks[props.test_stand]?.cryo_flow_lps ?? null;
+            unit = 'LPS';
+            // OLD: analog 4-20mA conversion, replaced by UART above
+            // volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin];
+            // currentValue = getLPS(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
         } else {
             volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin];
-            if (sensor.type === 'flow') {
-                currentValue = getLPS(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
-                unit = 'LPS';
-            } else {
-                currentValue = getBar(volts, sensor.barMax, sensor.minVolts, sensor.maxVolts);
-                unit = 'Bar';
-            }
+            currentValue = getBar(volts, sensor.barMax, sensor.minVolts, sensor.maxVolts);
+            unit = 'Bar';
         }
     }
 

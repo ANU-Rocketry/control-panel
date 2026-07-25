@@ -38,6 +38,10 @@ class LabJackBase(metaclass=ABCMeta):
     def get_thermocouple_temp(self) -> float | None:
         pass
 
+    @abstractmethod
+    def get_cryo_flow_lps(self) -> float | None:
+        pass
+
     def open_valve(self, pin_number: int):
         self.set_valve_state(pin_number, True)
 
@@ -80,6 +84,8 @@ class LabJackBase(metaclass=ABCMeta):
                 state["light_stand"][pin] = self._get_digital_state(pin)
         if hasattr(self.config, 'Thermocouple'):
             state["temperature"] = self.get_thermocouple_temp()
+        if hasattr(self.config, 'CryoFlowUART'):
+            state["cryo_flow_lps"] = self.get_cryo_flow_lps()
         return state
 
     def _is_inverted_relay(self, pin_number):
@@ -120,6 +126,8 @@ class LabJack(LabJackBase):
         self.device.configIO(FIOAnalog=x, EIOAnalog=0)
         self._tc_cache = None
         self._tc_last_read = 0.0
+        self._cryo_cache = None
+        self._cryo_last_read = 0.0
 
     def _get_digital_state(self, pin_number: int) -> bool:
         try:
@@ -224,6 +232,71 @@ class LabJack(LabJackBase):
         self._tc_last_read = now
         return temp
 
+    def _uart_read_byte(self, rx_pin: int, bit_period: float, timeout: float = 0.5) -> int | None:
+        """
+        Bit-bang read one UART byte (8 data bits, no parity, 1 stop bit) from rx_pin.
+        Returns None if no start bit appears within `timeout` seconds.
+        """
+        deadline = time.time() + timeout
+        # Idle is HIGH; wait for the line to drop (start bit)
+        while self._get_digital_state(rx_pin):
+            if time.time() > deadline:
+                return None
+
+        # Skip past the start bit into the middle of data bit 0
+        time.sleep(bit_period * 1.5)
+
+        byte = 0
+        for i in range(8):
+            if self._get_digital_state(rx_pin):
+                byte |= (1 << i)  # LSB first
+            time.sleep(bit_period)
+
+        return byte
+
+    def _uart_read_line(self, rx_pin: int, baud: int, max_chars: int = 80) -> str | None:
+        """Bit-bang read ASCII characters from rx_pin until a newline, or None on timeout."""
+        bit_period = 1.0 / baud
+        chars = []
+        for _ in range(max_chars):
+            byte = self._uart_read_byte(rx_pin, bit_period)
+            if byte is None:
+                break
+            char = chr(byte)
+            if char in ('\n', '\r'):
+                if chars:
+                    break
+                continue  # skip leading line endings
+            chars.append(char)
+        return ''.join(chars) if chars else None
+
+    def get_cryo_flow_lps(self) -> float | None:
+        """
+        Reads one CSV line from the cryo flow meter's UART stream
+        (timestamp_ms,freq_Hz,filtered_Hz,L_per_s) and returns the L_per_s column.
+        Throttled to once per second; returns the last good value on parse/timeout
+        failures (e.g. the "=== LOGGING ON ===" header line) so a bad read doesn't
+        blank the display.
+        """
+        if not hasattr(self.config, 'CryoFlowUART'):
+            return None
+        now = time.time()
+        if now - self._cryo_last_read < 1.0:
+            return self._cryo_cache
+
+        cfg = self.config.CryoFlowUART
+        line = self._uart_read_line(cfg['rx'], cfg['baud'])
+        if line:
+            parts = line.strip().split(',')
+            if len(parts) == 4:
+                try:
+                    self._cryo_cache = float(parts[3])
+                except ValueError:
+                    pass  # not a data row (e.g. header), keep last good value
+
+        self._cryo_last_read = now
+        return self._cryo_cache
+
 class LabJackFake(LabJackBase):
     """
     FAKE LabJack class for mock testing when you don't have access to a real LabJack. Mirrors the LabJack class interface.
@@ -275,3 +348,8 @@ class LabJackFake(LabJackBase):
 
     def get_thermocouple_temp(self) -> float | None:
         return round(25.0 + math.sin(time.time() * 0.1 + self.serial_number) * 5.0, 2)
+
+    def get_cryo_flow_lps(self) -> float | None:
+        if not hasattr(self.config, 'CryoFlowUART'):
+            return None
+        return round(0.9 + math.sin(time.time() / 5 + self.serial_number) * 0.5, 4)

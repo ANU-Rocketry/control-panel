@@ -67,11 +67,13 @@ export const defaultSensorCalibration = {
         maxVolts: 2.4,  // 20mA × 120Ω
     },
     lox_cryo: {
-        minFlow: 0.050472,  // LPS (was 0.80 GPM)
-        maxFlow: 1.82961,   // LPS (was 29.00 GPM)
-        minVolts: 0.4684,
-        maxVolts: 2.342,
-        type: 'flow'
+        // Microcontroller computes L/s and streams it over UART — no voltage calibration needed
+        type: 'flow',
+        // OLD: analog 4-20mA calibration, replaced by UART (microcontroller does the conversion now)
+        // minFlow: 0.050472,  // LPS (was 0.80 GPM)
+        // maxFlow: 1.82961,   // LPS (was 29.00 GPM)
+        // minVolts: 0.4684,
+        // maxVolts: 2.342,
     },
     eth_temp: {
         type: 'temperature',
@@ -216,8 +218,11 @@ export function formatDataPoint(dict) {
         'ETH N2 V': dict.labjacks.ETH.analog["5"],
         'ETH Inlet': getBar(dict.labjacks.ETH.analog["7"], sensorData.eth_inlet.barMax, sensorData.eth_inlet.minVolts, sensorData.eth_inlet.maxVolts),
         'ETH Inlet V': dict.labjacks.ETH.analog["7"],
-        'LOX Flow': getLPS(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow, sensorData.lox_cryo.minVolts, sensorData.lox_cryo.maxVolts),
-        'LOX Flow Raw': dict.labjacks.LOX.analog["2"],
+        // OLD: analog 4-20mA cryo flow conversion, replaced by UART below
+        // 'LOX Flow': getLPS(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow, sensorData.lox_cryo.minVolts, sensorData.lox_cryo.maxVolts),
+        // 'LOX Flow Raw': dict.labjacks.LOX.analog["2"],
+        // Cryo flow meter streams pre-computed L/s over UART — no voltage conversion needed
+        'LOX Flow': dict.labjacks.LOX.cryo_flow_lps ?? NaN,
         'ETH Temp': dict.labjacks.ETH.temperature != null ? dict.labjacks.ETH.temperature + (sensorData.eth_temp.offset || 0.0) : NaN,
         'LOX Temp': dict.labjacks.LOX.temperature != null ? dict.labjacks.LOX.temperature + (sensorData.lox_temp.offset || 0.0) : NaN,
         'ETH Load Cell': dict.labjacks.ETH.analog?.["0"] !== undefined
@@ -241,7 +246,8 @@ export const emptyDataPoint = {
     'ETH N2 V': NaN,
     'ETH Inlet': NaN,
     'ETH Inlet V': NaN,
-    'LOX Flow Raw': NaN,
+    // 'LOX Flow Raw': NaN, // OLD: was raw analog voltage, no longer applicable with UART
+    'LOX Flow': NaN,
     'ETH Temp': NaN,
     'LOX Temp': NaN,
     'ETH Load Cell': NaN,

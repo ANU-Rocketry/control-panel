@@ -34,9 +34,16 @@ class LOX:
 
     N2Sensor = ('LOX', 5)
     LOXSensor = ('LOX', 4)
-    CryoFlowSensor = ('LOX', 2)  # New cryogenic flow sensor
+    # OLD: analog 4-20mA cryo flow sensor, replaced by UART below
+    # CryoFlowSensor = ('LOX', 2)  # New cryogenic flow sensor
     InletPressureSensor = ('LOX', 7)
-    Sensors = [N2Sensor[1], LOXSensor[1], CryoFlowSensor[1], InletPressureSensor[1]]
+    # OLD: Sensors = [N2Sensor[1], LOXSensor[1], CryoFlowSensor[1], InletPressureSensor[1]]
+    Sensors = [N2Sensor[1], LOXSensor[1], InletPressureSensor[1]]
+
+    # Cryo flow meter — microcontroller reads the PT420 and streams CSV lines
+    # (timestamp_ms,freq_Hz,filtered_Hz,L_per_s) over UART, 8N1, one-way.
+    # RX=FIO2 (LabJack reads sensor data), TX=FIO6 (unused for now)
+    CryoFlowUART = {'rx': 2, 'tx': 6, 'baud': 114286}
 
     # MAX6675 thermocouple SPI pins: SCK=FIO1, CS=FIO0, SO=FIO3
     Thermocouple = {'sck': 1, 'cs': 0, 'so': 3}
