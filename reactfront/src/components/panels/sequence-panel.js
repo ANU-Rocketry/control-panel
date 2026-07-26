@@ -319,19 +319,6 @@ export default function Sequences({ state, emit }) {
                         >
                             Start
                         </button>
-                        <SafetyCard title="Abort" style={{ margin: '5px 0' }}>
-                            <button 
-                                onClick={() => abort()} 
-                                style={{
-                                    ...compactButtonStyle,
-                                    backgroundColor: armed && !isEditing ? 'tomato' : 'lightgrey',
-                                    cursor: armed && !isEditing ? 'pointer' : 'default'
-                                }} 
-                                disabled={!armed || isEditing}
-                            >
-                                ABORT
-                            </button>
-                        </SafetyCard>
                         
                         {/* Edit/Save/Cancel Buttons */}
                         <div style={{ marginTop: '5px', marginBottom: '5px' }}>
