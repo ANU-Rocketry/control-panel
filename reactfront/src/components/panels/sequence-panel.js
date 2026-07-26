@@ -164,17 +164,15 @@ export default function Sequences({ state, emit }) {
         setIsAddingCommand(false);
     }
 
-    // Save edited sequence
-    const handleSave = () => {
-        // Filter out empty lines
+    // Send the current editableCommands to the server under the given name
+    const saveCommandsAs = (name) => {
         const cleanedCommands = editableCommands.filter(cmd => cmd.trim());
-        
-        // Send commands to the server
+
         emit('SAVESEQUENCE', {
-            name: currentSequenceName,
+            name: name,
             commands: cleanedCommands
         });
-        
+
         // Exit edit mode
         setIsEditing(false);
         setIsAddingCommand(false);
@@ -182,9 +180,26 @@ export default function Sequences({ state, emit }) {
         // Show confirmation. The server updates its live state as part of handling
         // SAVESEQUENCE, so the table view will reflect the change automatically
         // once the next state broadcast arrives - no separate reload needed.
-        alert("Sequence saved!");
+        alert(`Sequence saved as "${name}"!`);
     }
-    
+
+    // Save edited sequence, overwriting the currently loaded file
+    const handleSave = () => {
+        saveCommandsAs(currentSequenceName);
+    }
+
+    // Save edited sequence under a new name, leaving the original file untouched
+    const handleSaveAs = () => {
+        const name = prompt("Enter a name for the new sequence file (letters and numbers only, no spaces):");
+        if (!name) return;
+        if (!/^[a-zA-Z0-9]+$/.test(name)) {
+            alert("Invalid name. Use only letters and numbers.");
+            return;
+        }
+        setCurrentSequenceName(name);
+        saveCommandsAs(name);
+    }
+
     // Cancel editing
     const handleCancel = () => {
         setIsEditing(false);
@@ -315,7 +330,7 @@ export default function Sequences({ state, emit }) {
                                 </button>
                             ) : (
                                 <>
-                                    <button 
+                                    <button
                                         onClick={handleSave}
                                         style={{
                                             ...compactButtonStyle,
@@ -325,7 +340,17 @@ export default function Sequences({ state, emit }) {
                                     >
                                         Save
                                     </button>
-                                    <button 
+                                    <button
+                                        onClick={handleSaveAs}
+                                        style={{
+                                            ...compactButtonStyle,
+                                            backgroundColor: '#90caf9',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Save As New File
+                                    </button>
+                                    <button
                                         onClick={handleCancel}
                                         style={{
                                             ...compactButtonStyle,
