@@ -60,6 +60,8 @@ class SystemState:
     current_sequence: list[ServerCommand] = field(default_factory=list)
     # Name of the sequence file current_sequence was loaded from (without .py), or None if unloaded
     current_sequence_name: str | None = None
+    # Names (without .py) of all sequence files available on disk, for the frontend's dropdown
+    available_sequences: list[str] = field(default_factory=list)
     # Is the current_sequence in progress?
     status: SequenceStatus = SequenceStatus.IDLE
     # The current sequence command being executed, if the sequence is running
@@ -112,8 +114,18 @@ class ControlPanelServer:
         self.port = port
         self.clients = set()
 
+        self.refresh_available_sequences()
+
         print(f"Hosting server on {ip} port {port}")
-    
+
+    def refresh_available_sequences(self):
+        # Scan src/sequences for .py files so the frontend can offer a dropdown of them
+        sequence_dir = Path(__file__).parent / 'sequences'
+        sequence_dir.mkdir(exist_ok=True)
+        self.state.available_sequences = sorted(
+            f.stem for f in sequence_dir.glob('*.py')
+        )
+
     async def timeout_counter(self):
         # run the abort sequence once when no devices have been connected for `ABORT_SEQUENCE_TIMOUT` seconds
         while True:
@@ -392,6 +404,7 @@ class ControlPanelServer:
                             self.state.current_sequence_name = data['name']
                         except:
                             self.push_warning(f"Saved {data['name']} but could not reload it")
+                        self.refresh_available_sequences()
                     await self.emit(ws, 'SEQUENCE_SAVED', {'name': data['name'], 'success': success})
 
             case ClientCommandString.GETSEQUENCE:

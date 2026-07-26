@@ -4,6 +4,15 @@ import { Panel } from '../index'
 import {SafetyCard} from './safety-panel'
 import { pinFromID } from './graph-panel'
 
+// Mirrors the valve pin numbers in src/stands.py. Needed to reconstruct exec-compatible
+// command strings like "Open(ETH.Main)" from the (stand, pin) the server sends back -
+// pins.json's "name" field (e.g. "ETH Pressurisation") is a display label, not the
+// Python attribute name (e.g. "Pressure") that stands.py actually defines.
+const VALVE_ATTR_BY_PIN = {
+    ETH: { 15: 'Main', 16: 'Fill', 17: 'Drain', 8: 'Pressure', 9: 'Vent', 14: 'Purge', 10: 'Igniter' },
+    LOX: { 14: 'Main', 16: 'Fill', 17: 'Drain', 9: 'Pressure', 10: 'Vent', 8: 'Purge', 15: 'Chill' },
+};
+
 function SequenceRow(data) {
     const getPinName = () => {
         if (!data.stand) return null;
@@ -48,8 +57,10 @@ export default function Sequences({ state, emit }) {
         }
     }, [serverSequenceName]);
 
-    const handleChange = async () => {
-        const name = prompt("Enter a sequence name like 'operation' (lowercase without quotes). (This loads from a sequence file in src/sequences on the server RPi)");
+    const availableSequences = (state.data && state.data.available_sequences) || [];
+
+    const handleChange = async (e) => {
+        const name = e.target.value;
         if (name) {
             setCurrentSequenceName(name);
             await emit('SETSEQUENCE', name);
@@ -63,21 +74,17 @@ export default function Sequences({ state, emit }) {
                 return "";
             }
             
-            if (command.name === "Sleep") {
+            // command.name comes from the backend as "SLEEP" / "OPEN" / "CLOSE" (see commands.py)
+            if (command.name === "SLEEP") {
                 return `Sleep(seconds=${(command.ms / 1000).toFixed(1)})`;
-            } else if (command.name === "Open" || command.name === "Close") {
+            } else if (command.name === "OPEN" || command.name === "CLOSE") {
                 if (!command.stand) return "";
-                
-                let pinName = "Unknown";
-                try {
-                    if (command.pin && pinFromID(command.pin, command.stand) && pinFromID(command.pin, command.stand).pin) {
-                        pinName = pinFromID(command.pin, command.stand).pin.name;
-                    }
-                } catch (error) {
-                    console.error("Error getting pin name:", error);
-                }
-                
-                return `${command.name}(${command.stand}.${pinName})`;
+
+                const pinName = VALVE_ATTR_BY_PIN[command.stand] && VALVE_ATTR_BY_PIN[command.stand][command.pin];
+                if (!pinName) return "";
+
+                const fnName = command.name === "OPEN" ? "Open" : "Close";
+                return `${fnName}(${command.stand}.${pinName})`;
             } else {
                 return "";
             }
@@ -254,13 +261,17 @@ export default function Sequences({ state, emit }) {
                             Start
                         </h2>
                         <div>
-                            <button 
-                                onClick={handleChange} 
+                            <select
+                                value={availableSequences.includes(currentSequenceName) ? currentSequenceName : ''}
+                                onChange={handleChange}
                                 disabled={!armed || isEditing}
                                 style={compactButtonStyle}
                             >
-                                Choose sequence
-                            </button>
+                                <option value="" disabled>Choose sequence</option>
+                                {availableSequences.map(name => (
+                                    <option key={name} value={name}>{name}</option>
+                                ))}
+                            </select>
                         </div>
                         <button 
                             onClick={() => emit('BEGINSEQUENCE', null)} 
