@@ -592,7 +592,7 @@ export default function GraphPanel({ state }) {
     <Panel title="Graphs" className='panel graphs' style={{
         maxWidth: '1000px',
         width: '800px',
-        height: '650px',
+        height: '660px',
         overflow: 'hidden'
       }}>
       {/* Toggle buttons */}

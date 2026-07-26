@@ -20,8 +20,10 @@ class App extends React.Component {
       defaultWSAddress: "192.168.0.5",
       events: [],
       socketStatus: -1,
+      activePanel: 'control',
     }
     this.emit = this.emit.bind(this)
+    this.setActivePanel = this.setActivePanel.bind(this)
     // Rolling average buffer for LOX Flow to suppress noise spikes before graphing.
     // 10 samples at 20Hz = 0.5s smoothing window.
     this.loxFlowBuffer = []
@@ -134,20 +136,21 @@ class App extends React.Component {
       time: new Date().getTime()
     }));
   }
+  setActivePanel(panel) {
+    this.setState({ activePanel: panel })
+  }
 
-  
   render() {
     return (
       <div>
-        <TopBar state={this.state} emit={this.emit} sockStatus={this.state.socketStatus} that={this} />
+        <TopBar state={this.state} emit={this.emit} sockStatus={this.state.socketStatus} that={this}
+          activePanel={this.state.activePanel} setActivePanel={this.setActivePanel} />
         <div className='panels-root'>
-          <div className='panel-row-1'>
-            <Sequences state={this.state} emit={this.emit} />
-          </div>
-          <div className='panel-row-2'>
-            <div className='left-column'>
-              <ControlPanel state={this.state} emit={this.emit} />
-              <CalibrationPanel />
+          <div className='main-layout'>
+            <div className='left-panel'>
+              {this.state.activePanel === 'control' && <ControlPanel state={this.state} emit={this.emit} />}
+              {this.state.activePanel === 'sequence' && <Sequences state={this.state} emit={this.emit} />}
+              {this.state.activePanel === 'calibration' && <CalibrationPanel />}
             </div>
             <GraphPanel state={this.state} emit={this.emit} />
           </div>

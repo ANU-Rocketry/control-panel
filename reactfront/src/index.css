@@ -33,31 +33,19 @@ html, body, #root, #root > div {
 
 .panel {
   width: 50%;
-  padding: 0px 5px;
-  margin: 12px;
+  padding: 0px 0px;
+  margin: 0px 12px 12px;
   height: 100%;
 }
 
-.panel-row-1 {
-  height: 300px;
+.main-layout {
+  height: 100%;
   display: flex;
 }
 
-.panel-row-2 {
-  height: calc(100% - 300px);
-  display: flex;
-}
-
-/* New left column for stacking Control and Calibration panels */
-.left-column {
+.left-panel {
   display: flex;
   flex-direction: column;
-  gap: 0px;
-}
-
-.left-column .panel {
-  width: 800px;
-  margin: 12px;
 }
 
 h1,h2,h3,h4,h5,h6 {
@@ -121,21 +109,22 @@ h2 { font-size: 1.2rem; }
 
 .panel.control {
   width: 790px;
-  height: auto;
+  height: 700px;
 }
 
 .panel.sequences {
   width: 800px;
+  height: 700px;
 }
 
 .panel.calibration {
   width: 790px;
-  height: auto;
+  height: 700px;
 }
 
 .panel.graphs {
   width: calc(100% - 850px);
-  height: 640px;
+  height: 700px;
 }
 
 .panel.safety .safety-card {
@@ -299,6 +288,13 @@ input[type='file'] {
   color: white;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.top-bar-panel-switch button.active-panel-button {
+  background: white;
+  color: var(--top-bar-color);
+  border-color: white;
+  font-weight: bold;
 }
 
 .top-bar-status-text {

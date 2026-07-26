@@ -21,7 +21,7 @@ const UPSNames = {
   "UNKNOWN": "Unknown"
 }
 
-export function TopBar({ state, emit, sockStatus, that }) {
+export function TopBar({ state, emit, sockStatus, that, activePanel, setActivePanel }) {
   const armingSwitchActive = state.data === null ? false : state.data.arming_switch
   const toggleArmingSwitch = x => emit('ARMINGSWITCH', x)
 
@@ -90,9 +90,12 @@ export function TopBar({ state, emit, sockStatus, that }) {
 
       <div className='top-bar-row top-bar-row-3'>
         <div className='top-bar-panel-switch'>
-          <button>Control Panel</button>
-          <button>Sequence Panel</button>
-          <button>Sensor Calibration</button>
+          <button className={activePanel === 'control' ? 'active-panel-button' : ''}
+            onClick={() => setActivePanel('control')}>Control Panel</button>
+          <button className={activePanel === 'sequence' ? 'active-panel-button' : ''}
+            onClick={() => setActivePanel('sequence')}>Config Panel</button>
+          <button className={activePanel === 'calibration' ? 'active-panel-button' : ''}
+            onClick={() => setActivePanel('calibration')}>Sensor Calibration</button>
         </div>
         <div className='top-bar-status-text'>
           <span>Arming: <span style={{ color: armingSwitchActive ? '#7CFC7C' : '#FF6B6B' }}>{armingSwitchActive ? 'True' : 'False'}</span></span>
