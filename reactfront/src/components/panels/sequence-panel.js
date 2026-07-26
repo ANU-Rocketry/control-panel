@@ -206,6 +206,26 @@ export default function Sequences({ state, emit }) {
         setIsAddingCommand(false);
     }
 
+    // Delete the currently loaded sequence file, after user confirmation
+    const handleDelete = () => {
+        // The server silently ignores DELETESEQUENCE while unarmed, so guard here too -
+        // otherwise we'd clear local state as if it succeeded while the file stays on disk.
+        if (!armed) {
+            alert("Arming must be enabled to delete a sequence.");
+            return;
+        }
+
+        const confirmed = window.confirm(`Are you sure you want to delete the sequence "${currentSequenceName}"? This cannot be undone.`);
+        if (!confirmed) return;
+
+        emit('DELETESEQUENCE', currentSequenceName);
+
+        setIsEditing(false);
+        setIsAddingCommand(false);
+        setEditableCommands([]);
+        setCurrentSequenceName('');
+    }
+
     // Update a command in the editor
     const updateCommand = (index, newValue) => {
         const newCommands = [...editableCommands];
@@ -359,6 +379,19 @@ export default function Sequences({ state, emit }) {
                                         }}
                                     >
                                         Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleDelete}
+                                        disabled={!currentSequenceName || currentSequenceName === 'abort' || !armed}
+                                        title={currentSequenceName === 'abort' ? 'The abort sequence cannot be deleted' : undefined}
+                                        style={{
+                                            ...compactButtonStyle,
+                                            backgroundColor: (!currentSequenceName || currentSequenceName === 'abort' || !armed) ? 'lightgrey' : 'tomato',
+                                            color: 'white',
+                                            cursor: (!currentSequenceName || currentSequenceName === 'abort' || !armed) ? 'default' : 'pointer',
+                                        }}
+                                    >
+                                        Delete Sequence
                                     </button>
                                 </>
                             )}

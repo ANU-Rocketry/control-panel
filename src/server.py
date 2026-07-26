@@ -297,6 +297,49 @@ class ControlPanelServer:
             traceback.print_exc()
             return False
 
+    async def delete_sequence(self, name: str):
+        """
+        Delete a sequence file.
+
+        Args:
+            name: Name of the sequence file to delete (without .py extension)
+
+        Returns:
+            Success status as boolean
+        """
+        try:
+            if not name or not name.isalnum():
+                self.push_warning(f"Invalid sequence name: {name}. Use only alphanumeric characters.")
+                return False
+
+            # The abort sequence is required for safety and must never be deletable
+            if name == "abort":
+                self.push_warning("Cannot delete the abort sequence")
+                return False
+
+            file_path = Path(__file__).parent / 'sequences' / f"{name}.py"
+            if not file_path.exists():
+                self.push_warning(f"Sequence {name} does not exist")
+                return False
+
+            file_path.unlink()
+            print(f"Deleted sequence: {name}")
+            self.log_data({"sequence": name, "action": "deleted"}, type="SEQUENCE_EDIT")
+
+            # If the deleted sequence was the one currently loaded, unload it
+            if self.state.current_sequence_name == name:
+                self.state.current_sequence = []
+                self.state.current_sequence_name = None
+
+            return True
+
+        except Exception as e:
+            print(f"Error deleting sequence {name}: {str(e)}")
+            self.push_warning(f"Failed to delete sequence {name}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     async def get_sequence_content(self, name: str):
         """
         Get the content of a sequence file for editing.
@@ -406,6 +449,16 @@ class ControlPanelServer:
                             self.push_warning(f"Saved {data['name']} but could not reload it")
                         self.refresh_available_sequences()
                     await self.emit(ws, 'SEQUENCE_SAVED', {'name': data['name'], 'success': success})
+
+            case ClientCommandString.DELETESEQUENCE:
+                if self.state.arming_switch:  # Require arming switch for safety
+                    success = await self.delete_sequence(data)
+                    if success:
+                        self.refresh_available_sequences()
+                    await self.emit(ws, 'SEQUENCE_DELETED', {'name': data, 'success': success})
+                else:
+                    self.push_warning("Arming must be enabled to delete a sequence")
+                    await self.emit(ws, 'SEQUENCE_DELETED', {'name': data, 'success': False})
 
             case ClientCommandString.GETSEQUENCE:
                 content = await self.get_sequence_content(data)
