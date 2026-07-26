@@ -1,5 +1,5 @@
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@material-ui/core';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Panel } from '../index'
 import {SafetyCard} from './safety-panel'
 import { pinFromID } from './graph-panel'
@@ -24,6 +24,12 @@ export default function Sequences({ state, emit }) {
     const [currentSequenceName, setCurrentSequenceName] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editableCommands, setEditableCommands] = useState([]);
+    const [isAddingCommand, setIsAddingCommand] = useState(false);
+    const [newCommandAction, setNewCommandAction] = useState('Open');
+    const [newCommandStand, setNewCommandStand] = useState('LOX');
+    const [newCommandValve, setNewCommandValve] = useState('Main');
+    const [newCommandSeconds, setNewCommandSeconds] = useState('5');
+    const [draggedIndex, setDraggedIndex] = useState(null);
     
     var sequences = (state.data && state.data.current_sequence) || []
     var current_executing = state.data === null ? null : state.data.command_in_flight
@@ -31,6 +37,16 @@ export default function Sequences({ state, emit }) {
     
     // A sequence is considered loaded if there are commands or one is executing
     const sequenceLoaded = sequences.length > 0 || current_executing !== null;
+
+    // The server tracks which sequence file is actually loaded. Keep the locally-known
+    // name in sync with it (e.g. after a page refresh, where local state resets to '')
+    // so Save always targets the right file instead of silently falling back to a blank name.
+    const serverSequenceName = state.data && state.data.current_sequence_name;
+    useEffect(() => {
+        if (serverSequenceName && serverSequenceName !== currentSequenceName) {
+            setCurrentSequenceName(serverSequenceName);
+        }
+    }, [serverSequenceName]);
 
     const handleChange = async () => {
         const name = prompt("Enter a sequence name like 'operation' (lowercase without quotes). (This loads from a sequence file in src/sequences on the server RPi)");
@@ -138,6 +154,7 @@ export default function Sequences({ state, emit }) {
         // Set the editable commands and enter edit mode
         setEditableCommands(commandStrings);
         setIsEditing(true);
+        setIsAddingCommand(false);
     }
 
     // Save edited sequence
@@ -153,31 +170,50 @@ export default function Sequences({ state, emit }) {
         
         // Exit edit mode
         setIsEditing(false);
-        
-        // Show confirmation
+        setIsAddingCommand(false);
+
+        // Show confirmation. The server updates its live state as part of handling
+        // SAVESEQUENCE, so the table view will reflect the change automatically
+        // once the next state broadcast arrives - no separate reload needed.
         alert("Sequence saved!");
-        
-        // Reload the sequence to see changes
-        emit('SETSEQUENCE', currentSequenceName);
     }
     
     // Cancel editing
     const handleCancel = () => {
         setIsEditing(false);
+        setIsAddingCommand(false);
     }
-    
+
     // Update a command in the editor
     const updateCommand = (index, newValue) => {
         const newCommands = [...editableCommands];
         newCommands[index] = newValue;
         setEditableCommands(newCommands);
     }
-    
-    // Add a new command line
-    const addCommandLine = () => {
-        setEditableCommands([...editableCommands, ""]);
+
+    // Open the command builder with default selections
+    const startAddCommand = () => {
+        setNewCommandAction('Open');
+        setNewCommandStand('LOX');
+        setNewCommandValve('Main');
+        setNewCommandSeconds('5');
+        setIsAddingCommand(true);
     }
-    
+
+    // Confirm the command builder selections and append the resulting command
+    const confirmAddCommand = () => {
+        const cmdStr = newCommandAction === 'Sleep'
+            ? `Sleep(seconds=${(parseFloat(newCommandSeconds) || 0).toFixed(1)})`
+            : `${newCommandAction}(${newCommandStand}.${newCommandValve})`;
+        setEditableCommands([...editableCommands, cmdStr]);
+        setIsAddingCommand(false);
+    }
+
+    // Discard the command builder without adding anything
+    const cancelAddCommand = () => {
+        setIsAddingCommand(false);
+    }
+
     // Remove a command line
     const removeCommandLine = (index) => {
         if (editableCommands.length <= 1) {
@@ -187,6 +223,15 @@ export default function Sequences({ state, emit }) {
         }
         
         setEditableCommands(editableCommands.filter((_, i) => i !== index));
+    }
+
+    // Move a command line to a new position (drag and drop reordering)
+    const reorderCommand = (fromIndex, toIndex) => {
+        if (fromIndex === toIndex) return;
+        const newCommands = [...editableCommands];
+        const [moved] = newCommands.splice(fromIndex, 1);
+        newCommands.splice(toIndex, 0, moved);
+        setEditableCommands(newCommands);
     }
 
     const abort = x => emit('ABORTSEQUENCE', x)
@@ -327,21 +372,49 @@ export default function Sequences({ state, emit }) {
                             </h3>
                             <div style={{ marginBottom: '10px' }}>
                                 {editableCommands.map((command, index) => (
-                                    <div key={index} style={{ display: 'flex', marginBottom: '5px' }}>
+                                    <div key={index}
+                                        draggable
+                                        onDragStart={() => setDraggedIndex(index)}
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={() => {
+                                            if (draggedIndex !== null) reorderCommand(draggedIndex, index);
+                                            setDraggedIndex(null);
+                                        }}
+                                        onDragEnd={() => setDraggedIndex(null)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            marginBottom: '5px',
+                                            opacity: draggedIndex === index ? 0.4 : 1,
+                                            background: draggedIndex === index ? '#f0f0f0' : 'transparent'
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                cursor: 'grab',
+                                                padding: '0 8px',
+                                                userSelect: 'none',
+                                                color: '#888',
+                                                fontSize: '16px'
+                                            }}
+                                            title="Drag to reorder"
+                                        >
+                                            ⠿
+                                        </span>
                                         <input
                                             type="text"
                                             value={command}
                                             onChange={(e) => updateCommand(index, e.target.value)}
-                                            style={{ 
+                                            style={{
                                                 flex: 1,
                                                 padding: '5px',
                                                 fontFamily: 'monospace'
                                             }}
                                             placeholder="Enter command (e.g., Open(LOX.Vent))"
                                         />
-                                        <button 
+                                        <button
                                             onClick={() => removeCommandLine(index)}
-                                            style={{ 
+                                            style={{
                                                 marginLeft: '5px',
                                                 padding: '5px',
                                                 backgroundColor: '#ff9999'
@@ -352,18 +425,79 @@ export default function Sequences({ state, emit }) {
                                     </div>
                                 ))}
                             </div>
-                            <button
-                                onClick={addCommandLine}
-                                style={{
-                                    padding: '5px 10px',
-                                    backgroundColor: '#2196f3',
-                                    color: 'white',
-                                    border: 'none',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Add Command
-                            </button>
+                            {isAddingCommand ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <select value={newCommandAction} onChange={(e) => setNewCommandAction(e.target.value)}
+                                        style={{ padding: '5px' }}>
+                                        <option value="Open">Open</option>
+                                        <option value="Close">Close</option>
+                                        <option value="Sleep">Sleep</option>
+                                    </select>
+                                    {newCommandAction === 'Sleep' ? (
+                                        <input
+                                            type="number"
+                                            value={newCommandSeconds}
+                                            onChange={(e) => setNewCommandSeconds(e.target.value)}
+                                            style={{ width: '80px', padding: '5px' }}
+                                            placeholder="seconds"
+                                        />
+                                    ) : (
+                                        <>
+                                            <select value={newCommandStand} onChange={(e) => setNewCommandStand(e.target.value)}
+                                                style={{ padding: '5px' }}>
+                                                <option value="LOX">LOX</option>
+                                                <option value="ETH">ETH</option>
+                                            </select>
+                                            <select value={newCommandValve} onChange={(e) => setNewCommandValve(e.target.value)}
+                                                style={{ padding: '5px' }}>
+                                                <option value="Main">Main</option>
+                                                <option value="Vent">Vent</option>
+                                                <option value="Purge">Purge</option>
+                                                <option value="Pressure">Pressure</option>
+                                                <option value="Igniter">Igniter</option>
+                                                <option value="Fill">Fill</option>
+                                                <option value="Drain">Drain</option>
+                                                <option value="Chill">Chill</option>
+                                            </select>
+                                        </>
+                                    )}
+                                    <button
+                                        onClick={confirmAddCommand}
+                                        style={{
+                                            padding: '5px 10px',
+                                            backgroundColor: 'lime',
+                                            border: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ✓
+                                    </button>
+                                    <button
+                                        onClick={cancelAddCommand}
+                                        style={{
+                                            padding: '5px 10px',
+                                            backgroundColor: '#ff9999',
+                                            border: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ✗
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={startAddCommand}
+                                    style={{
+                                        padding: '5px 10px',
+                                        backgroundColor: '#2196f3',
+                                        color: 'white',
+                                        border: 'none',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Add Command
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>

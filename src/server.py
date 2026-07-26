@@ -58,6 +58,8 @@ class SystemState:
     # * partially finished sleeps
     # * commands that have already run in an actively running sequence
     current_sequence: list[ServerCommand] = field(default_factory=list)
+    # Name of the sequence file current_sequence was loaded from (without .py), or None if unloaded
+    current_sequence_name: str | None = None
     # Is the current_sequence in progress?
     status: SequenceStatus = SequenceStatus.IDLE
     # The current sequence command being executed, if the sequence is running
@@ -239,7 +241,7 @@ class ControlPanelServer:
             print(f"Attempting to save sequence: {name}")
             
             # Validate the sequence name for security
-            if not name.isalnum() and name == "abort":
+            if not name or not name.isalnum():
                 print(f"Invalid sequence name: {name}")
                 self.push_warning(f"Invalid sequence name: {name}. Use only alphanumeric characters.")
                 return False
@@ -355,6 +357,7 @@ class ControlPanelServer:
                 if self.state.arming_switch:
                     try:
                         self.state.current_sequence = self.load_sequence(data)
+                        self.state.current_sequence_name = data
                     except:
                         self.push_warning(f"Could not load sequence {data}")
 
@@ -375,10 +378,20 @@ class ControlPanelServer:
                     self.state.status = SequenceStatus.IDLE
                     self.state.command_in_flight = None
                     self.state.current_sequence = []
-            
+                    self.state.current_sequence_name = None
+
             case ClientCommandString.SAVESEQUENCE:
                 if self.state.arming_switch:  # Require arming switch for safety
                     success = await self.save_sequence(data['name'], data['commands'])
+                    if success:
+                        # Update the live state immediately so all clients (including ones
+                        # that reconnect later) see the saved commands without relying on
+                        # a separate SETSEQUENCE round trip
+                        try:
+                            self.state.current_sequence = self.load_sequence(data['name'])
+                            self.state.current_sequence_name = data['name']
+                        except:
+                            self.push_warning(f"Saved {data['name']} but could not reload it")
                     await self.emit(ws, 'SEQUENCE_SAVED', {'name': data['name'], 'success': success})
 
             case ClientCommandString.GETSEQUENCE:
