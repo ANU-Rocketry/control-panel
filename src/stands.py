@@ -42,8 +42,8 @@ class LOX:
 
     # Cryo flow meter — microcontroller reads the PT420 and streams CSV lines
     # (timestamp_ms,freq_Hz,filtered_Hz,L_per_s) over UART, 8N1, one-way.
-    # RX=FIO2 (LabJack reads sensor data), TX=FIO6 (unused for now)
-    CryoFlowUART = {'rx': 2, 'tx': 6, 'baud': 114286}
+    # RX=FIO2 (LabJack reads sensor data), TX=FIO7 (unused for now)
+    CryoFlowUART = {'rx': 2, 'tx': 7, 'baud': 114286}
 
     # MAX6675 thermocouple SPI pins: SCK=FIO1, CS=FIO0, SO=FIO3
     Thermocouple = {'sck': 1, 'cs': 0, 'so': 3}
