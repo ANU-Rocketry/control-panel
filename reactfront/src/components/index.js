@@ -45,6 +45,11 @@ export function TopBar({ state, emit, sockStatus, that, activePanel, setActivePa
           <img src='./logo.png' alt='logo' />
           <h1>Test Stand Control Panel</h1>
         </div>
+        <div className='top-bar-status-text'>
+          <span>Arming: <span style={{ color: armingSwitchActive ? '#7CFC7C' : '#FF6B6B' }}>{armingSwitchActive ? 'True' : 'False'}</span></span>
+          <span>Manual: <span style={{ color: manualSwitchActive ? '#7CFC7C' : '#FF6B6B' }}>{manualSwitchActive ? 'True' : 'False'}</span></span>
+          <span>Logging: <span style={{ color: dataLoggingActive ? '#7CFC7C' : '#FF6B6B' }}>{dataLoggingActive ? 'True' : 'False'}</span></span>
+        </div>
         <div className='top-bar-right'>
           {UPSStatus && <span>UPS: {UPSInfo}</span>}
           <span style={{ color: connected ? '#7CFC7C' : '#FF6B6B' }}>
@@ -63,6 +68,14 @@ export function TopBar({ state, emit, sockStatus, that, activePanel, setActivePa
       </div>
 
       <div className='top-bar-row top-bar-row-2'>
+        <div className='top-bar-panel-switch'>
+          <button className={activePanel === 'control' ? 'active-panel-button' : ''}
+            onClick={() => setActivePanel('control')}>Control Panel</button>
+          <button className={activePanel === 'sequence' ? 'active-panel-button' : ''}
+            onClick={() => setActivePanel('sequence')}>Config Panel</button>
+          <button className={activePanel === 'calibration' ? 'active-panel-button' : ''}
+            onClick={() => setActivePanel('calibration')}>Sensor Calibration</button>
+        </div>
         <div className='top-bar-toggles'>
           <div className='top-bar-toggle'>
             <span title="Controls if the state can change">Arming</span>
@@ -86,22 +99,6 @@ export function TopBar({ state, emit, sockStatus, that, activePanel, setActivePa
           }}>
           ABORT
         </button>
-      </div>
-
-      <div className='top-bar-row top-bar-row-3'>
-        <div className='top-bar-panel-switch'>
-          <button className={activePanel === 'control' ? 'active-panel-button' : ''}
-            onClick={() => setActivePanel('control')}>Control Panel</button>
-          <button className={activePanel === 'sequence' ? 'active-panel-button' : ''}
-            onClick={() => setActivePanel('sequence')}>Config Panel</button>
-          <button className={activePanel === 'calibration' ? 'active-panel-button' : ''}
-            onClick={() => setActivePanel('calibration')}>Sensor Calibration</button>
-        </div>
-        <div className='top-bar-status-text'>
-          <span>Arming: <span style={{ color: armingSwitchActive ? '#7CFC7C' : '#FF6B6B' }}>{armingSwitchActive ? 'True' : 'False'}</span></span>
-          <span>Manual: <span style={{ color: manualSwitchActive ? '#7CFC7C' : '#FF6B6B' }}>{manualSwitchActive ? 'True' : 'False'}</span></span>
-          <span>Logging: <span style={{ color: dataLoggingActive ? '#7CFC7C' : '#FF6B6B' }}>{dataLoggingActive ? 'True' : 'False'}</span></span>
-        </div>
       </div>
     </div>
   )

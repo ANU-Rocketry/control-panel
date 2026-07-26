@@ -1,5 +1,5 @@
 :root {
-  --top-bar-height: 170px;
+  --top-bar-height: 120px;
   --top-bar-color: rgba(18, 43, 81);
   --background-color: rgba(18, 43, 81, 0.1);
   background-color: var(--background-color);
