@@ -127,8 +127,8 @@ export const BigSwitch = withStyles((theme) => ({
       color: theme.palette.common.white,
       '& + $track': {
         opacity: 1,
-        backgroundColor: theme.palette.primary.main,
-        borderColor: theme.palette.primary.main,
+        backgroundColor: '#4CAF50',
+        borderColor: '#4CAF50',
       },
     },
   },

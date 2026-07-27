@@ -80,6 +80,15 @@ h2 { font-size: 1.2rem; }
   padding: 0.5rem 1rem;
 }
 
+/* Wraps .control-panel at its native 790x569 size and clips it down to the scaled
+   footprint below, so every absolute-positioned valve switch (fixed-pixel coordinates
+   tied to the background art) scales down uniformly without needing to be recalculated. */
+.control-panel-scale-wrapper {
+  width: 800px;
+  height: 500px;
+  overflow: hidden;
+}
+
 .control-panel {
   background-image: url(labjack.svg);
   background-size: 112%;
@@ -88,6 +97,8 @@ h2 { font-size: 1.2rem; }
   position: relative;
   width: 790px;
   height: 569px;
+  transform: scale(0.89);
+  transform-origin: top left;
 }
 
 /* ETH and LOX labels for control panel */
@@ -113,8 +124,8 @@ h2 { font-size: 1.2rem; }
 }
 
 .panel.control {
-  width: 790px;
-  height: 700px;
+  width: 710px;
+  height: 660px;
 }
 
 .panel.sequence-execution {

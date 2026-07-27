@@ -301,6 +301,7 @@ export default function ControlPanel({ state, emit }) {
     return (
         <>
         <Panel title="Control Panel" className='panel control'>
+            <div className="control-panel-scale-wrapper">
             <div className="control-panel">
                 {/* ETH Label - Top Left */}
                 <div className="control-panel-label eth">
@@ -344,6 +345,7 @@ export default function ControlPanel({ state, emit }) {
                         updateSensorHistory={updateSensorHistory}
                     />
                 )}
+            </div>
             </div>
 
             {/* Switch Legend - 20px below the P&ID diagram */}
