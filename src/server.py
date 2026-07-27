@@ -229,12 +229,14 @@ class ControlPanelServer:
                 pass # let the existing abort continue
             case SequenceStatus.IDLE:
                 self.state.current_sequence = self.load_sequence('abort')
+                self.state.current_sequence_name = 'abort'
                 self.execute_sequence(initial_state=SequenceStatus.ABORTING)
             case SequenceStatus.RUNNING:
                 # the sleep will pick up the abort request and break out early,
                 # # so we can just overwrite the rest of the sequence with the abort
                 self.state.status = SequenceStatus.ABORT_REQUESTED
                 self.state.current_sequence = self.load_sequence('abort')
+                self.state.current_sequence_name = 'abort'
     
     #NEW_CHANGES
     #Created functions to create new sequences and get the content of existing sequences

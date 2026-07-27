@@ -85,7 +85,7 @@ export function Datalogger({
     forceUpdate = React.useReducer(x => x + 1, 0)[1]
 
     // Box model
-    const w = 790, h = 510;
+    const w = 620, h = 510;
 
     // We avoid new Date().getTime() when possible because we want the epoch times to come from the same source as the data point times
     // This is so we can use system epoch times from systems without an accurate clock (e.g. a Raspberry Pi which was turned on without an
@@ -590,8 +590,8 @@ export default function GraphPanel({ state }) {
   // and efficiently construct highly customisable graphs
   return (
     <Panel title="Graphs" className='panel graphs' style={{
-        maxWidth: '1000px',
-        width: '800px',
+        maxWidth: '850px',
+        width: '650px',
         height: '660px',
         overflow: 'hidden'
       }}>

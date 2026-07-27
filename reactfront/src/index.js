@@ -4,7 +4,7 @@ import './index.css';
 import { TopBar } from "./components/index"
 import GraphPanel, { newData, newEvent, pinFromID } from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';
-import ControlPanel from './components/panels/control-panel';
+import ControlPanel, { SequenceExecutionList } from './components/panels/control-panel';
 import { formatDataPoint, emptyDataPoint } from './utils';
 import { undefOnBadRef } from "./components/graph-utils.js"
 import { Snackbar, Button } from '@material-ui/core'
@@ -148,7 +148,12 @@ class App extends React.Component {
         <div className='panels-root'>
           <div className='main-layout'>
             <div className='left-panel'>
-              {this.state.activePanel === 'control' && <ControlPanel state={this.state} emit={this.emit} />}
+              {this.state.activePanel === 'control' && (
+                <div className='control-with-progress'>
+                  <SequenceExecutionList state={this.state} />
+                  <ControlPanel state={this.state} emit={this.emit} />
+                </div>
+              )}
               {this.state.activePanel === 'sequence' && <Sequences state={this.state} emit={this.emit} />}
               {this.state.activePanel === 'calibration' && <CalibrationPanel />}
             </div>

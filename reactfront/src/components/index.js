@@ -45,11 +45,7 @@ export function TopBar({ state, emit, sockStatus, that, activePanel, setActivePa
           <img src='./logo.png' alt='logo' />
           <h1>Test Stand Control Panel</h1>
         </div>
-        <div className='top-bar-status-text'>
-          <span>Arming: <span style={{ color: armingSwitchActive ? '#7CFC7C' : '#FF6B6B' }}>{armingSwitchActive ? 'True' : 'False'}</span></span>
-          <span>Manual: <span style={{ color: manualSwitchActive ? '#7CFC7C' : '#FF6B6B' }}>{manualSwitchActive ? 'True' : 'False'}</span></span>
-          <span>Logging: <span style={{ color: dataLoggingActive ? '#7CFC7C' : '#FF6B6B' }}>{dataLoggingActive ? 'True' : 'False'}</span></span>
-        </div>
+        
         <div className='top-bar-right'>
           {UPSStatus && <span>UPS: {UPSInfo}</span>}
           <span style={{ color: connected ? '#7CFC7C' : '#FF6B6B' }}>
