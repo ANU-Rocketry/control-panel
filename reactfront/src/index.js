@@ -21,6 +21,13 @@ class App extends React.Component {
       events: [],
       socketStatus: -1,
       activePanel: 'control',
+      // Snapshot of the full sequence command list, captured the moment it's freshly
+      // loaded (before anything has executed). Kept here in App - not inside
+      // SequenceExecutionList - because that component unmounts whenever the user
+      // switches away from the Control Panel view, which would otherwise wipe out
+      // already-executed commands from the display when switching back.
+      fullSequence: [],
+      fullSequenceName: null,
     }
     this.emit = this.emit.bind(this)
     this.setActivePanel = this.setActivePanel.bind(this)
@@ -102,7 +109,20 @@ class App extends React.Component {
           }
 
           newData(dataPoint)
-          this.setState({ data: data.data })
+
+          const stateUpdate = { data: data.data }
+          const newSequenceName = data.data.current_sequence_name
+          if (newSequenceName && newSequenceName !== this.state.fullSequenceName) {
+            // A different (or newly (re)loaded) sequence just appeared - at this instant
+            // nothing has executed yet, so the current list IS the full list.
+            stateUpdate.fullSequence = data.data.current_sequence || []
+            stateUpdate.fullSequenceName = newSequenceName
+          } else if (!newSequenceName && this.state.fullSequenceName) {
+            stateUpdate.fullSequence = []
+            stateUpdate.fullSequenceName = null
+          }
+          this.setState(stateUpdate)
+
           if (data.data.latest_warning) {
             this.pushWarning(data.data.latest_warning[0], data.data.latest_warning[1])
           }
@@ -150,7 +170,9 @@ class App extends React.Component {
             <div className='left-panel'>
               {this.state.activePanel === 'control' && (
                 <div className='control-with-progress'>
-                  <SequenceExecutionList state={this.state} />
+                  <SequenceExecutionList state={this.state}
+                    fullSequence={this.state.fullSequence}
+                    fullSequenceName={this.state.fullSequenceName} />
                   <ControlPanel state={this.state} emit={this.emit} />
                 </div>
               )}

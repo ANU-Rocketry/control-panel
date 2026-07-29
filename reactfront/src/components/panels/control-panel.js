@@ -23,28 +23,14 @@ function describeCommand(command) {
 
 // Shows every command in the currently loaded sequence (not just the remaining ones),
 // with the command actually executing right now highlighted and pointed to by an arrow.
-// The server only keeps track of remaining commands, so we snapshot the full list
-// ourselves the moment a sequence is freshly loaded (before anything has run).
-export function SequenceExecutionList({ state }) {
-    const [fullSequence, setFullSequence] = useState([]);
-    const [fullSequenceName, setFullSequenceName] = useState(null);
-
-    const currentName = state.data && state.data.current_sequence_name;
+// The server only keeps track of remaining commands, so fullSequence/fullSequenceName
+// are a snapshot captured (and owned) by the top-level App component - not here - since
+// this component unmounts whenever the user switches away from the Control Panel view,
+// which would otherwise wipe out already-executed commands from the display when
+// switching back.
+export function SequenceExecutionList({ state, fullSequence, fullSequenceName }) {
     const remaining = (state.data && state.data.current_sequence) || [];
     const inFlight = state.data && state.data.command_in_flight;
-
-    useEffect(() => {
-        if (currentName && currentName !== fullSequenceName) {
-            // A different (or newly loaded) sequence - at this instant nothing has run yet,
-            // so the remaining list is the full list.
-            setFullSequence(remaining);
-            setFullSequenceName(currentName);
-        } else if (!currentName && fullSequenceName) {
-            setFullSequence([]);
-            setFullSequenceName(null);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentName]);
 
     const completedCount = Math.max(0, fullSequence.length - remaining.length - (inFlight ? 1 : 0));
     const currentIndex = inFlight ? completedCount : -1;
