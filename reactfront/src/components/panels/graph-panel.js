@@ -80,12 +80,12 @@ export function Datalogger({
     deferredForceUpdate()
   })
 
-  function Component({ currentSeconds }) {
+  const Component = React.forwardRef(function Component({ currentSeconds }, downloadRef) {
     const svgRef = React.useRef(null)
     forceUpdate = React.useReducer(x => x + 1, 0)[1]
 
-    // Box model
-    const w = 620, h = 510;
+    // Box model - kept small since all dataloggers are shown at once, side by side
+    const w = 290, h = 230;
 
     // We avoid new Date().getTime() when possible because we want the epoch times to come from the same source as the data point times
     // This is so we can use system epoch times from systems without an accurate clock (e.g. a Raspberry Pi which was turned on without an
@@ -323,6 +323,10 @@ export function Datalogger({
       URL.revokeObjectURL(url)
     }
 
+    // Expose download actions to the parent GraphPanel, which drives them from a
+    // single shared dropdown + buttons instead of per-graph download buttons.
+    React.useImperativeHandle(downloadRef, () => ({ downloadSVG, downloadCSV }))
+
     const verticalLabels = events
       .map(({ time, ...e }) => ({ x: v2x(time - currentSeconds), ...e }))
       .filter(({ x }) => x >= p2x(0) - 10 && x <= p2x(1))
@@ -486,11 +490,9 @@ export function Datalogger({
             </g>
           )}
         </svg>
-        <button onClick={downloadSVG}>Download {label} SVG</button>
-        <button onClick={downloadCSV} style={{marginLeft: "10px"}}>Download {label} CSV</button>
       </div>
     )
-  }
+  })
 
   return Component
 }
@@ -575,16 +577,24 @@ const TemperatureDatalogger = Datalogger({
 })
 
 export default function GraphPanel({ state }) {
-  // 'pressure' | 'flow' | 'temperature'
-  const [activeTab, setActiveTab] = React.useState('pressure');
+  const pressureRef = React.useRef(null)
+  const flowRef = React.useRef(null)
+  const forceRef = React.useRef(null)
+  const voltageRef = React.useRef(null)
+  const temperatureRef = React.useRef(null)
 
-  const tabs = [
-    { id: 'pressure',  label: 'Pressure Sensors',  subtitle: 'Pressure Sensors (Bar)' },
-    { id: 'flow',      label: 'Flow Sensors',       subtitle: 'Flow Sensors (LPS)' },
-    { id: 'force',     label: 'Load Cell',  subtitle: 'Load Cell (kg)' },
-    { id: 'voltage',   label: 'Voltage Graph',     subtitle: 'Raw Voltages (V)' },
-    { id: 'temperature', label: 'Temperature Sensors', subtitle: 'Temperature (°C)' },
+  const graphs = [
+    { id: 'pressure', label: 'Pressure Sensors', subtitle: 'Pressure Sensors (Bar)', Datalogger: PressureDatalogger, ref: pressureRef },
+    { id: 'flow', label: 'Flow Sensors', subtitle: 'Flow Sensors (LPS)', Datalogger: FlowDatalogger, ref: flowRef },
+    { id: 'force', label: 'Load Cell', subtitle: 'Load Cell (kg)', Datalogger: ForceDatalogger, ref: forceRef },
+    { id: 'voltage', label: 'Voltage Graph', subtitle: 'Raw Voltages (V)', Datalogger: VoltageDatalogger, ref: voltageRef },
+    { id: 'temperature', label: 'Temperature Sensors', subtitle: 'Temperature (°C)', Datalogger: TemperatureDatalogger, ref: temperatureRef },
   ];
+
+  const [selectedGraphId, setSelectedGraphId] = React.useState('pressure');
+
+  const downloadSVG = () => graphs.find(g => g.id === selectedGraphId)?.ref.current?.downloadSVG()
+  const downloadCSV = () => graphs.find(g => g.id === selectedGraphId)?.ref.current?.downloadCSV()
 
   // Instead of using a cumbersome charting library, we use JSX with SVG to declaratively
   // and efficiently construct highly customisable graphs
@@ -592,57 +602,47 @@ export default function GraphPanel({ state }) {
     <Panel title="Graphs" className='panel graphs' style={{
         maxWidth: '850px',
         width: '650px',
-        height: '660px',
-        overflow: 'hidden'
-      }}>
-      {/* Toggle buttons */}
-      <div style={{
-        marginBottom: '15px',
+        height: '900px',
+        overflow: 'hidden',
         display: 'flex',
-        gap: '10px',
-        alignItems: 'center',
-        paddingBottom: '10px',
-        borderBottom: '1px solid #ddd'
+        flexDirection: 'column'
       }}>
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: activeTab === tab.id ? '#2196f3' : '#f5f5f5',
-              color: activeTab === tab.id ? 'white' : '#333',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: activeTab === tab.id ? 'bold' : 'normal'
-            }}
-          >
-            {tab.label}
-          </button>
+      {/* All graphs shown at once, side by side, wrapping as needed */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '12px',
+      }}>
+        {graphs.map(({ id, subtitle, Datalogger, ref }) => (
+          <div key={id}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#666', marginBottom: '4px' }}>
+              {subtitle}
+            </div>
+            <Datalogger ref={ref} currentSeconds={undefOnBadRef(() => state.data.time)} />
+          </div>
         ))}
-        <span style={{ marginLeft: '20px', fontSize: '16px', fontWeight: 'bold', color: '#666' }}>
-          {tabs.find(t => t.id === activeTab)?.subtitle}
-        </span>
       </div>
 
-      {/* Conditionally render the appropriate graph */}
-      {activeTab === 'pressure' && (
-        <PressureDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
-      )}
-      {activeTab === 'flow' && (
-        <FlowDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
-      )}
-      {activeTab === 'force' && (
-        <ForceDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
-      )}
-      {activeTab === 'voltage' && (
-        <VoltageDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
-      )}
-      {activeTab === 'temperature' && (
-        <TemperatureDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
-      )}
+      {/* Shared download controls for whichever graph is selected */}
+      <div style={{
+        borderTop: '1px solid #ddd',
+        marginTop: '10px',
+        paddingTop: '10px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+      }}>
+        <select value={selectedGraphId} onChange={e => setSelectedGraphId(e.target.value)}
+          style={{ padding: '6px' }}>
+          {graphs.map(g => (
+            <option key={g.id} value={g.id}>{g.label}</option>
+          ))}
+        </select>
+        <button onClick={downloadSVG}>Download SVG</button>
+        <button onClick={downloadCSV}>Download CSV</button>
+      </div>
     </Panel>
   )
 }
