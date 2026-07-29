@@ -36,7 +36,7 @@ class LOX:
     LOXSensor = ('LOX', 4)
     # OLD: analog 4-20mA cryo flow sensor, replaced by UART below
     # CryoFlowSensor = ('LOX', 2)  # New cryogenic flow sensor
-    InletPressureSensor = ('LOX', 7)
+    InletPressureSensor = ('LOX', 6)
     # OLD: Sensors = [N2Sensor[1], LOXSensor[1], CryoFlowSensor[1], InletPressureSensor[1]]
     Sensors = [N2Sensor[1], LOXSensor[1], InletPressureSensor[1]]
 
@@ -68,7 +68,7 @@ class ETH:
 
     N2Sensor = ('ETH', 5)
     ETHSensor = ('ETH', 4)
-    InletPressureSensor = ('ETH', 7)
+    InletPressureSensor = ('ETH', 6) 
     LoadCell = ('ETH', 0)  # FIO0 - DC voltage from load cell amplifier
     Sensors = [N2Sensor[1], ETHSensor[1], InletPressureSensor[1], LoadCell[1]]
 
