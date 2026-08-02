@@ -4,6 +4,7 @@ import sys
 import time
 import math
 import random
+import threading
 from stands import LOX, ETH
 
 def get_class(dev: bool) -> type:
@@ -125,13 +126,27 @@ class LabJack(LabJackBase):
         # print(self.device.configIO())
         self.device.configIO(FIOAnalog=x, EIOAnalog=0)
         self._tc_cache = None
-        self._tc_last_read = 0.0
         self._cryo_cache = None
-        self._cryo_last_read = 0.0
+
+        # Guards every actual self.device.* USB call. The cryo flow and thermocouple
+        # reads are both slow bit-banged reads (see _cryo_flow_worker /
+        # _thermocouple_worker) that run on their own background threads so they can't
+        # stall the main asyncio event loop - but the LabJack USB handle isn't safe for
+        # concurrent access from two threads, so both threads must serialize on this
+        # lock around individual device calls.
+        self._device_lock = threading.Lock()
+        self._cryo_lock = threading.Lock()
+        self._tc_lock = threading.Lock()
+
+        if hasattr(standConfig, 'CryoFlowUART'):
+            threading.Thread(target=self._cryo_flow_worker, daemon=True).start()
+        if hasattr(standConfig, 'Thermocouple'):
+            threading.Thread(target=self._thermocouple_worker, daemon=True).start()
 
     def _get_digital_state(self, pin_number: int) -> bool:
         try:
-            return self.device.getDIOState(pin_number)
+            with self._device_lock:
+                return self.device.getDIOState(pin_number)
         except Exception:
             print(pin_number)
             print_exc()
@@ -140,7 +155,8 @@ class LabJack(LabJackBase):
 
     def _set_digital_state(self, pin_number: int, state: bool):
         # Set the value in the hardware
-        self.device.setDIOState(pin_number, state=int(state))
+        with self._device_lock:
+            self.device.setDIOState(pin_number, state=int(state))
 
     def _set_valve_state(self, pin_number: int, open: bool):
         """
@@ -163,7 +179,8 @@ class LabJack(LabJackBase):
 
     def get_voltage(self, pin_number: int) -> float:
         try:
-            return self.device.getAIN(pin_number)
+            with self._device_lock:
+                return self.device.getAIN(pin_number)
         except Exception:
             print(pin_number)
             print_exc()
@@ -201,36 +218,49 @@ class LabJack(LabJackBase):
             return None
         return (v >> 3) * 0.25                 # bits 14:3 → °C at 0.25°C resolution
 
+    def _thermocouple_worker(self):
+        """
+        Runs on a dedicated background thread for the lifetime of the process. A full
+        median-of-3 MAX6675 read takes ~100-150ms of SPI bit-banging (24 SCK toggles x
+        1ms x 3 reads, plus settle delays) - previously this ran synchronously inside
+        the main asyncio event loop once per second per stand, stalling the 20Hz state
+        broadcast (and the other stand's reads) for that whole time every second. Moving
+        it here keeps get_thermocouple_temp() a fast, non-blocking cache read, the same
+        fix already applied to the cryo flow UART read.
+        """
+        tc = self.config.Thermocouple
+        sck, cs, so = tc['sck'], tc['cs'], tc['so']
+        while True:
+            try:
+                readings = []
+                for _ in range(3):
+                    val = self._read_thermocouple_once(sck, cs, so)
+                    if val is not None:
+                        readings.append(val)
+                    time.sleep(0.005)  # 5ms between reads — MAX6675 needs time to settle
+
+                temp = sorted(readings)[len(readings) // 2] if readings else None
+                with self._tc_lock:
+                    self._tc_cache = temp
+            except Exception:
+                try:
+                    self._set_digital_state(cs, True)
+                except Exception:
+                    pass
+                print_exc()
+            time.sleep(1.0)  # matches the sensor's own ~1s update cadence
+
     def get_thermocouple_temp(self) -> float | None:
-        """Read temperature from MAX6675, taking median of 3 reads to reject noise spikes.
-        A single bad SPI read (from EMI or relay switching) gets outvoted by the other two.
+        """
+        Returns the most recent MAX6675 temperature reading (median of 3, to reject
+        noise spikes from EMI/relay switching). Non-blocking: the actual SPI bit-bang
+        read happens continuously on a background thread (_thermocouple_worker) and
+        this just reads its latest cached result.
         """
         if not hasattr(self.config, 'Thermocouple'):
             return None
-        now = time.time()
-        if now - self._tc_last_read < 1.0:
+        with self._tc_lock:
             return self._tc_cache
-        tc = self.config.Thermocouple
-        sck, cs, so = tc['sck'], tc['cs'], tc['so']
-        try:
-            readings = []
-            for _ in range(3):
-                val = self._read_thermocouple_once(sck, cs, so)
-                if val is not None:
-                    readings.append(val)
-                time.sleep(0.005)              # 5ms between reads — MAX6675 needs time to settle
-
-            temp = sorted(readings)[len(readings) // 2] if readings else None
-        except Exception:
-            try:
-                self._set_digital_state(cs, True)
-            except Exception:
-                pass
-            print_exc()
-            temp = None
-        self._tc_cache = temp
-        self._tc_last_read = now
-        return temp
 
     def _uart_read_byte(self, rx_pin: int, bit_period: float, timeout: float = 0.5) -> int | None:
         """
@@ -238,10 +268,14 @@ class LabJack(LabJackBase):
         Returns None if no start bit appears within `timeout` seconds.
         """
         deadline = time.time() + timeout
-        # Idle is HIGH; wait for the line to drop (start bit)
+        # Idle is HIGH; wait for the line to drop (start bit). A short sleep between
+        # polls keeps this from hammering the USB connection with back-to-back reads
+        # while the line is idle (which could otherwise starve the main thread's
+        # valve/sensor reads of their share of the shared _device_lock).
         while self._get_digital_state(rx_pin):
             if time.time() > deadline:
                 return None
+            time.sleep(0.001)
 
         # Skip past the start bit into the middle of data bit 0
         time.sleep(bit_period * 1.5)
@@ -270,32 +304,39 @@ class LabJack(LabJackBase):
             chars.append(char)
         return ''.join(chars) if chars else None
 
+    def _cryo_flow_worker(self):
+        """
+        Runs on a dedicated background thread for the lifetime of the process, so the
+        slow bit-banged UART read (up to ~0.5s per byte while waiting for a start bit,
+        multiplied by up to 80 bytes) never blocks the main asyncio event loop that
+        drives the 20Hz state broadcast and valve/sensor reads for both stands.
+        Individual USB calls still serialize with the main thread via _device_lock,
+        but that's a few-ms wait at worst instead of the whole read.
+        """
+        cfg = self.config.CryoFlowUART
+        while True:
+            line = self._uart_read_line(cfg['rx'], cfg['baud'])
+            if line:
+                parts = line.strip().split(',')
+                if len(parts) == 4:
+                    try:
+                        value = float(parts[3])
+                        with self._cryo_lock:
+                            self._cryo_cache = value
+                    except ValueError:
+                        pass  # not a data row (e.g. header), keep last good value
+            time.sleep(1.0)  # matches the sensor's own ~1s update cadence
+
     def get_cryo_flow_lps(self) -> float | None:
         """
-        Reads one CSV line from the cryo flow meter's UART stream
-        (timestamp_ms,freq_Hz,filtered_Hz,L_per_s) and returns the L_per_s column.
-        Throttled to once per second; returns the last good value on parse/timeout
-        failures (e.g. the "=== LOGGING ON ===" header line) so a bad read doesn't
-        blank the display.
+        Returns the most recent L_per_s reading from the cryo flow meter.
+        Non-blocking: the actual UART read happens continuously on a background
+        thread (_cryo_flow_worker) and this just reads its latest cached result.
         """
         if not hasattr(self.config, 'CryoFlowUART'):
             return None
-        now = time.time()
-        if now - self._cryo_last_read < 1.0:
+        with self._cryo_lock:
             return self._cryo_cache
-
-        cfg = self.config.CryoFlowUART
-        line = self._uart_read_line(cfg['rx'], cfg['baud'])
-        if line:
-            parts = line.strip().split(',')
-            if len(parts) == 4:
-                try:
-                    self._cryo_cache = float(parts[3])
-                except ValueError:
-                    pass  # not a data row (e.g. header), keep last good value
-
-        self._cryo_last_read = now
-        return self._cryo_cache
 
 class LabJackFake(LabJackBase):
     """
