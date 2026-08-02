@@ -58,6 +58,10 @@ class SystemState:
     # * partially finished sleeps
     # * commands that have already run in an actively running sequence
     current_sequence: list[ServerCommand] = field(default_factory=list)
+    # Name of the sequence file current_sequence was loaded from (without .py), or None if unloaded
+    current_sequence_name: str | None = None
+    # Names (without .py) of all sequence files available on disk, for the frontend's dropdown
+    available_sequences: list[str] = field(default_factory=list)
     # Is the current_sequence in progress?
     status: SequenceStatus = SequenceStatus.IDLE
     # The current sequence command being executed, if the sequence is running
@@ -110,8 +114,18 @@ class ControlPanelServer:
         self.port = port
         self.clients = set()
 
+        self.refresh_available_sequences()
+
         print(f"Hosting server on {ip} port {port}")
-    
+
+    def refresh_available_sequences(self):
+        # Scan src/sequences for .py files so the frontend can offer a dropdown of them
+        sequence_dir = Path(__file__).parent / 'sequences'
+        sequence_dir.mkdir(exist_ok=True)
+        self.state.available_sequences = sorted(
+            f.stem for f in sequence_dir.glob('*.py')
+        )
+
     async def timeout_counter(self):
         # run the abort sequence once when no devices have been connected for `ABORT_SEQUENCE_TIMOUT` seconds
         while True:
@@ -215,12 +229,14 @@ class ControlPanelServer:
                 pass # let the existing abort continue
             case SequenceStatus.IDLE:
                 self.state.current_sequence = self.load_sequence('abort')
+                self.state.current_sequence_name = 'abort'
                 self.execute_sequence(initial_state=SequenceStatus.ABORTING)
             case SequenceStatus.RUNNING:
                 # the sleep will pick up the abort request and break out early,
                 # # so we can just overwrite the rest of the sequence with the abort
                 self.state.status = SequenceStatus.ABORT_REQUESTED
                 self.state.current_sequence = self.load_sequence('abort')
+                self.state.current_sequence_name = 'abort'
     
     #NEW_CHANGES
     #Created functions to create new sequences and get the content of existing sequences
@@ -239,7 +255,7 @@ class ControlPanelServer:
             print(f"Attempting to save sequence: {name}")
             
             # Validate the sequence name for security
-            if not name.isalnum() and name == "abort":
+            if not name or not name.isalnum():
                 print(f"Invalid sequence name: {name}")
                 self.push_warning(f"Invalid sequence name: {name}. Use only alphanumeric characters.")
                 return False
@@ -279,6 +295,49 @@ class ControlPanelServer:
         except Exception as e:
             print(f"Error saving sequence {name}: {str(e)}")
             self.push_warning(f"Failed to save sequence {name}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    async def delete_sequence(self, name: str):
+        """
+        Delete a sequence file.
+
+        Args:
+            name: Name of the sequence file to delete (without .py extension)
+
+        Returns:
+            Success status as boolean
+        """
+        try:
+            if not name or not name.isalnum():
+                self.push_warning(f"Invalid sequence name: {name}. Use only alphanumeric characters.")
+                return False
+
+            # The abort sequence is required for safety and must never be deletable
+            if name == "abort":
+                self.push_warning("Cannot delete the abort sequence")
+                return False
+
+            file_path = Path(__file__).parent / 'sequences' / f"{name}.py"
+            if not file_path.exists():
+                self.push_warning(f"Sequence {name} does not exist")
+                return False
+
+            file_path.unlink()
+            print(f"Deleted sequence: {name}")
+            self.log_data({"sequence": name, "action": "deleted"}, type="SEQUENCE_EDIT")
+
+            # If the deleted sequence was the one currently loaded, unload it
+            if self.state.current_sequence_name == name:
+                self.state.current_sequence = []
+                self.state.current_sequence_name = None
+
+            return True
+
+        except Exception as e:
+            print(f"Error deleting sequence {name}: {str(e)}")
+            self.push_warning(f"Failed to delete sequence {name}: {str(e)}")
             import traceback
             traceback.print_exc()
             return False
@@ -355,6 +414,7 @@ class ControlPanelServer:
                 if self.state.arming_switch:
                     try:
                         self.state.current_sequence = self.load_sequence(data)
+                        self.state.current_sequence_name = data
                     except:
                         self.push_warning(f"Could not load sequence {data}")
 
@@ -375,11 +435,32 @@ class ControlPanelServer:
                     self.state.status = SequenceStatus.IDLE
                     self.state.command_in_flight = None
                     self.state.current_sequence = []
-            
+                    self.state.current_sequence_name = None
+
             case ClientCommandString.SAVESEQUENCE:
                 if self.state.arming_switch:  # Require arming switch for safety
                     success = await self.save_sequence(data['name'], data['commands'])
+                    if success:
+                        # Update the live state immediately so all clients (including ones
+                        # that reconnect later) see the saved commands without relying on
+                        # a separate SETSEQUENCE round trip
+                        try:
+                            self.state.current_sequence = self.load_sequence(data['name'])
+                            self.state.current_sequence_name = data['name']
+                        except:
+                            self.push_warning(f"Saved {data['name']} but could not reload it")
+                        self.refresh_available_sequences()
                     await self.emit(ws, 'SEQUENCE_SAVED', {'name': data['name'], 'success': success})
+
+            case ClientCommandString.DELETESEQUENCE:
+                if self.state.arming_switch:  # Require arming switch for safety
+                    success = await self.delete_sequence(data)
+                    if success:
+                        self.refresh_available_sequences()
+                    await self.emit(ws, 'SEQUENCE_DELETED', {'name': data, 'success': success})
+                else:
+                    self.push_warning("Arming must be enabled to delete a sequence")
+                    await self.emit(ws, 'SEQUENCE_DELETED', {'name': data, 'success': False})
 
             case ClientCommandString.GETSEQUENCE:
                 content = await self.get_sequence_content(data)

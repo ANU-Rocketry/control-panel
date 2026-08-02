@@ -2,10 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 import { TopBar } from "./components/index"
-import SafetyPanel from './components/panels/safety-panel';
 import GraphPanel, { newData, newEvent, pinFromID } from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';
-import ControlPanel from './components/panels/control-panel';
+import ControlPanel, { SequenceExecutionList } from './components/panels/control-panel';
 import { formatDataPoint, emptyDataPoint } from './utils';
 import { undefOnBadRef } from "./components/graph-utils.js"
 import { Snackbar, Button } from '@material-ui/core'
@@ -21,8 +20,17 @@ class App extends React.Component {
       defaultWSAddress: "192.168.0.5",
       events: [],
       socketStatus: -1,
+      activePanel: 'control',
+      // Snapshot of the full sequence command list, captured the moment it's freshly
+      // loaded (before anything has executed). Kept here in App - not inside
+      // SequenceExecutionList - because that component unmounts whenever the user
+      // switches away from the Control Panel view, which would otherwise wipe out
+      // already-executed commands from the display when switching back.
+      fullSequence: [],
+      fullSequenceName: null,
     }
     this.emit = this.emit.bind(this)
+    this.setActivePanel = this.setActivePanel.bind(this)
     // Rolling average buffer for LOX Flow to suppress noise spikes before graphing.
     // 10 samples at 20Hz = 0.5s smoothing window.
     this.loxFlowBuffer = []
@@ -101,7 +109,20 @@ class App extends React.Component {
           }
 
           newData(dataPoint)
-          this.setState({ data: data.data })
+
+          const stateUpdate = { data: data.data }
+          const newSequenceName = data.data.current_sequence_name
+          if (newSequenceName && newSequenceName !== this.state.fullSequenceName) {
+            // A different (or newly (re)loaded) sequence just appeared - at this instant
+            // nothing has executed yet, so the current list IS the full list.
+            stateUpdate.fullSequence = data.data.current_sequence || []
+            stateUpdate.fullSequenceName = newSequenceName
+          } else if (!newSequenceName && this.state.fullSequenceName) {
+            stateUpdate.fullSequence = []
+            stateUpdate.fullSequenceName = null
+          }
+          this.setState(stateUpdate)
+
           if (data.data.latest_warning) {
             this.pushWarning(data.data.latest_warning[0], data.data.latest_warning[1])
           }
@@ -135,21 +156,28 @@ class App extends React.Component {
       time: new Date().getTime()
     }));
   }
+  setActivePanel(panel) {
+    this.setState({ activePanel: panel })
+  }
 
-  
   render() {
     return (
       <div>
-        <TopBar />
+        <TopBar state={this.state} emit={this.emit} sockStatus={this.state.socketStatus} that={this}
+          activePanel={this.state.activePanel} setActivePanel={this.setActivePanel} />
         <div className='panels-root'>
-          <div className='panel-row-1'>
-            <SafetyPanel state={this.state} emit={this.emit} sockStatus={this.state.socketStatus} that={this} />
-            <Sequences state={this.state} emit={this.emit} />
-          </div>
-          <div className='panel-row-2'>
-            <div className='left-column'>
-              <ControlPanel state={this.state} emit={this.emit} />
-              <CalibrationPanel />
+          <div className='main-layout'>
+            <div className='left-panel'>
+              {this.state.activePanel === 'control' && (
+                <div className='control-with-progress'>
+                  <SequenceExecutionList state={this.state}
+                    fullSequence={this.state.fullSequence}
+                    fullSequenceName={this.state.fullSequenceName} />
+                  <ControlPanel state={this.state} emit={this.emit} />
+                </div>
+              )}
+              {this.state.activePanel === 'sequence' && <Sequences state={this.state} emit={this.emit} />}
+              {this.state.activePanel === 'calibration' && <CalibrationPanel />}
             </div>
             <GraphPanel state={this.state} emit={this.emit} />
           </div>

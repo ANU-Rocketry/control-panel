@@ -1,5 +1,5 @@
 :root {
-  --top-bar-height: 54px;
+  --top-bar-height: 120px;
   --top-bar-color: rgba(18, 43, 81);
   --background-color: rgba(18, 43, 81, 0.1);
   background-color: var(--background-color);
@@ -28,36 +28,29 @@ html, body, #root, #root > div {
 .panels-root {
   position: absolute;
   top: var(--top-bar-height);
-  height: calc(100% - 64px);
+  height: calc(100% - var(--top-bar-height) - 10px);
 }
 
 .panel {
   width: 50%;
-  padding: 0px 5px;
-  margin: 12px;
+  padding: 0px 0px;
+  margin: 0px 12px 12px;
   height: 100%;
 }
 
-.panel-row-1 {
-  height: 300px;
+.main-layout {
+  height: 100%;
   display: flex;
 }
 
-.panel-row-2 {
-  height: calc(100% - 300px);
-  display: flex;
-}
-
-/* New left column for stacking Control and Calibration panels */
-.left-column {
+.left-panel {
   display: flex;
   flex-direction: column;
-  gap: 0px;
 }
 
-.left-column .panel {
-  width: 800px;
-  margin: 12px;
+.control-with-progress {
+  display: flex;
+  flex-direction: row;
 }
 
 h1,h2,h3,h4,h5,h6 {
@@ -73,7 +66,7 @@ h2 { font-size: 1.2rem; }
   display: flex;
   height: 100%;
   justify-content: space-around;
-  align-items: flex-start;
+  
 }
 
 .active, .inactive {
@@ -87,6 +80,15 @@ h2 { font-size: 1.2rem; }
   padding: 0.5rem 1rem;
 }
 
+/* Wraps .control-panel at its native 790x569 size and clips it down to the scaled
+   footprint below, so every absolute-positioned valve switch (fixed-pixel coordinates
+   tied to the background art) scales down uniformly without needing to be recalculated. */
+.control-panel-scale-wrapper {
+  width: 800px;
+  height: 500px;
+  overflow: hidden;
+}
+
 .control-panel {
   background-image: url(labjack.svg);
   background-size: 112%;
@@ -95,6 +97,8 @@ h2 { font-size: 1.2rem; }
   position: relative;
   width: 790px;
   height: 569px;
+  transform: scale(0.89);
+  transform-origin: top left;
 }
 
 /* ETH and LOX labels for control panel */
@@ -120,22 +124,28 @@ h2 { font-size: 1.2rem; }
 }
 
 .panel.control {
-  width: 790px;
-  height: auto;
+  width: 710px;
+  height: 660px;
+}
+
+.panel.sequence-execution {
+  width: 240px;
+  height: 700px;
 }
 
 .panel.sequences {
   width: 800px;
+  height: 700px;
 }
 
 .panel.calibration {
   width: 790px;
-  height: auto;
+  height: 700px;
 }
 
 .panel.graphs {
-  width: calc(100% - 850px);
-  height: 640px;
+  width: 650px;
+  height: 700px;
 }
 
 .panel.safety .safety-card {
@@ -211,12 +221,14 @@ input[type='file'] {
 .top-bar {
   width: 100%;
   height: var(--top-bar-height);
+  box-sizing: border-box;
   display: flex;
-  align-items: left;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 10px;
   background-color: var(--top-bar-color);
   color: white;
-  padding: 0 10px;
-  gap: 6px;
+  padding: 10px 16px;
   margin: 0;
   position: fixed;
   top: 0;
@@ -225,11 +237,92 @@ input[type='file'] {
   z-index: 10000;
 }
 
+.top-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-bar-left img {
+  height: 32px;
+}
+
 .top-bar h1 {
-  height: var(--top-bar-height);
   margin: 0;
   padding: 0;
-  line-height: var(--top-bar-height);
+  font-size: 1.4rem;
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  font-size: 0.95rem;
+}
+
+.top-bar-toggles {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.top-bar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-bar-toggle span {
+  font-weight: 500;
+}
+
+.top-bar .inactive {
+  color: #b8c2d9;
+}
+
+.header-abort-button {
+  padding: 8px 22px;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+}
+
+.top-bar-panel-switch {
+  font-size: 18px;
+  display: flex;
+  gap: 8px;
+}
+
+.top-bar-panel-switch button {
+  padding: 4px 14px;
+  font-size: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.top-bar-panel-switch button.active-panel-button {
+  background: white;
+  color: var(--top-bar-color);
+  border-color: white;
+  font-weight: bold;
+}
+
+.top-bar-status-text {
+  display: flex;
+  gap: 18px;
+  font-size: 1.1rem;
+  color: #d7ddec;
 }
 
 /* Sensor display styles */

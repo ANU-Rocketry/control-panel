@@ -1,4 +1,4 @@
-Close(ETH.Purge)
+Close(ETH.Vent)
 Close(LOX.Vent)
 Sleep(seconds=5.0)
 Open(ETH.Pressure)
