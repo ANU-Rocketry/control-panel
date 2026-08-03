@@ -101,7 +101,7 @@
             "position": { "width": 3.1, "height": 6.8, "x": 15.75, "y": 6.9, "shape": "pill" }
         }, {
             "pin": {
-                "test_stand": "LOX", "labjack_pin": 2, "sensorNumber": 4,
+                "test_stand": "LOX", "labjack_pin": 5, "sensorNumber": 4,
                 "full_name": "Cryogenic Flow Sensor", "abbrev": "lox_cryo"
             },
             "position": { "width": 3.5, "height": 3, "x": 26.5, "y": 17 }

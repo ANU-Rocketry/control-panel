@@ -127,19 +127,24 @@ class LabJack(LabJackBase):
         self.device.configIO(FIOAnalog=x, EIOAnalog=0)
         self._tc_cache = None
         self._cryo_cache = None
+        self._cryo_line_buffer = ''
 
-        # Guards every actual self.device.* USB call. The cryo flow and thermocouple
-        # reads are both slow bit-banged reads (see _cryo_flow_worker /
-        # _thermocouple_worker) that run on their own background threads so they can't
-        # stall the main asyncio event loop - but the LabJack USB handle isn't safe for
-        # concurrent access from two threads, so both threads must serialize on this
-        # lock around individual device calls.
+        # Guards every actual self.device.* USB call. The thermocouple read is a slow
+        # bit-banged SPI read (see _thermocouple_worker) that runs on its own background
+        # thread so it can't stall the main asyncio event loop - but the LabJack USB
+        # handle isn't safe for concurrent access from two threads, so both threads must
+        # serialize on this lock around individual device calls. (The cryo flow read
+        # doesn't need this treatment: it uses the U3's own onboard hardware UART
+        # peripheral - see get_cryo_flow_lps - so it's a single fast USB call, not a
+        # blocking bit-bang loop, and can run directly on the main thread.)
         self._device_lock = threading.Lock()
-        self._cryo_lock = threading.Lock()
         self._tc_lock = threading.Lock()
 
         if hasattr(standConfig, 'CryoFlowUART'):
-            threading.Thread(target=self._cryo_flow_worker, daemon=True).start()
+            # Enables the U3's onboard hardware UART (see section 4.1.12 of the U3
+            # datasheet). configurePins=True routes TX/RX to FIO4/FIO5 (the default
+            # offset) - get_cryo_flow_lps() just polls the resulting hardware RX buffer.
+            self.device.asynchConfig(UARTEnable=True, DesiredBaud=standConfig.CryoFlowUART['baud'], configurePins=True)
         if hasattr(standConfig, 'Thermocouple'):
             threading.Thread(target=self._thermocouple_worker, daemon=True).start()
 
@@ -262,81 +267,40 @@ class LabJack(LabJackBase):
         with self._tc_lock:
             return self._tc_cache
 
-    def _uart_read_byte(self, rx_pin: int, bit_period: float, timeout: float = 0.5) -> int | None:
-        """
-        Bit-bang read one UART byte (8 data bits, no parity, 1 stop bit) from rx_pin.
-        Returns None if no start bit appears within `timeout` seconds.
-        """
-        deadline = time.time() + timeout
-        # Idle is HIGH; wait for the line to drop (start bit). A short sleep between
-        # polls keeps this from hammering the USB connection with back-to-back reads
-        # while the line is idle (which could otherwise starve the main thread's
-        # valve/sensor reads of their share of the shared _device_lock).
-        while self._get_digital_state(rx_pin):
-            if time.time() > deadline:
-                return None
-            time.sleep(0.001)
-
-        # Skip past the start bit into the middle of data bit 0
-        time.sleep(bit_period * 1.5)
-
-        byte = 0
-        for i in range(8):
-            if self._get_digital_state(rx_pin):
-                byte |= (1 << i)  # LSB first
-            time.sleep(bit_period)
-
-        return byte
-
-    def _uart_read_line(self, rx_pin: int, baud: int, max_chars: int = 80) -> str | None:
-        """Bit-bang read ASCII characters from rx_pin until a newline, or None on timeout."""
-        bit_period = 1.0 / baud
-        chars = []
-        for _ in range(max_chars):
-            byte = self._uart_read_byte(rx_pin, bit_period)
-            if byte is None:
-                break
-            char = chr(byte)
-            if char in ('\n', '\r'):
-                if chars:
-                    break
-                continue  # skip leading line endings
-            chars.append(char)
-        return ''.join(chars) if chars else None
-
-    def _cryo_flow_worker(self):
-        """
-        Runs on a dedicated background thread for the lifetime of the process, so the
-        slow bit-banged UART read (up to ~0.5s per byte while waiting for a start bit,
-        multiplied by up to 80 bytes) never blocks the main asyncio event loop that
-        drives the 20Hz state broadcast and valve/sensor reads for both stands.
-        Individual USB calls still serialize with the main thread via _device_lock,
-        but that's a few-ms wait at worst instead of the whole read.
-        """
-        cfg = self.config.CryoFlowUART
-        while True:
-            line = self._uart_read_line(cfg['rx'], cfg['baud'])
-            if line:
-                parts = line.strip().split(',')
-                if len(parts) == 4:
-                    try:
-                        value = float(parts[3])
-                        with self._cryo_lock:
-                            self._cryo_cache = value
-                    except ValueError:
-                        pass  # not a data row (e.g. header), keep last good value
-            time.sleep(1.0)  # matches the sensor's own ~1s update cadence
-
     def get_cryo_flow_lps(self) -> float | None:
         """
-        Returns the most recent L_per_s reading from the cryo flow meter.
-        Non-blocking: the actual UART read happens continuously on a background
-        thread (_cryo_flow_worker) and this just reads its latest cached result.
+        Reads any newly buffered bytes from the U3's onboard hardware UART peripheral
+        (enabled once in __init__ via asynchConfig - see 4.1.12 in the U3 datasheet)
+        and parses the latest complete CSV line (timestamp_ms,freq_Hz,filtered_Hz,L_per_s)
+        for the L_per_s column. asynchRX() is a single fast USB call that just fetches
+        bytes the UART hardware has already received and decoded on-device - unlike the
+        old GPIO bit-banging approach, there's no blocking wait here, so this can run
+        directly in the main loop like any other sensor read.
         """
         if not hasattr(self.config, 'CryoFlowUART'):
             return None
-        with self._cryo_lock:
+        try:
+            with self._device_lock:
+                result = self.device.asynchRX()
+            n = min(32, result['NumAsynchBytesInRXBuffer'])
+            if n > 0:
+                self._cryo_line_buffer += bytes(result['AsynchBytes'][:n]).decode('ascii', errors='ignore')
+                if len(self._cryo_line_buffer) > 500:  # guard against runaway growth if we ever lose sync
+                    self._cryo_line_buffer = self._cryo_line_buffer[-500:]
+        except Exception:
+            print_exc()
             return self._cryo_cache
+
+        while '\n' in self._cryo_line_buffer:
+            line, self._cryo_line_buffer = self._cryo_line_buffer.split('\n', 1)
+            parts = line.strip().split(',')
+            if len(parts) == 4:
+                try:
+                    self._cryo_cache = float(parts[3])
+                except ValueError:
+                    pass  # not a data row (e.g. header), keep last good value
+
+        return self._cryo_cache
 
 class LabJackFake(LabJackBase):
     """
