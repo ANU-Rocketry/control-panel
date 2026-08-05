@@ -10,6 +10,36 @@ import { undefOnBadRef } from "./components/graph-utils.js"
 import { Snackbar, Button } from '@material-ui/core'
 import CalibrationPanel from './components/panels/calibration-panel';
 
+// Live view of the server's debug log (see server.py's log_debug / labjack.py's [CRYO]
+// diagnostics), so you can see what's happening on the Pi without needing SSH/terminal
+// access to it. Collapsible so it doesn't permanently eat screen space.
+function DebugLogPanel({ debugLog }) {
+  const [collapsed, setCollapsed] = React.useState(false)
+  const logRef = React.useRef(null)
+
+  React.useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight
+    }
+  }, [debugLog])
+
+  return (
+    <div className='debug-log-panel'>
+      <div className='debug-log-header' onClick={() => setCollapsed(!collapsed)}>
+        <span>Debug Log{debugLog.length ? ` (${debugLog.length})` : ''}</span>
+        <span>{collapsed ? '▲ show' : '▼ hide'}</span>
+      </div>
+      {!collapsed && (
+        <div className='debug-log-body' ref={logRef}>
+          {debugLog.length === 0
+            ? <div className='debug-log-empty'>No debug messages yet</div>
+            : debugLog.map((line, i) => <div key={i}>{line}</div>)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 class App extends React.Component {
 
   constructor(props) {
@@ -194,6 +224,7 @@ class App extends React.Component {
             />
           )}
         </div>
+        <DebugLogPanel debugLog={(this.state.data && this.state.data.debug_log) || []} />
       </div>
     )
   }

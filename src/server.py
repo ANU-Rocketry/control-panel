@@ -70,6 +70,10 @@ class SystemState:
     data_logging: bool = False
     # Warning to display in the client, as a (epoch milliseconds, message) tuple
     latest_warning: tuple[int, str] | None = None
+    # Rolling buffer of recent debug log lines (e.g. cryo flow UART diagnostics), shown
+    # in a live log panel on the frontend for debugging without needing terminal access
+    # to the Pi. Capped in ControlPanelServer.log_debug() so this can't grow unbounded.
+    debug_log: list[str] = field(default_factory=list)
     # LabJack sensor data - state['LOX']['analog'][pin_no] is a voltage for instance
     # Note this is not necessarily up-to-date: it's computed from LabJack.get_state()
     # before sending this entire object as JSON to the client
@@ -100,8 +104,8 @@ class ControlPanelServer:
         self.labjacks = {}
 
         try:
-            self.labjacks['LOX'] = get_class(devMode)(LOX)
-            self.labjacks['ETH'] = get_class(devMode)(ETH)
+            self.labjacks['LOX'] = get_class(devMode)(LOX, log_callback=self.log_debug)
+            self.labjacks['ETH'] = get_class(devMode)(ETH, log_callback=self.log_debug)
         except:
             print_exc()
             print('''
@@ -158,6 +162,16 @@ class ControlPanelServer:
 
     def push_warning(self, msg: str):
         self.state.latest_warning = ( utils.time_ms(), msg )
+
+    def log_debug(self, msg: str):
+        # Still prints to the terminal (useful when you do have it), and also keeps a
+        # rolling buffer in state so the frontend can show it live without needing
+        # terminal/SSH access to the Pi at all.
+        print(msg)
+        timestamp = time.strftime('%H:%M:%S')
+        self.state.debug_log.append(f"[{timestamp}] {msg}")
+        if len(self.state.debug_log) > 50:
+            self.state.debug_log = self.state.debug_log[-50:]
 
     async def get_UPS_status(self):
         if not devMode:

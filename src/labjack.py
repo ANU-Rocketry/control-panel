@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from traceback import print_exc
+from traceback import print_exc, format_exc
 import sys
 import time
 import math
@@ -107,12 +107,16 @@ class LabJack(LabJackBase):
     be installed before instantiating a LabJack object.
     """
 
-    def __init__(self, standConfig: type):
+    def __init__(self, standConfig: type, log_callback=print):
         """Opens a USB connection to a LabJack and configures whether pins are analog/digital"""
         self.config = standConfig
         self.digital_pins = standConfig.Valves
         self.analog_inputs = standConfig.Sensors
         self.light_stand_pins = standConfig.LightStand.LightStand
+        # Used for [CRYO] diagnostics below. Defaults to plain print() so this class
+        # still works standalone; server.py passes its own log_debug so these messages
+        # also show up live in the frontend's debug log panel, not just the terminal.
+        self._log = log_callback
         # Import LabJackPython (Python imports are cached so this only happens once)
         import LabJackPython
         # if you get an error here do `sudo pip uninstall LabJackPython` and then `sudo pip install LabJackPython==2.0.4`
@@ -128,6 +132,7 @@ class LabJack(LabJackBase):
         self._tc_cache = None
         self._cryo_cache = None
         self._cryo_line_buffer = ''
+        self._cryo_last_debug_print = 0.0
 
         # Guards every actual self.device.* USB call. The thermocouple read is a slow
         # bit-banged SPI read (see _thermocouple_worker) that runs on its own background
@@ -144,7 +149,8 @@ class LabJack(LabJackBase):
             # Enables the U3's onboard hardware UART (see section 4.1.12 of the U3
             # datasheet). configurePins=True routes TX/RX to FIO4/FIO5 (the default
             # offset) - get_cryo_flow_lps() just polls the resulting hardware RX buffer.
-            self.device.asynchConfig(UARTEnable=True, DesiredBaud=standConfig.CryoFlowUART['baud'], configurePins=True)
+            result = self.device.asynchConfig(UARTEnable=True, DesiredBaud=standConfig.CryoFlowUART['baud'], configurePins=True)
+            self._log(f"[CRYO] asynchConfig on {standConfig.name}: {result} (requested baud={standConfig.CryoFlowUART['baud']})")
         if hasattr(standConfig, 'Thermocouple'):
             threading.Thread(target=self._thermocouple_worker, daemon=True).start()
 
@@ -284,21 +290,36 @@ class LabJack(LabJackBase):
                 result = self.device.asynchRX()
             n = min(32, result['NumAsynchBytesInRXBuffer'])
             if n > 0:
-                self._cryo_line_buffer += bytes(result['AsynchBytes'][:n]).decode('ascii', errors='ignore')
+                chunk = bytes(result['AsynchBytes'][:n]).decode('ascii', errors='replace')
+                self._log(f"[CRYO] {self.config.name}: received {n} bytes: {chunk!r}")
+                self._cryo_line_buffer += chunk
                 if len(self._cryo_line_buffer) > 500:  # guard against runaway growth if we ever lose sync
                     self._cryo_line_buffer = self._cryo_line_buffer[-500:]
+            else:
+                # Throttled so this doesn't spam the terminal at 20Hz - lets you
+                # confirm the poll loop itself is alive even when nothing is arriving.
+                now = time.time()
+                if now - self._cryo_last_debug_print > 2.0:
+                    self._log(f"[CRYO] {self.config.name}: polling, 0 bytes in RX buffer")
+                    self._cryo_last_debug_print = now
         except Exception:
-            print_exc()
+            # Routed through self._log (not print_exc) so this shows up in the
+            # frontend debug log too, not just the terminal.
+            self._log(f"[CRYO] {self.config.name}: error reading UART:\n{format_exc()}")
             return self._cryo_cache
 
         while '\n' in self._cryo_line_buffer:
             line, self._cryo_line_buffer = self._cryo_line_buffer.split('\n', 1)
-            parts = line.strip().split(',')
+            stripped = line.strip()
+            parts = stripped.split(',')
             if len(parts) == 4:
                 try:
                     self._cryo_cache = float(parts[3])
+                    self._log(f"[CRYO] {self.config.name}: parsed line {stripped!r} -> L/s={self._cryo_cache}")
                 except ValueError:
-                    pass  # not a data row (e.g. header), keep last good value
+                    self._log(f"[CRYO] {self.config.name}: line {stripped!r} has 4 fields but last one isn't a number")
+            elif stripped:
+                self._log(f"[CRYO] {self.config.name}: line {stripped!r} doesn't have 4 comma-separated fields (probably a header/log line)")
 
         return self._cryo_cache
 
@@ -308,7 +329,7 @@ class LabJackFake(LabJackBase):
     Maintains digital pin states you set and returns sine waves for the voltages.
     """
 
-    def __init__(self, standConfig: type):
+    def __init__(self, standConfig: type, log_callback=print):
         self.config = standConfig
         self.digital_pins = standConfig.Valves
         self.analog_inputs = standConfig.Sensors
