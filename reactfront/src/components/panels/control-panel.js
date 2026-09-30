@@ -1,8 +1,73 @@
 import { Switch } from '@material-ui/core';
 import React, { useState, useEffect, useCallback } from 'react';
-import { getBar, getLPS, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
+import { getBar, getLoadCellKg, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
+// OLD: import { getLPS } from '../../utils'; — used for analog cryo flow voltage conversion, replaced by UART
 import { Panel } from '../index'
 import pins from '../../pins.json'
+import { pinFromID } from './graph-panel'
+
+// Turn a raw command object from the server ({name, stand, pin} or {name, ms}) into a
+// human-readable label for the execution list below.
+function describeCommand(command) {
+    if (!command) return '';
+    if (command.name === 'SLEEP') {
+        return `Sleep ${(command.ms / 1000).toFixed(1)}s`;
+    }
+    if (command.name === 'OPEN' || command.name === 'CLOSE') {
+        const pinData = pinFromID(command.pin, command.stand);
+        const label = (pinData && pinData.pin && pinData.pin.name) || `${command.stand} pin ${command.pin}`;
+        return `${command.name === 'OPEN' ? 'Open' : 'Close'} ${label}`;
+    }
+    return command.name || '';
+}
+
+// Shows every command in the currently loaded sequence (not just the remaining ones),
+// with the command actually executing right now highlighted and pointed to by an arrow.
+// The server only keeps track of remaining commands, so fullSequence/fullSequenceName
+// are a snapshot captured (and owned) by the top-level App component - not here - since
+// this component unmounts whenever the user switches away from the Control Panel view,
+// which would otherwise wipe out already-executed commands from the display when
+// switching back.
+export function SequenceExecutionList({ state, fullSequence, fullSequenceName }) {
+    const remaining = (state.data && state.data.current_sequence) || [];
+    const inFlight = state.data && state.data.command_in_flight;
+
+    const completedCount = Math.max(0, fullSequence.length - remaining.length - (inFlight ? 1 : 0));
+    const currentIndex = inFlight ? completedCount : -1;
+
+    return (
+        <Panel title="Sequence Execution" className="panel sequence-execution">
+            {!fullSequenceName ? (
+                <div style={{ padding: '15px', color: '#888' }}>No sequence loaded</div>
+            ) : (
+                <div style={{ padding: '10px', overflowY: 'auto', height: '100%', boxSizing: 'border-box' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '10px', wordBreak: 'break-word' }}>
+                        {fullSequenceName}
+                    </div>
+                    {fullSequence.map((command, index) => {
+                        const isCurrent = index === currentIndex;
+                        return (
+                            <div key={index} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '4px 6px',
+                                marginBottom: '2px',
+                                borderRadius: '4px',
+                                backgroundColor: isCurrent ? '#c8f7c5' : 'transparent',
+                                color: isCurrent ? '#0a6b0a' : '#333',
+                                fontWeight: isCurrent ? 'bold' : 'normal',
+                            }}>
+                                <span style={{ width: '16px', flexShrink: 0 }}>{isCurrent ? '▶' : ''}</span>
+                                <span style={{ fontSize: '13px' }}>{describeCommand(command)}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </Panel>
+    );
+}
 
 function normalisePosition(num) {
     return num * 26;
@@ -80,39 +145,44 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
     const box = controlWidgetStyle({ enabled: true, ...props });
     let volts = null, displayValue = null, unit = '';
 
-    // Create unique sensor key
     const sensorKey = `${props.test_stand}_${props.labjack_pin}`;
-
+    const sensor = sensorData[props.sensorName];
     let currentValue = null;
 
-    if (state.data) {
-        const sensor = sensorData[props.sensorName]
-
-        if (sensor) {
-            if (sensor.type === 'temperature') {
-                currentValue = state.data.labjacks[props.test_stand]["temperature"] ?? null;
-                unit = '°C';
-            } else {
-                volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin]
-                if (sensor.type === 'flow') {
-                    // Flow sensor - display in LPS (Litres Per Second)
-                    currentValue = getLPS(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
-                    unit = 'LPS';
-                } else {
-                    // Pressure sensor - display in Bar
-                    currentValue = getBar(volts, sensor.barMax, sensor.zero, sensor.span);
-                    unit = 'Bar';
-                }
+    if (state.data && sensor) {
+        if (sensor.type === 'temperature') {
+            currentValue = (state.data.labjacks[props.test_stand]["temperature"] ?? 0.0) + (sensor.offset || 0.0);
+            unit = '°C';
+        } else if (sensor.type === 'force') {
+            // Load cell — single analog pin FIO0, DC voltage
+            const b = state.data.labjacks[props.test_stand]?.["analog"]?.[props.labjack_pin];
+            if (b !== undefined) {
+                volts = b;
+                currentValue = getLoadCellKg(b, sensor.supplyVoltage, sensor.calibrationVoltage);
             }
+            unit = 'kg';
+        } else if (sensor.type === 'flow') {
+            // Cryo flow meter streams pre-computed L/s over UART — no voltage conversion needed
+            currentValue = state.data.labjacks[props.test_stand]?.cryo_flow_lps ?? null;
+            unit = 'LPS';
+            // OLD: analog 4-20mA conversion, replaced by UART above
+            // volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin];
+            // currentValue = getLPS(volts, sensor.minFlow, sensor.maxFlow, sensor.minVolts, sensor.maxVolts);
+        } else {
+            volts = state.data.labjacks[props.test_stand]["analog"][props.labjack_pin];
+            currentValue = getBar(volts, sensor.barMax, sensor.minVolts, sensor.maxVolts);
+            unit = 'Bar';
         }
     }
 
-    // Update sensor history only when currentValue changes
+    // Update sensor history on every new data point (keyed on timestamp, not value)
+    // so that repeated identical values (e.g. 0.0 flow when clipped) still get batched.
+    const dataTime = state.data?.time;
     useEffect(() => {
         if (currentValue !== null && currentValue !== undefined && !isNaN(currentValue)) {
             updateSensorHistory(sensorKey, currentValue);
         }
-    }, [currentValue, sensorKey, updateSensorHistory]);
+    }, [dataTime, sensorKey, updateSensorHistory]);
 
     // Use stored average if available, otherwise use current value
     const storedAverage = sensorAverages[sensorKey];
@@ -160,10 +230,12 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
         <div style={box}>
             {displayValue !== null && (
                 <div className="sensor-value-display" style={getTextStyle()}>
-                    {displayValue.toFixed(1)} {unit}
+                    {displayValue.toFixed(2)} {unit}
                 </div>
             )}
-            {volts && unit !== '°C' && <div className="sensor-voltage-display" style={getTextStyle(true)}>({volts.toFixed(2)}V)</div>}
+            {volts !== null && volts !== undefined && unit !== '°C' && (
+                <div className="sensor-voltage-display" style={getTextStyle(true)}>({volts.toFixed(3)}V)</div>
+            )}
         </div>
     );
 }
@@ -215,6 +287,7 @@ export default function ControlPanel({ state, emit }) {
     return (
         <>
         <Panel title="Control Panel" className='panel control'>
+            <div className="control-panel-scale-wrapper">
             <div className="control-panel">
                 {/* ETH Label - Top Left */}
                 <div className="control-panel-label eth">
@@ -258,6 +331,7 @@ export default function ControlPanel({ state, emit }) {
                         updateSensorHistory={updateSensorHistory}
                     />
                 )}
+            </div>
             </div>
 
             {/* Switch Legend - 20px below the P&ID diagram */}

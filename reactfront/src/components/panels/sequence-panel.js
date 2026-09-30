@@ -1,8 +1,17 @@
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@material-ui/core';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Panel } from '../index'
 import {SafetyCard} from './safety-panel'
 import { pinFromID } from './graph-panel'
+
+// Mirrors the valve pin numbers in src/stands.py. Needed to reconstruct exec-compatible
+// command strings like "Open(ETH.Main)" from the (stand, pin) the server sends back -
+// pins.json's "name" field (e.g. "ETH Pressurisation") is a display label, not the
+// Python attribute name (e.g. "Pressure") that stands.py actually defines.
+const VALVE_ATTR_BY_PIN = {
+    ETH: { 15: 'Main', 16: 'Fill', 17: 'Drain', 8: 'Pressure', 9: 'Vent', 14: 'Purge', 10: 'Igniter' },
+    LOX: { 14: 'Main', 16: 'Fill', 17: 'Drain', 9: 'Pressure', 10: 'Vent', 8: 'Purge', 15: 'Chill' },
+};
 
 function SequenceRow(data) {
     const getPinName = () => {
@@ -24,6 +33,12 @@ export default function Sequences({ state, emit }) {
     const [currentSequenceName, setCurrentSequenceName] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editableCommands, setEditableCommands] = useState([]);
+    const [isAddingCommand, setIsAddingCommand] = useState(false);
+    const [newCommandAction, setNewCommandAction] = useState('Open');
+    const [newCommandStand, setNewCommandStand] = useState('LOX');
+    const [newCommandValve, setNewCommandValve] = useState('Main');
+    const [newCommandSeconds, setNewCommandSeconds] = useState('5');
+    const [draggedIndex, setDraggedIndex] = useState(null);
     
     var sequences = (state.data && state.data.current_sequence) || []
     var current_executing = state.data === null ? null : state.data.command_in_flight
@@ -32,8 +47,20 @@ export default function Sequences({ state, emit }) {
     // A sequence is considered loaded if there are commands or one is executing
     const sequenceLoaded = sequences.length > 0 || current_executing !== null;
 
-    const handleChange = async () => {
-        const name = prompt("Enter a sequence name like 'operation' (lowercase without quotes). (This loads from a sequence file in src/sequences on the server RPi)");
+    // The server tracks which sequence file is actually loaded. Keep the locally-known
+    // name in sync with it (e.g. after a page refresh, where local state resets to '')
+    // so Save always targets the right file instead of silently falling back to a blank name.
+    const serverSequenceName = state.data && state.data.current_sequence_name;
+    useEffect(() => {
+        if (serverSequenceName && serverSequenceName !== currentSequenceName) {
+            setCurrentSequenceName(serverSequenceName);
+        }
+    }, [serverSequenceName]);
+
+    const availableSequences = (state.data && state.data.available_sequences) || [];
+
+    const handleChange = async (e) => {
+        const name = e.target.value;
         if (name) {
             setCurrentSequenceName(name);
             await emit('SETSEQUENCE', name);
@@ -47,21 +74,17 @@ export default function Sequences({ state, emit }) {
                 return "";
             }
             
-            if (command.name === "Sleep") {
+            // command.name comes from the backend as "SLEEP" / "OPEN" / "CLOSE" (see commands.py)
+            if (command.name === "SLEEP") {
                 return `Sleep(seconds=${(command.ms / 1000).toFixed(1)})`;
-            } else if (command.name === "Open" || command.name === "Close") {
+            } else if (command.name === "OPEN" || command.name === "CLOSE") {
                 if (!command.stand) return "";
-                
-                let pinName = "Unknown";
-                try {
-                    if (command.pin && pinFromID(command.pin, command.stand) && pinFromID(command.pin, command.stand).pin) {
-                        pinName = pinFromID(command.pin, command.stand).pin.name;
-                    }
-                } catch (error) {
-                    console.error("Error getting pin name:", error);
-                }
-                
-                return `${command.name}(${command.stand}.${pinName})`;
+
+                const pinName = VALVE_ATTR_BY_PIN[command.stand] && VALVE_ATTR_BY_PIN[command.stand][command.pin];
+                if (!pinName) return "";
+
+                const fnName = command.name === "OPEN" ? "Open" : "Close";
+                return `${fnName}(${command.stand}.${pinName})`;
             } else {
                 return "";
             }
@@ -138,46 +161,101 @@ export default function Sequences({ state, emit }) {
         // Set the editable commands and enter edit mode
         setEditableCommands(commandStrings);
         setIsEditing(true);
+        setIsAddingCommand(false);
     }
 
-    // Save edited sequence
-    const handleSave = () => {
-        // Filter out empty lines
+    // Send the current editableCommands to the server under the given name
+    const saveCommandsAs = (name) => {
         const cleanedCommands = editableCommands.filter(cmd => cmd.trim());
-        
-        // Send commands to the server
+
         emit('SAVESEQUENCE', {
-            name: currentSequenceName,
+            name: name,
             commands: cleanedCommands
         });
-        
+
         // Exit edit mode
         setIsEditing(false);
-        
-        // Show confirmation
-        alert("Sequence saved!");
-        
-        // Reload the sequence to see changes
-        emit('SETSEQUENCE', currentSequenceName);
+        setIsAddingCommand(false);
+
+        // Show confirmation. The server updates its live state as part of handling
+        // SAVESEQUENCE, so the table view will reflect the change automatically
+        // once the next state broadcast arrives - no separate reload needed.
+        alert(`Sequence saved as "${name}"!`);
     }
-    
+
+    // Save edited sequence, overwriting the currently loaded file
+    const handleSave = () => {
+        saveCommandsAs(currentSequenceName);
+    }
+
+    // Save edited sequence under a new name, leaving the original file untouched
+    const handleSaveAs = () => {
+        const name = prompt("Enter a name for the new sequence file (letters and numbers only, no spaces):");
+        if (!name) return;
+        if (!/^[a-zA-Z0-9]+$/.test(name)) {
+            alert("Invalid name. Use only letters and numbers.");
+            return;
+        }
+        setCurrentSequenceName(name);
+        saveCommandsAs(name);
+    }
+
     // Cancel editing
     const handleCancel = () => {
         setIsEditing(false);
+        setIsAddingCommand(false);
     }
-    
+
+    // Delete the currently loaded sequence file, after user confirmation
+    const handleDelete = () => {
+        // The server silently ignores DELETESEQUENCE while unarmed, so guard here too -
+        // otherwise we'd clear local state as if it succeeded while the file stays on disk.
+        if (!armed) {
+            alert("Arming must be enabled to delete a sequence.");
+            return;
+        }
+
+        const confirmed = window.confirm(`Are you sure you want to delete the sequence "${currentSequenceName}"? This cannot be undone.`);
+        if (!confirmed) return;
+
+        emit('DELETESEQUENCE', currentSequenceName);
+
+        setIsEditing(false);
+        setIsAddingCommand(false);
+        setEditableCommands([]);
+        setCurrentSequenceName('');
+    }
+
     // Update a command in the editor
     const updateCommand = (index, newValue) => {
         const newCommands = [...editableCommands];
         newCommands[index] = newValue;
         setEditableCommands(newCommands);
     }
-    
-    // Add a new command line
-    const addCommandLine = () => {
-        setEditableCommands([...editableCommands, ""]);
+
+    // Open the command builder with default selections
+    const startAddCommand = () => {
+        setNewCommandAction('Open');
+        setNewCommandStand('LOX');
+        setNewCommandValve('Main');
+        setNewCommandSeconds('5');
+        setIsAddingCommand(true);
     }
-    
+
+    // Confirm the command builder selections and append the resulting command
+    const confirmAddCommand = () => {
+        const cmdStr = newCommandAction === 'Sleep'
+            ? `Sleep(seconds=${(parseFloat(newCommandSeconds) || 0).toFixed(1)})`
+            : `${newCommandAction}(${newCommandStand}.${newCommandValve})`;
+        setEditableCommands([...editableCommands, cmdStr]);
+        setIsAddingCommand(false);
+    }
+
+    // Discard the command builder without adding anything
+    const cancelAddCommand = () => {
+        setIsAddingCommand(false);
+    }
+
     // Remove a command line
     const removeCommandLine = (index) => {
         if (editableCommands.length <= 1) {
@@ -187,6 +265,15 @@ export default function Sequences({ state, emit }) {
         }
         
         setEditableCommands(editableCommands.filter((_, i) => i !== index));
+    }
+
+    // Move a command line to a new position (drag and drop reordering)
+    const reorderCommand = (fromIndex, toIndex) => {
+        if (fromIndex === toIndex) return;
+        const newCommands = [...editableCommands];
+        const [moved] = newCommands.splice(fromIndex, 1);
+        newCommands.splice(toIndex, 0, moved);
+        setEditableCommands(newCommands);
     }
 
     const abort = x => emit('ABORTSEQUENCE', x)
@@ -209,13 +296,17 @@ export default function Sequences({ state, emit }) {
                             Start
                         </h2>
                         <div>
-                            <button 
-                                onClick={handleChange} 
+                            <select
+                                value={availableSequences.includes(currentSequenceName) ? currentSequenceName : ''}
+                                onChange={handleChange}
                                 disabled={!armed || isEditing}
                                 style={compactButtonStyle}
                             >
-                                Choose sequence
-                            </button>
+                                <option value="" disabled>Choose sequence</option>
+                                {availableSequences.map(name => (
+                                    <option key={name} value={name}>{name}</option>
+                                ))}
+                            </select>
                         </div>
                         <button 
                             onClick={() => emit('BEGINSEQUENCE', null)} 
@@ -228,19 +319,6 @@ export default function Sequences({ state, emit }) {
                         >
                             Start
                         </button>
-                        <SafetyCard title="Abort" style={{ margin: '5px 0' }}>
-                            <button 
-                                onClick={() => abort()} 
-                                style={{
-                                    ...compactButtonStyle,
-                                    backgroundColor: armed && !isEditing ? 'tomato' : 'lightgrey',
-                                    cursor: armed && !isEditing ? 'pointer' : 'default'
-                                }} 
-                                disabled={!armed || isEditing}
-                            >
-                                ABORT
-                            </button>
-                        </SafetyCard>
                         
                         {/* Edit/Save/Cancel Buttons */}
                         <div style={{ marginTop: '5px', marginBottom: '5px' }}>
@@ -259,7 +337,7 @@ export default function Sequences({ state, emit }) {
                                 </button>
                             ) : (
                                 <>
-                                    <button 
+                                    <button
                                         onClick={handleSave}
                                         style={{
                                             ...compactButtonStyle,
@@ -269,7 +347,17 @@ export default function Sequences({ state, emit }) {
                                     >
                                         Save
                                     </button>
-                                    <button 
+                                    <button
+                                        onClick={handleSaveAs}
+                                        style={{
+                                            ...compactButtonStyle,
+                                            backgroundColor: '#90caf9',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Save As New File
+                                    </button>
+                                    <button
                                         onClick={handleCancel}
                                         style={{
                                             ...compactButtonStyle,
@@ -278,6 +366,19 @@ export default function Sequences({ state, emit }) {
                                         }}
                                     >
                                         Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleDelete}
+                                        disabled={!currentSequenceName || currentSequenceName === 'abort' || !armed}
+                                        title={currentSequenceName === 'abort' ? 'The abort sequence cannot be deleted' : undefined}
+                                        style={{
+                                            ...compactButtonStyle,
+                                            backgroundColor: (!currentSequenceName || currentSequenceName === 'abort' || !armed) ? 'lightgrey' : 'tomato',
+                                            color: 'white',
+                                            cursor: (!currentSequenceName || currentSequenceName === 'abort' || !armed) ? 'default' : 'pointer',
+                                        }}
+                                    >
+                                        Delete Sequence
                                     </button>
                                 </>
                             )}
@@ -327,21 +428,49 @@ export default function Sequences({ state, emit }) {
                             </h3>
                             <div style={{ marginBottom: '10px' }}>
                                 {editableCommands.map((command, index) => (
-                                    <div key={index} style={{ display: 'flex', marginBottom: '5px' }}>
+                                    <div key={index}
+                                        draggable
+                                        onDragStart={() => setDraggedIndex(index)}
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={() => {
+                                            if (draggedIndex !== null) reorderCommand(draggedIndex, index);
+                                            setDraggedIndex(null);
+                                        }}
+                                        onDragEnd={() => setDraggedIndex(null)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            marginBottom: '5px',
+                                            opacity: draggedIndex === index ? 0.4 : 1,
+                                            background: draggedIndex === index ? '#f0f0f0' : 'transparent'
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                cursor: 'grab',
+                                                padding: '0 8px',
+                                                userSelect: 'none',
+                                                color: '#888',
+                                                fontSize: '16px'
+                                            }}
+                                            title="Drag to reorder"
+                                        >
+                                            ⠿
+                                        </span>
                                         <input
                                             type="text"
                                             value={command}
                                             onChange={(e) => updateCommand(index, e.target.value)}
-                                            style={{ 
+                                            style={{
                                                 flex: 1,
                                                 padding: '5px',
                                                 fontFamily: 'monospace'
                                             }}
                                             placeholder="Enter command (e.g., Open(LOX.Vent))"
                                         />
-                                        <button 
+                                        <button
                                             onClick={() => removeCommandLine(index)}
-                                            style={{ 
+                                            style={{
                                                 marginLeft: '5px',
                                                 padding: '5px',
                                                 backgroundColor: '#ff9999'
@@ -352,18 +481,79 @@ export default function Sequences({ state, emit }) {
                                     </div>
                                 ))}
                             </div>
-                            <button
-                                onClick={addCommandLine}
-                                style={{
-                                    padding: '5px 10px',
-                                    backgroundColor: '#2196f3',
-                                    color: 'white',
-                                    border: 'none',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Add Command
-                            </button>
+                            {isAddingCommand ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <select value={newCommandAction} onChange={(e) => setNewCommandAction(e.target.value)}
+                                        style={{ padding: '5px' }}>
+                                        <option value="Open">Open</option>
+                                        <option value="Close">Close</option>
+                                        <option value="Sleep">Sleep</option>
+                                    </select>
+                                    {newCommandAction === 'Sleep' ? (
+                                        <input
+                                            type="number"
+                                            value={newCommandSeconds}
+                                            onChange={(e) => setNewCommandSeconds(e.target.value)}
+                                            style={{ width: '80px', padding: '5px' }}
+                                            placeholder="seconds"
+                                        />
+                                    ) : (
+                                        <>
+                                            <select value={newCommandStand} onChange={(e) => setNewCommandStand(e.target.value)}
+                                                style={{ padding: '5px' }}>
+                                                <option value="LOX">LOX</option>
+                                                <option value="ETH">ETH</option>
+                                            </select>
+                                            <select value={newCommandValve} onChange={(e) => setNewCommandValve(e.target.value)}
+                                                style={{ padding: '5px' }}>
+                                                <option value="Main">Main</option>
+                                                <option value="Vent">Vent</option>
+                                                <option value="Purge">Purge</option>
+                                                <option value="Pressure">Pressure</option>
+                                                <option value="Igniter">Igniter</option>
+                                                <option value="Fill">Fill</option>
+                                                <option value="Drain">Drain</option>
+                                                <option value="Chill">Chill</option>
+                                            </select>
+                                        </>
+                                    )}
+                                    <button
+                                        onClick={confirmAddCommand}
+                                        style={{
+                                            padding: '5px 10px',
+                                            backgroundColor: 'lime',
+                                            border: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ✓
+                                    </button>
+                                    <button
+                                        onClick={cancelAddCommand}
+                                        style={{
+                                            padding: '5px 10px',
+                                            backgroundColor: '#ff9999',
+                                            border: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ✗
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={startAddCommand}
+                                    style={{
+                                        padding: '5px 10px',
+                                        backgroundColor: '#2196f3',
+                                        color: 'white',
+                                        border: 'none',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Add Command
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>

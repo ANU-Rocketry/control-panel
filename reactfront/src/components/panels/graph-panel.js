@@ -30,8 +30,14 @@ export function pinFromID(labjack_pin, test_stand = null) {
 // We store yBounds persistently to interpolate between ranges smoothly
 let pressureYBounds = null
 let flowYBounds = null
+let forceYBounds = null
+let rawFlowYBounds = null
+let tempYBounds = null
 const minPressureYBounds = [-0.7, 0.7]  // bar (converted from -10, 10 psi)
 const minFlowYBounds = [-0.2, 0.2]  // LPS
+const minForceYBounds = [-0.5, 0.5]  // kg
+const minRawFlowYBounds = [-0.1, 0.1]  // V
+const minTempYBounds = [-5, 5]  // °C
 
 
 // newData({ time: epoch_secs, series1: value1, ... })
@@ -42,13 +48,16 @@ export const newData = detail => document.dispatchEvent(new CustomEvent('datalog
 export const newEvent = detail => document.dispatchEvent(new CustomEvent('datalogger-new-event', { detail }))
 
 export function Datalogger({
-  series, unit, label, yBoundsRef, minYBoundsRef
+  series, hiddenSeries = {}, unit, label, yBoundsRef, minYBoundsRef
 }) {
   const seriesKeys = Array.from(Object.keys(series))
+  // allSeries includes hiddenSeries: stored and exported to CSV but not rendered on the graph
+  const allSeries = { ...series, ...hiddenSeries }
+  const allSeriesKeys = Array.from(Object.keys(allSeries))
 
   // We'll store the data in a series of arrays, one for each series
   // These arrays compute decimated min/max values in an amortized fashion
-  const store = new SeriesCollection(series)
+  const store = new SeriesCollection(allSeries)
 
   // Events are { time, label } objects rendered on the graph as a vertical dashed line with a textual label
   const events = []
@@ -58,7 +67,7 @@ export function Datalogger({
   let deferredForceUpdate = () => requestAnimationFrame(forceUpdate)
 
   document.addEventListener('datalogger-new-data', ({ detail }) => {
-    for (let key of seriesKeys) {
+    for (let key of allSeriesKeys) {
       if (key in detail) {
         store.arrays[key].push(detail.time, detail[key])
       }
@@ -71,12 +80,12 @@ export function Datalogger({
     deferredForceUpdate()
   })
 
-  function Component({ currentSeconds }) {
+  const Component = React.forwardRef(function Component({ currentSeconds }, downloadRef) {
     const svgRef = React.useRef(null)
     forceUpdate = React.useReducer(x => x + 1, 0)[1]
 
-    // Box model
-    const w = 790, h = 510;
+    // Box model - kept small since all dataloggers are shown at once, side by side
+    const w = 290, h = 230;
 
     // We avoid new Date().getTime() when possible because we want the epoch times to come from the same source as the data point times
     // This is so we can use system epoch times from systems without an accurate clock (e.g. a Raspberry Pi which was turned on without an
@@ -225,29 +234,29 @@ export function Datalogger({
     }
 
     const downloadCSV = () => {
-      // Build CSV content with header
-      let csv = 'Timestamp (s),' + seriesKeys.join(',') + ',Valve Events\n'
-      
-      // Collect all data points from all series
+      // Build CSV content with header (includes hidden series columns)
+      let csv = 'Timestamp (s),' + allSeriesKeys.join(',') + ',Valve Events\n'
+
+      // Collect all data points from all series (including hidden)
       const dataByTime = new Map()
-      
-      seriesKeys.forEach(seriesKey => {
+
+      allSeriesKeys.forEach(seriesKey => {
         const seriesData = store.arrays[seriesKey]
         if (!seriesData || !seriesData.series) return
-        
+
         // Iterate through all segments
         seriesData.series.forEach(segment => {
           const arr = segment.arrays[0]
           if (!arr) return
-          
+
           // Extract all data points from this segment
           for (let i = 0; i < arr.chunks; i++) {
             const time = arr.time(i)
             const value = arr.mean(i)
-            
+
             if (!dataByTime.has(time)) {
               const initData = {}
-              seriesKeys.forEach(k => initData[k] = null)
+              allSeriesKeys.forEach(k => initData[k] = null)
               dataByTime.set(time, initData)
             }
             dataByTime.get(time)[seriesKey] = value
@@ -292,7 +301,7 @@ export function Datalogger({
       sortedTimes.forEach(time => {
         const data = dataByTime.get(time)
         const timestamp = (time - startTime).toFixed(3)
-        const values = seriesKeys.map(key => 
+        const values = allSeriesKeys.map(key =>
           (data[key] !== null ? data[key] : 0).toFixed(3)
         )
         
@@ -313,6 +322,10 @@ export function Datalogger({
       link.click()
       URL.revokeObjectURL(url)
     }
+
+    // Expose download actions to the parent GraphPanel, which drives them from a
+    // single shared dropdown + buttons instead of per-graph download buttons.
+    React.useImperativeHandle(downloadRef, () => ({ downloadSVG, downloadCSV }))
 
     const verticalLabels = events
       .map(({ time, ...e }) => ({ x: v2x(time - currentSeconds), ...e }))
@@ -477,11 +490,9 @@ export function Datalogger({
             </g>
           )}
         </svg>
-        <button onClick={downloadSVG}>Download {label} SVG</button>
-        <button onClick={downloadCSV} style={{marginLeft: "10px"}}>Download {label} CSV</button>
       </div>
     )
-  }
+  })
 
   return Component
 }
@@ -495,8 +506,32 @@ const PressureDatalogger = Datalogger({
   series: {
     'LOX Tank': { color: '#000' },
     'LOX N2': { color: '#f00' },
+    'LOX Inlet': { color: '#66f' },
     'ETH Tank': { color: '#3d6' },
     'ETH N2': { color: '#09f' },
+    'ETH Inlet': { color: '#f90' },
+  },
+  hiddenSeries: {
+    'LOX Tank V':  { color: '#000' },
+    'LOX N2 V':    { color: '#f00' },
+    'LOX Inlet V': { color: '#66f' },
+    'ETH Tank V':  { color: '#3d6' },
+    'ETH N2 V':    { color: '#09f' },
+    'ETH Inlet V': { color: '#f90' },
+  },
+})
+
+// Create force datalogger (load cell thrust)
+const ForceDatalogger = Datalogger({
+  unit: 'kg',
+  label: 'Load Cell',
+  yBoundsRef: { current: forceYBounds },
+  minYBoundsRef: minForceYBounds,
+  series: {
+    'ETH Load Cell': { color: '#c0392b' },
+  },
+  hiddenSeries: {
+    'ETH Load Cell V': { color: '#c0392b' },
   },
 })
 
@@ -511,74 +546,103 @@ const FlowDatalogger = Datalogger({
   },
 })
 
+// Voltage graph: raw voltages for all sensors, no unit conversion
+const VoltageDatalogger = Datalogger({
+  unit: 'V',
+  label: 'Voltage',
+  yBoundsRef: { current: rawFlowYBounds },
+  minYBoundsRef: minRawFlowYBounds,
+  series: {
+    'LOX Tank V':  { color: '#000' },
+    'LOX N2 V':    { color: '#f00' },
+    'LOX Inlet V': { color: '#66f' },
+    'ETH Tank V':  { color: '#3d6' },
+    'ETH N2 V':    { color: '#09f' },
+    'ETH Inlet V': { color: '#f90' },
+    // OLD: 'LOX Flow Raw' was analog voltage for cryo flow, replaced by UART — no raw voltage to show
+    'ETH Load Cell V': { color: '#c0392b' },
+  },
+})
+
+// Create temperature datalogger (ETH and LOX thermocouples)
+const TemperatureDatalogger = Datalogger({
+  unit: '°C',
+  label: 'Temperature',
+  yBoundsRef: { current: tempYBounds },
+  minYBoundsRef: minTempYBounds,
+  series: {
+    'ETH Temp': { color: '#e67e00' }, // Orange for ETH
+    'LOX Temp': { color: '#0077cc' }, // Blue for LOX
+  },
+})
+
 export default function GraphPanel({ state }) {
-  // State to toggle between pressure and flow view
-  const [showPressure, setShowPressure] = React.useState(true);
+  const pressureRef = React.useRef(null)
+  const flowRef = React.useRef(null)
+  const forceRef = React.useRef(null)
+  const voltageRef = React.useRef(null)
+  const temperatureRef = React.useRef(null)
+
+  const graphs = [
+    { id: 'pressure', label: 'Pressure Sensors', subtitle: 'Pressure Sensors (Bar)', Datalogger: PressureDatalogger, ref: pressureRef },
+    { id: 'flow', label: 'Flow Sensors', subtitle: 'Flow Sensors (LPS)', Datalogger: FlowDatalogger, ref: flowRef },
+    { id: 'force', label: 'Load Cell', subtitle: 'Load Cell (kg)', Datalogger: ForceDatalogger, ref: forceRef },
+    { id: 'voltage', label: 'Voltage Graph', subtitle: 'Raw Voltages (V)', Datalogger: VoltageDatalogger, ref: voltageRef },
+    { id: 'temperature', label: 'Temperature Sensors', subtitle: 'Temperature (°C)', Datalogger: TemperatureDatalogger, ref: temperatureRef },
+  ];
+
+  const [selectedGraphId, setSelectedGraphId] = React.useState('pressure');
+
+  const downloadSVG = () => graphs.find(g => g.id === selectedGraphId)?.ref.current?.downloadSVG()
+  const downloadCSV = () => graphs.find(g => g.id === selectedGraphId)?.ref.current?.downloadCSV()
 
   // Instead of using a cumbersome charting library, we use JSX with SVG to declaratively
   // and efficiently construct highly customisable graphs
   return (
-    <Panel title="Graphs" className='panel graphs' style={{ 
-        maxWidth: '1000px',  // Adjust this value as needed
-        width: '800px',     // Or use fixed width
-        height: '650px',    // Back to original height since we're only showing one graph
-        overflow: 'hidden'
+    <Panel title="Graphs" className='panel graphs' style={{
+        maxWidth: '850px',
+        width: '650px',
+        height: '900px',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
-      {/* Toggle buttons */}
-      <div style={{ 
-        marginBottom: '15px', 
-        display: 'flex', 
-        gap: '10px', 
-        alignItems: 'center',
-        paddingBottom: '10px',
-        borderBottom: '1px solid #ddd'
+      {/* All graphs shown at once, side by side, wrapping as needed */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '12px',
       }}>
-        <button 
-          onClick={() => setShowPressure(true)}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: showPressure ? '#2196f3' : '#f5f5f5',
-            color: showPressure ? 'white' : '#333',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: showPressure ? 'bold' : 'normal'
-          }}
-        >
-          Pressure Sensors
-        </button>
-        <button 
-          onClick={() => setShowPressure(false)}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: !showPressure ? '#2196f3' : '#f5f5f5',
-            color: !showPressure ? 'white' : '#333',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: !showPressure ? 'bold' : 'normal'
-          }}
-        >
-          Flow Sensors
-        </button>
-        <span style={{ 
-          marginLeft: '20px', 
-          fontSize: '16px', 
-          fontWeight: 'bold',
-          color: '#666'
-        }}>
-          {showPressure ? 'Pressure Sensors (Bar)' : 'Flow Sensors (LPS)'}
-        </span>
+        {graphs.map(({ id, subtitle, Datalogger, ref }) => (
+          <div key={id}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#666', marginBottom: '4px' }}>
+              {subtitle}
+            </div>
+            <Datalogger ref={ref} currentSeconds={undefOnBadRef(() => state.data.time)} />
+          </div>
+        ))}
       </div>
 
-      {/* Conditionally render the appropriate graph */}
-      {showPressure ? (
-        <PressureDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
-      ) : (
-        <FlowDatalogger currentSeconds={undefOnBadRef(() => state.data.time)} />
-      )}
+      {/* Shared download controls for whichever graph is selected */}
+      <div style={{
+        borderTop: '1px solid #ddd',
+        marginTop: '10px',
+        paddingTop: '10px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+      }}>
+        <select value={selectedGraphId} onChange={e => setSelectedGraphId(e.target.value)}
+          style={{ padding: '6px' }}>
+          {graphs.map(g => (
+            <option key={g.id} value={g.id}>{g.label}</option>
+          ))}
+        </select>
+        <button onClick={downloadSVG}>Download SVG</button>
+        <button onClick={downloadCSV}>Download CSV</button>
+      </div>
     </Panel>
   )
 }

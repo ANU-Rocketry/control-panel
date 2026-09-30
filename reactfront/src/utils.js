@@ -1,25 +1,27 @@
-export function getBar(volts, barMax, zero, span) {
-    // volts: voltage reading from volts pin
-    // barMax: the sensor measures from 0 bar to `barMax` bar
-    // zero: current in milliamps at 0 bar
-    // span: current span (mA) from 0 bar to `barMax` bar, ie the current
-    //   at `barMax` bar is zero + span
-    // note that we use V=IR where the resistance is 120Ohm
-    // so current = volts/120
-    // (volts - zero) / span * barMax = bar
-    const resistance = 120; // ohm
-    const bar = (volts/resistance - zero/1000) / (span/1000) * barMax;
-    // const psi = bar * 14.504; // 1bar = 14.5psi
+export function getBar(volts, barMax, minVolts, maxVolts) {
+    // Linear interpolation: minVolts → 0 bar, maxVolts → barMax bar
+    const bar = (volts - minVolts) / (maxVolts - minVolts) * barMax;
     return bar;
 }
 
 // Convert voltage to flow rate in GPM for flow sensors
-export function getGPM(volts, minFlow, maxFlow, minVolts = 0.0, maxVolts = 5.0) {
-    // Linear interpolation between voltage range and flow range
-    const voltageRange = maxVolts - minVolts;
-    const flowRange = maxFlow - minFlow;
-    const gpm = ((volts - minVolts) / voltageRange) * flowRange + minFlow;
-    return Math.max(0, gpm); // Don't allow negative flow
+// export function getGPM(volts, minFlow, maxFlow, minVolts = 0.0, maxVolts = 5.0) {
+//     // Linear interpolation between voltage range and flow range
+//     const voltageRange = maxVolts - minVolts;
+//     const flowRange = maxFlow - minFlow;
+//     const gpm = ((volts - minVolts) / voltageRange) * flowRange + minFlow;
+//     return Math.max(0, gpm); // Don't allow negative flow
+// }
+
+// Convert load cell voltage to weight in kg
+// x = supplyVoltage (Volts) — adjustable, set to match your supply
+// a = calibrationVoltage (Volts) — adjustable, measured voltage at zero load
+// b = measuredVoltage (Volts) — live reading from FIO0
+// Step 1: y = (x * 2 * 201) / 1500   → sensitivity in mV/kg
+// Step 2: c = ((a - b) * 1000) / y   → weight in kg
+export function getLoadCellKg(b, supplyVoltage, calibrationVoltage) {
+    const y = (supplyVoltage * 2 * 201) / 1500;   // mV/kg sensitivity
+    return ((calibrationVoltage - b) * 1000) / y;  // kg
 }
 
 // Convert voltage to flow rate in LPS (Litres Per Second) for flow sensors
@@ -36,43 +38,68 @@ export function getLPS(volts, minFlow, maxFlow, minVolts = 0.0, maxVolts = 5.0) 
 export const defaultSensorCalibration = {
     eth_tank: {
         barMax: 100,
-        zero: 3.99,
-        span: 16.02,
+        minVolts: 0.48,  // 4mA × 120Ω
+        maxVolts: 2.4,  // 20mA × 120Ω
     },
     lox_tank: {
         barMax: 100,
-        zero: 3.99,
-        span: 16.04,
+        minVolts: 0.48,  // 4mA × 120Ω
+        maxVolts: 2.4,  // 20mA × 120Ω
     },
     eth_n2: {
         barMax: 250,
-        zero: 4,
-        span: 16,
+        minVolts: 0.48,  // 4mA × 120Ω
+        maxVolts: 2.4,  // 20mA × 120Ω
     },
     lox_n2: {
         barMax: 250,
-        zero: 4,
-        span: 16,
+        minVolts: 0.48,  // 4mA × 120Ω
+        maxVolts: 2.4,  // 20mA × 120Ω
+    },
+    lox_inlet: {
+        barMax: 150,
+        minVolts: 0.48,  // 4mA × 120Ω
+        maxVolts: 2.4,  // 20mA × 120Ω
+    },
+    eth_inlet: {
+        barMax: 150,
+        minVolts: 0.48,  // 4mA × 120Ω
+        maxVolts: 2.4,  // 20mA × 120Ω
     },
     lox_cryo: {
-        minFlow: 0.050472,  // LPS (was 0.80 GPM)
-        maxFlow: 1.82961,   // LPS (was 29.00 GPM)
-        minVolts: 0.0,
-        maxVolts: 5.0,
+        // Microcontroller computes L/s and streams it over UART — no voltage calibration needed
         type: 'flow',
-        kFactor: 1686.86990,
-        serialNumber: '130228-06'
+        // OLD: analog 4-20mA calibration, replaced by UART (microcontroller does the conversion now)
+        // minFlow: 0.050472,  // LPS (was 0.80 GPM)
+        // maxFlow: 1.82961,   // LPS (was 29.00 GPM)
+        // minVolts: 0.4684,
+        // maxVolts: 2.342,
     },
     eth_temp: {
         type: 'temperature',
+        offset: 0.0,
     },
     lox_temp: {
         type: 'temperature',
+        offset: 0.0,
+    },
+    eth_load_cell: {
+        type: 'force',
+        supplyVoltage: 5.0,       // x — supply voltage in Volts
+        calibrationVoltage: 0.0,  // a — measured voltage from FIO0 at zero load
     },
 }
 
-// Load calibration from localStorage or use defaults
-export let sensorData = JSON.parse(localStorage.getItem('sensorCalibration')) || { ...defaultSensorCalibration };
+// Load calibration from localStorage using a deep merge — each sensor's fields are merged
+// individually so that new default fields (e.g. minVolts/maxVolts replacing zero/span)
+// are always present even when an older localStorage snapshot exists.
+const _stored = JSON.parse(localStorage.getItem('sensorCalibration')) || {};
+export let sensorData = Object.fromEntries(
+    Object.keys(defaultSensorCalibration).map(key => [
+        key,
+        { ...defaultSensorCalibration[key], ...(_stored[key] || {}) }
+    ])
+);
 
 // Function to update and save calibration
 export function updateSensorCalibration(sensorKey, newCalibration) {
@@ -179,20 +206,52 @@ export function formatDataPoint(dict) {
         // Epoch time in fractional seconds
         time: dict.time,
         // Note: these bar max figures are also in the sensors list in control-panel.js
-        'LOX Tank': getBar(dict.labjacks.LOX.analog["4"], sensorData.lox_tank.barMax, sensorData.lox_tank.zero, sensorData.lox_tank.span),
-        'LOX N2': getBar(dict.labjacks.LOX.analog["5"], sensorData.lox_n2.barMax, sensorData.lox_n2.zero, sensorData.lox_n2.span),
-        'ETH Tank': getBar(dict.labjacks.ETH.analog["4"], sensorData.eth_tank.barMax, sensorData.eth_tank.zero, sensorData.eth_tank.span),
-        'ETH N2': getBar(dict.labjacks.ETH.analog["5"], sensorData.eth_n2.barMax, sensorData.eth_n2.zero, sensorData.eth_n2.span),
-        'LOX Flow': getLPS(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow), // Flow sensor in LPS
+        'LOX Tank': getBar(dict.labjacks.LOX.analog["4"], sensorData.lox_tank.barMax, sensorData.lox_tank.minVolts, sensorData.lox_tank.maxVolts),
+        'LOX Tank V': dict.labjacks.LOX.analog["4"],
+        'LOX N2': getBar(dict.labjacks.LOX.analog["5"], sensorData.lox_n2.barMax, sensorData.lox_n2.minVolts, sensorData.lox_n2.maxVolts),
+        'LOX N2 V': dict.labjacks.LOX.analog["5"],
+        'LOX Inlet': getBar(dict.labjacks.LOX.analog["6"], sensorData.lox_inlet.barMax, sensorData.lox_inlet.minVolts, sensorData.lox_inlet.maxVolts),
+        'LOX Inlet V': dict.labjacks.LOX.analog["6"],
+        'ETH Tank': getBar(dict.labjacks.ETH.analog["4"], sensorData.eth_tank.barMax, sensorData.eth_tank.minVolts, sensorData.eth_tank.maxVolts),
+        'ETH Tank V': dict.labjacks.ETH.analog["4"],
+        'ETH N2': getBar(dict.labjacks.ETH.analog["5"], sensorData.eth_n2.barMax, sensorData.eth_n2.minVolts, sensorData.eth_n2.maxVolts),
+        'ETH N2 V': dict.labjacks.ETH.analog["5"],
+        'ETH Inlet': getBar(dict.labjacks.ETH.analog["6"], sensorData.eth_inlet.barMax, sensorData.eth_inlet.minVolts, sensorData.eth_inlet.maxVolts),
+        'ETH Inlet V': dict.labjacks.ETH.analog["6"],
+        // OLD: analog 4-20mA cryo flow conversion, replaced by UART below
+        // 'LOX Flow': getLPS(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow, sensorData.lox_cryo.minVolts, sensorData.lox_cryo.maxVolts),
+        // 'LOX Flow Raw': dict.labjacks.LOX.analog["2"],
+        // Cryo flow meter streams pre-computed L/s over UART — no voltage conversion needed
+        'LOX Flow': dict.labjacks.LOX.cryo_flow_lps ?? NaN,
+        'ETH Temp': dict.labjacks.ETH.temperature != null ? dict.labjacks.ETH.temperature + (sensorData.eth_temp.offset || 0.0) : NaN,
+        'LOX Temp': dict.labjacks.LOX.temperature != null ? dict.labjacks.LOX.temperature + (sensorData.lox_temp.offset || 0.0) : NaN,
+        'ETH Load Cell': dict.labjacks.ETH.analog?.["0"] !== undefined
+            ? getLoadCellKg(dict.labjacks.ETH.analog["0"], sensorData.eth_load_cell.supplyVoltage, sensorData.eth_load_cell.calibrationVoltage)
+            : NaN,
+        'ETH Load Cell V': dict.labjacks.ETH.analog?.["0"] ?? NaN,
     }
 }
 
 export const emptyDataPoint = {
     time: NaN,
     'LOX Tank': NaN,
+    'LOX Tank V': NaN,
     'LOX N2': NaN,
+    'LOX N2 V': NaN,
+    'LOX Inlet': NaN,
+    'LOX Inlet V': NaN,
     'ETH Tank': NaN,
+    'ETH Tank V': NaN,
     'ETH N2': NaN,
+    'ETH N2 V': NaN,
+    'ETH Inlet': NaN,
+    'ETH Inlet V': NaN,
+    // 'LOX Flow Raw': NaN, // OLD: was raw analog voltage, no longer applicable with UART
+    'LOX Flow': NaN,
+    'ETH Temp': NaN,
+    'LOX Temp': NaN,
+    'ETH Load Cell': NaN,
+    'ETH Load Cell V': NaN,
 }
 
 //previous fixed calibration data
@@ -227,9 +286,7 @@ export const emptyDataPoint = {
 //         maxFlow: 29.00, // GPM
 //         minVolts: 0.0,
 //         maxVolts: 5.0,
-//         type: 'flow',
-//         kFactor: 1686.86990, // from calibration sheet
-//         serialNumber: '130228-06',
+//         type: 'flow'
 //         // LPS conversion values for display
 //         minFlowLPS: 0.80 * 0.06309, // ~0.050 LPS
 //         maxFlowLPS: 29.00 * 0.06309, // ~1.830 LPS

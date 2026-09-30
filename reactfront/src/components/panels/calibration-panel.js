@@ -62,9 +62,13 @@ export default function CalibrationPanel() {
     });
     
     // Check if we have all required fields
-    const requiredFields = sensorKey === 'lox_cryo' 
-        ? ['minFlow', 'maxFlow', 'minVolts', 'maxVolts', 'kFactor']
-        : ['barMax', 'zero', 'span'];
+    // OLD: lox_cryo used to require ['minFlow', 'maxFlow', 'minVolts', 'maxVolts'] here
+    // when it was analog 4-20mA — no longer applicable now that it streams over UART.
+    const requiredFields = (sensorKey === 'eth_temp' || sensorKey === 'lox_temp')
+        ? ['offset']
+        : sensorKey === 'eth_load_cell'
+        ? ['supplyVoltage', 'calibrationVoltage']
+        : ['barMax', 'minVolts', 'maxVolts'];
     
     const missingFields = requiredFields.filter(field => !(field in cleanedSensor));
     
@@ -101,7 +105,15 @@ export default function CalibrationPanel() {
         { key: 'lox_tank', name: 'LOX Tank Pressure' },
         { key: 'eth_n2', name: 'ETH N2 Pressure' },
         { key: 'lox_n2', name: 'LOX N2 Pressure' },
-        { key: 'lox_cryo', name: 'LOX Cryo Flow' }
+        { key: 'eth_inlet', name: 'ETH Motor Inlet Pressure' },
+        { key: 'lox_inlet', name: 'LOX Motor Inlet Pressure' },
+        // OLD: lox_cryo used to need voltage calibration here when it was analog 4-20mA.
+        // Now the microcontroller computes L/s and streams it over UART, so there's
+        // nothing left to calibrate on this panel — kept commented out for reference.
+        // { key: 'lox_cryo', name: 'LOX Cryo Flow' },
+        { key: 'eth_temp', name: 'ETH Temperature' },
+        { key: 'lox_temp', name: 'LOX Temperature' },
+        { key: 'eth_load_cell', name: 'ETH Load Cell' },
     ];
 
     const getSensorName = (sensorKey) => {
@@ -124,21 +136,21 @@ export default function CalibrationPanel() {
                         value={sensor.barMax}
                         onChange={(e) => handleUpdate(sensorKey, 'barMax', e.target.value)}
                     />
-                    
-                    <label>Zero (mA):</label>
+
+                    <label>Min Volts:</label>
                     <input
                         type="number"
-                        step="0.01"
-                        value={sensor.zero}
-                        onChange={(e) => handleUpdate(sensorKey, 'zero', e.target.value)}
+                        step="0.001"
+                        value={sensor.minVolts}
+                        onChange={(e) => handleUpdate(sensorKey, 'minVolts', e.target.value)}
                     />
-                    
-                    <label>Span (mA):</label>
+
+                    <label>Max Volts:</label>
                     <input
                         type="number"
-                        step="0.01"
-                        value={sensor.span}
-                        onChange={(e) => handleUpdate(sensorKey, 'span', e.target.value)}
+                        step="0.001"
+                        value={sensor.maxVolts}
+                        onChange={(e) => handleUpdate(sensorKey, 'maxVolts', e.target.value)}
                     />
                 </div>
                 <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
@@ -150,9 +162,9 @@ export default function CalibrationPanel() {
                     </Button>
                 </div>
                 <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                    <strong>Defaults:</strong> barMax={defaultSensor.barMax}, 
-                    zero={defaultSensor.zero}mA, 
-                    span={defaultSensor.span}mA
+                    <strong>Defaults:</strong> barMax={defaultSensor.barMax},
+                    minVolts={defaultSensor.minVolts}V,
+                    maxVolts={defaultSensor.maxVolts}V
                 </div>
             </div>
         );
@@ -197,14 +209,6 @@ export default function CalibrationPanel() {
                         value={sensor.maxVolts}
                         onChange={(e) => handleUpdate(sensorKey, 'maxVolts', e.target.value)}
                     />
-                    
-                    <label>K-Factor:</label>
-                    <input
-                        type="number"
-                        step="0.01"
-                        value={sensor.kFactor}
-                        onChange={(e) => handleUpdate(sensorKey, 'kFactor', e.target.value)}
-                    />
                 </div>
                 <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
                     <Button variant="contained" color="primary" onClick={() => handleSave(sensorKey)}>
@@ -217,7 +221,89 @@ export default function CalibrationPanel() {
                 <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
                     <strong>Defaults:</strong> minFlow={defaultSensor.minFlow.toFixed(6)}LPS, 
                     maxFlow={defaultSensor.maxFlow.toFixed(6)}LPS, 
-                    kFactor={defaultSensor.kFactor}
+                </div>
+            </div>
+        );
+    };
+
+    const renderTemperatureSensor = (sensorKey) => {
+        const sensor = calibration[sensorKey];
+        const defaultSensor = defaultSensorCalibration[sensorKey];
+
+        return (
+            <div style={{ padding: '10px', border: '1px solid #ccc', marginBottom: '10px' }}>
+                <h3>{getSensorName(sensorKey)}</h3>
+                <p style={{ fontSize: '13px', color: '#555', marginTop: 0 }}>
+                    The MAX6675 outputs temperature directly in °C. Use the offset to correct for a known bias (e.g. <code>+2.5</code> adds 2.5°C to every reading).
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '150px 150px', gap: '10px' }}>
+                    <label>Offset (°C):</label>
+                    <input
+                        type="number"
+                        step="0.1"
+                        value={sensor.offset}
+                        onChange={(e) => handleUpdate(sensorKey, 'offset', e.target.value)}
+                    />
+                </div>
+                <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+                    <Button variant="contained" color="primary" onClick={() => handleSave(sensorKey)}>
+                        Save
+                    </Button>
+                    <Button variant="contained" onClick={() => handleReset(sensorKey)}>
+                        Reset to Default
+                    </Button>
+                </div>
+                <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+                    <strong>Default:</strong> offset={defaultSensor.offset}°C
+                </div>
+            </div>
+        );
+    };
+
+    const renderLoadCellSensor = (sensorKey) => {
+        const sensor = calibration[sensorKey];
+        const defaultSensor = defaultSensorCalibration[sensorKey];
+
+        return (
+            <div style={{ padding: '10px', border: '1px solid #ccc', marginBottom: '10px' }}>
+                <h3>ETH Load Cell</h3>
+                <p style={{ fontSize: '13px', color: '#555', marginTop: 0 }}>
+                    Voltage is read from FIO0 on the ETH LabJack.
+                    Set Supply V to match your excitation voltage.
+                    Set Cal V to the FIO0 voltage reading with no load applied (zero point).
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '180px 150px', gap: '10px' }}>
+                    <label>Supply Voltage (V):</label>
+                    <input
+                        type="number"
+                        step="0.1"
+                        value={sensor.supplyVoltage}
+                        onChange={(e) => handleUpdate(sensorKey, 'supplyVoltage', e.target.value)}
+                    />
+
+                    <label>Calibration Voltage (V):</label>
+                    <input
+                        type="number"
+                        step="0.001"
+                        value={sensor.calibrationVoltage}
+                        onChange={(e) => handleUpdate(sensorKey, 'calibrationVoltage', e.target.value)}
+                    />
+                </div>
+                <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+                    <Button variant="contained" color="primary" onClick={() => handleSave(sensorKey)}>
+                        Save
+                    </Button>
+                    <Button variant="contained" onClick={() => handleReset(sensorKey)}>
+                        Reset to Default
+                    </Button>
+                </div>
+                <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+                    <strong>Defaults:</strong> supplyVoltage={defaultSensor.supplyVoltage}V,
+                    calibrationVoltage={defaultSensor.calibrationVoltage}V
+                </div>
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#888' }}>
+                    <strong>Formula:</strong> sensitivity = (supplyV × 2 × 201) / 1500 mV/kg
+                    &nbsp;→&nbsp; weight = (calV − FIO0) × 1000 / sensitivity
                 </div>
             </div>
         );
@@ -249,8 +335,12 @@ export default function CalibrationPanel() {
                     ))}
                 </div>
 
-                {selectedSensor === 'lox_cryo' 
+                {selectedSensor === 'lox_cryo'
                     ? renderFlowSensor(selectedSensor)
+                    : (selectedSensor === 'eth_temp' || selectedSensor === 'lox_temp')
+                    ? renderTemperatureSensor(selectedSensor)
+                    : selectedSensor === 'eth_load_cell'
+                    ? renderLoadCellSensor(selectedSensor)
                     : renderPressureSensor(selectedSensor)
                 }
             </div>

@@ -101,6 +101,30 @@
             "position": { "width": 3.1, "height": 6.8, "x": 15.75, "y": 6.9, "shape": "pill" }
         }, {
             "pin": {
+                "test_stand": "LOX", "labjack_pin": 5, "sensorNumber": 4,
+                "full_name": "Cryogenic Flow Sensor", "abbrev": "lox_cryo"
+            },
+            "position": { "width": 3.5, "height": 3, "x": 26.5, "y": 17 }
+        }, {
+            "pin": {
+                "test_stand": "LOX", "labjack_pin": 0, "sensorNumber": 6,
+                "full_name": "LOX Thermocouple Temperature", "abbrev": "lox_temp", "type": "temperature"
+            },
+            "position": { "width": 3.5, "height": 3, "x": 22, "y": 17 }
+        }, {
+            "pin": {
+                "test_stand": "LOX", "labjack_pin": 6, "sensorNumber": 7,
+                "full_name": "LOX Motor Inlet Pressure", "abbrev": "lox_inlet"
+            },
+            "position": { "width": 3.5, "height": 3, "x": 26.5, "y": 11 }
+        }, {
+            "pin": {
+                "test_stand": "ETH", "labjack_pin": 6, "sensorNumber": 8,
+                "full_name": "ETH Motor Inlet Pressure", "abbrev": "eth_inlet"
+            },
+            "position": { "width": 3.5, "height": 3, "x": 0.6, "y": 11 }
+        },{
+            "pin": {
                 "test_stand": "ETH", "labjack_pin": 5, "sensorNumber": 2,
                 "full_name": "Ethanol Nitrogen Pressurant Sensor", "abbrev": "eth_n2"
             },
@@ -111,13 +135,7 @@
                 "full_name": "Ethanol Tank Pressure Sensor", "abbrev": "eth_tank"
             },
             "position": { "width": 3, "height": 6.8, "x": 9.2, "y": 6.9, "shape": "pill" }
-        }, {
-            "pin": {
-                "test_stand": "LOX", "labjack_pin": 2, "sensorNumber": 4,
-                "full_name": "Cryogenic Flow Sensor", "abbrev": "lox_cryo"
-            },
-            "position": { "width": 3.5, "height": 3, "x": 26.5, "y": 17 }
-        }, {
+        },  {
             "pin": {
                 "test_stand": "ETH", "labjack_pin": 2, "sensorNumber": 5,
                 "full_name": "ETH Thermocouple Temperature", "abbrev": "eth_temp", "type": "temperature"
@@ -125,9 +143,9 @@
             "position": { "width": 3.5, "height": 3, "x": 5, "y": 17 }
         }, {
             "pin": {
-                "test_stand": "LOX", "labjack_pin": 0, "sensorNumber": 6,
-                "full_name": "LOX Thermocouple Temperature", "abbrev": "lox_temp", "type": "temperature"
+                "test_stand": "ETH", "labjack_pin": "0", "sensorNumber": 9,
+                "full_name": "Load Cell (Weight)", "abbrev": "eth_load_cell", "name": "ETH Load Cell"
             },
-            "position": { "width": 3.5, "height": 3, "x": 22, "y": 17 }
+            "position": { "width": 3.5, "height": 3, "x": 0.5, "y": 13 }
         }]
 }

@@ -159,7 +159,7 @@ brew install hudochenkov/sshpass/sshpass
 ```sh
 # THIS IS UNTESTED will probably need to be tweaked but shows the general idea
 # delete old build (on the raspberry pi!)
-sshpass -p "raspberry" ssh pi@pi@192.168.0.5 "rm -rf ~/control-panel"
+sshpass -p "raspberry" ssh pi@192.168.0.5 "rm -rf ~/control-panel"
 
 # Zip up the build folder without node modules
 zip -r control-panel.zip .
