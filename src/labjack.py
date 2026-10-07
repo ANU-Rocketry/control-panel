@@ -208,54 +208,63 @@ class LabJack(LabJackBase):
             print(f"pin {pin_number}")
             sys.exit()
 
-    def _spiread8(self, sck: int, so: int) -> int:
-        """Read 8 bits from MAX6675 via SPI bit-bang, MSB first.
-        Matches MAX6675 Arduino library spiread() exactly:
-          SCK LOW -> delay -> read bit -> SCK HIGH -> delay -> repeat
+    def _read_thermocouple_once(self, sck: int, cs: int, so: int, mosi: int) -> float | None:
+        """Single raw read from MAX6675, using the U3's native hardware SPI engine
+        (low-level function 0x3A, exposed as device.spi()) instead of bit-banging
+        GPIO in software. One USB call clocks all 16 bits with a real on-device SCK
+        and samples MISO in sync with it - software bit-banging can't keep a clock
+        edge and a USB-polled pin read in sync at any real speed (a round trip is
+        1-5ms), which is the same reason the cryo flow sensor needed the U3's
+        hardware UART instead of bit-banged GPIO (see get_cryo_flow_lps).
+
+        MOSIPinNum is a required argument but unused by the MAX6675 (SO only, no
+        data in) - it must be a genuinely free pin since the U3 drives it as a
+        digital output during the transfer, which would glitch anything actually
+        wired there. See stands.py's Thermocouple dict for which pin and why.
+
+        SPIMode='B' (CPOL=0, CPHA=1) matches common MAX6675 SPI implementations,
+        but this is not verified against this exact wiring - check real readings
+        against a known temperature once hardware is available; if they come out
+        garbled/inverted, 'A' (CPOL=0, CPHA=0) is the other mode worth trying.
         """
-        d = 0
-        for i in range(7, -1, -1):
-            self._set_digital_state(sck, False)
-            time.sleep(0.001)                          # 1ms, matches Arduino delay(1)
-            if self._get_digital_state(so):
-                d |= (1 << i)
-            self._set_digital_state(sck, True)
-            time.sleep(0.001)
-        return d
+        try:
+            with self._device_lock:
+                result = self.device.spi(
+                    [0x00, 0x00],
+                    AutoCS=True,
+                    SPIMode='B',
+                    SPIClockFactor=0,  # fastest this call supports (tens of kHz) - comfortably under the MAX6675's 4.3MHz max and in the ballpark of the ~100kHz target
+                    CSPinNum=cs,
+                    CLKPinNum=sck,
+                    MISOPinNum=so,
+                    MOSIPinNum=mosi,
+                )
+        except Exception:
+            print_exc()
+            return None
 
-    def _read_thermocouple_once(self, sck: int, cs: int, so: int) -> float | None:
-        """Single raw read from MAX6675. Returns °C or None on fault/error."""
-        self._set_digital_state(sck, True)    # SCK idles HIGH
-        self._set_digital_state(cs, False)    # CS LOW — begin read
-        time.sleep(0.001)                      # 1ms setup delay
-
-        v = self._spiread8(sck, so)            # high byte (bits 15:8)
-        v <<= 8
-        v |= self._spiread8(sck, so)           # low byte  (bits 7:0)
-
-        self._set_digital_state(cs, True)      # CS HIGH — end read
-
+        hi, lo = result['SPIBytes']
+        v = (hi << 8) | lo
         if v & 0x4:                            # bit 2: open thermocouple fault
             return None
         return (v >> 3) * 0.25                 # bits 14:3 → °C at 0.25°C resolution
 
     def _thermocouple_worker(self):
         """
-        Runs on a dedicated background thread for the lifetime of the process. A full
-        median-of-3 MAX6675 read takes ~100-150ms of SPI bit-banging (24 SCK toggles x
-        1ms x 3 reads, plus settle delays) - previously this ran synchronously inside
-        the main asyncio event loop once per second per stand, stalling the 20Hz state
-        broadcast (and the other stand's reads) for that whole time every second. Moving
-        it here keeps get_thermocouple_temp() a fast, non-blocking cache read, the same
-        fix already applied to the cryo flow UART read.
+        Runs on a dedicated background thread for the lifetime of the process. Each
+        read is now a single fast hardware-SPI USB call (see _read_thermocouple_once)
+        rather than a ~100-150ms bit-banged loop, but this still takes a median of 3
+        reads 5ms apart to reject noise spikes (EMI/relay switching), so it stays off
+        the main asyncio thread to keep get_thermocouple_temp() a non-blocking cache
+        read - the same pattern already used for the cryo flow UART read.
         """
         tc = self.config.Thermocouple
-        sck, cs, so = tc['sck'], tc['cs'], tc['so']
+        sck, cs, so, mosi = tc['sck'], tc['cs'], tc['so'], tc['mosi']
         while True:
             try:
                 readings = []
                 for _ in range(3):
-                    val = self._read_thermocouple_once(sck, cs, so)
+                    val = self._read_thermocouple_once(sck, cs, so, mosi)
                     if val is not None:
                         readings.append(val)
                     time.sleep(0.005)  # 5ms between reads — MAX6675 needs time to settle
@@ -264,10 +273,6 @@ class LabJack(LabJackBase):
                 with self._tc_lock:
                     self._tc_cache = temp
             except Exception:
-                try:
-                    self._set_digital_state(cs, True)
-                except Exception:
-                    pass
                 print_exc()
             time.sleep(1.0)  # matches the sensor's own ~1s update cadence
 

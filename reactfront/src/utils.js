@@ -22,6 +22,17 @@ export function getLoadCellKg(volts, fullRange, zeroVoltage, maxVoltage) {
     return kg;
 }
 
+// Correct the MAX6675's raw °C reading using a two-point linear calibration, same
+// shape as getBar()/getLoadCellKg() - except anchored at 25°C instead of 0°C, since
+// that's a practical room-temp reference to calibrate against (read a known-good
+// thermometer at room temp) rather than needing an inconvenient 0°C ice bath.
+// readingAt25/readingAtFullRange are what the MAX6675 itself reported at each
+// reference point, not the true temperature.
+export function getTemperatureC(raw, fullRange, readingAt25, readingAtFullRange) {
+    const c = 25 + (raw - readingAt25) / (readingAtFullRange - readingAt25) * (fullRange - 25);
+    return c;
+}
+
 // Convert voltage to flow rate in LPS (Litres Per Second) for flow sensors
 export function getLPS(volts, minFlow, maxFlow, minVolts = 0.0, maxVolts = 5.0) {
     // Linear interpolation between voltage range and flow range
@@ -75,11 +86,15 @@ export const defaultSensorCalibration = {
     },
     eth_temp: {
         type: 'temperature',
-        offset: 0.0,
+        fullRange: 100,          // °C at the second calibration reference point - placeholder, needs a real known-hot reference to set accurately
+        readingAt25: 25.0,       // what the MAX6675 reported while the sensor was actually at 25°C (room temp)
+        readingAtFullRange: 100.0, // what the MAX6675 reported while the sensor was actually at fullRange °C
     },
     lox_temp: {
         type: 'temperature',
-        offset: 0.0,
+        fullRange: 100,
+        readingAt25: 25.0,
+        readingAtFullRange: 100.0,
     },
     eth_load_cell: {
         type: 'force',
@@ -226,8 +241,12 @@ export function formatDataPoint(dict) {
         // 'LOX Flow Raw': dict.labjacks.LOX.analog["2"],
         // Cryo flow meter streams pre-computed L/s over UART — no voltage conversion needed
         'LOX Flow': dict.labjacks.LOX.cryo_flow_lps ?? NaN,
-        'ETH Temp': dict.labjacks.ETH.temperature != null ? dict.labjacks.ETH.temperature + (sensorData.eth_temp.offset || 0.0) : NaN,
-        'LOX Temp': dict.labjacks.LOX.temperature != null ? dict.labjacks.LOX.temperature + (sensorData.lox_temp.offset || 0.0) : NaN,
+        'ETH Temp': dict.labjacks.ETH.temperature != null
+            ? getTemperatureC(dict.labjacks.ETH.temperature, sensorData.eth_temp.fullRange, sensorData.eth_temp.readingAt25, sensorData.eth_temp.readingAtFullRange)
+            : NaN,
+        'LOX Temp': dict.labjacks.LOX.temperature != null
+            ? getTemperatureC(dict.labjacks.LOX.temperature, sensorData.lox_temp.fullRange, sensorData.lox_temp.readingAt25, sensorData.lox_temp.readingAtFullRange)
+            : NaN,
         'ETH Load Cell': dict.labjacks.ETH.analog?.["0"] !== undefined
             ? getLoadCellKg(dict.labjacks.ETH.analog["0"], sensorData.eth_load_cell.fullRange, sensorData.eth_load_cell.zeroVoltage, sensorData.eth_load_cell.maxVoltage)
             : NaN,

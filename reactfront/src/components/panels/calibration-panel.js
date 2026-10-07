@@ -65,7 +65,7 @@ export default function CalibrationPanel({ state, emit }) {
     // OLD: lox_cryo used to require ['minFlow', 'maxFlow', 'minVolts', 'maxVolts'] here
     // when it was analog 4-20mA — no longer applicable now that it streams over UART.
     const requiredFields = (sensorKey === 'eth_temp' || sensorKey === 'lox_temp')
-        ? ['offset']
+        ? ['fullRange', 'readingAt25', 'readingAtFullRange']
         : sensorKey === 'eth_load_cell'
         ? ['fullRange', 'zeroVoltage', 'maxVoltage']
         : ['barMax', 'minVolts', 'maxVolts'];
@@ -207,15 +207,36 @@ export default function CalibrationPanel({ state, emit }) {
             <div style={{ padding: '10px', border: '1px solid #ccc', marginBottom: '10px' }}>
                 <h3>{getSensorName(sensorKey)}</h3>
                 <p style={{ fontSize: '13px', color: '#555', marginTop: 0 }}>
-                    The MAX6675 outputs temperature directly in °C. Use the offset to correct for a known bias (e.g. <code>+2.5</code> adds 2.5°C to every reading).
+                    The MAX6675 outputs temperature directly in °C, but can still be off by a
+                    few degrees. Two-point linear correction, same idea as the pressure/load
+                    cell sensors: read the sensor at room temperature (~25°C, checked against
+                    a known-good thermometer) and record what it reports as "Reading at 25°C",
+                    then do the same at a second, higher known temperature (e.g. a heat gun or
+                    hot water bath) and record that as "Reading at Full Range".
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '150px 150px', gap: '10px' }}>
-                    <label>Offset (°C):</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '180px 150px', gap: '10px' }}>
+                    <label>Full Range (°C):</label>
                     <input
                         type="number"
                         step="0.1"
-                        value={sensor.offset}
-                        onChange={(e) => handleUpdate(sensorKey, 'offset', e.target.value)}
+                        value={sensor.fullRange}
+                        onChange={(e) => handleUpdate(sensorKey, 'fullRange', e.target.value)}
+                    />
+
+                    <label>Reading at 25°C:</label>
+                    <input
+                        type="number"
+                        step="0.1"
+                        value={sensor.readingAt25}
+                        onChange={(e) => handleUpdate(sensorKey, 'readingAt25', e.target.value)}
+                    />
+
+                    <label>Reading at Full Range:</label>
+                    <input
+                        type="number"
+                        step="0.1"
+                        value={sensor.readingAtFullRange}
+                        onChange={(e) => handleUpdate(sensorKey, 'readingAtFullRange', e.target.value)}
                     />
                 </div>
                 <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
@@ -227,7 +248,7 @@ export default function CalibrationPanel({ state, emit }) {
                     </Button>
                 </div>
                 <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                    <strong>Default:</strong> offset={defaultSensor.offset}°C
+                    <strong>Default:</strong> fullRange={defaultSensor.fullRange}°C, readingAt25={defaultSensor.readingAt25}°C, readingAtFullRange={defaultSensor.readingAtFullRange}°C
                 </div>
             </div>
         );

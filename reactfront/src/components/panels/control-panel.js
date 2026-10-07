@@ -1,6 +1,6 @@
 import { Switch } from '@material-ui/core';
 import React, { useState, useEffect, useCallback } from 'react';
-import { getBar, getLoadCellKg, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
+import { getBar, getLoadCellKg, getTemperatureC, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
 // OLD: import { getLPS } from '../../utils'; — used for analog cryo flow voltage conversion, replaced by UART
 import { Panel } from '../index'
 import pins from '../../pins.json'
@@ -151,7 +151,10 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
 
     if (state.data && sensor) {
         if (sensor.type === 'temperature') {
-            currentValue = (state.data.labjacks[props.test_stand]["temperature"] ?? 0.0) + (sensor.offset || 0.0);
+            const raw = state.data.labjacks[props.test_stand]?.["temperature"];
+            if (raw != null) {
+                currentValue = getTemperatureC(raw, sensor.fullRange, sensor.readingAt25, sensor.readingAtFullRange);
+            }
             unit = '°C';
         } else if (sensor.type === 'force') {
             // Load cell — single analog pin FIO0, DC voltage

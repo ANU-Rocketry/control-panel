@@ -55,7 +55,11 @@ class LOX:
     CryoFlowUART = {'rx': 7, 'tx': 6, 'baud': 114286}
 
     # MAX6675 thermocouple SPI pins: SCK=FIO1, CS=FIO0, SO=FIO3
-    Thermocouple = {'sck': 1, 'cs': 0, 'so': 3}
+    # 'mosi' is unused by the MAX6675 (it only transmits on SO, no data in) but the
+    # U3's native hardware SPI command still requires a MOSI pin number and briefly
+    # drives it as output during each transfer - FIO5 is used since it's the one
+    # genuinely free pin on this stand (N2Sensor above is commented out/unplugged).
+    Thermocouple = {'sck': 1, 'cs': 0, 'so': 3, 'mosi': 5}
 
 class ETH:
     SerialNumber = 1
@@ -82,6 +86,10 @@ class ETH:
     Sensors = [N2Sensor[1], ETHSensor[1], InletPressureSensor[1], LoadCell[1]]
 
     # MAX6675 thermocouple SPI pins: SCK=FIO3, CS=FIO2, SO=EIO3
-    Thermocouple = {'sck': 3, 'cs': 2, 'so': 11}
+    # 'mosi' is unused by the MAX6675 (it only transmits on SO, no data in) but the
+    # U3's native hardware SPI command still requires a MOSI pin number and briefly
+    # drives it as output during each transfer - FIO1 is the only FIO pin nothing
+    # else on this stand (valves, sensors, light stand, CS/SCK above) claims.
+    Thermocouple = {'sck': 3, 'cs': 2, 'so': 11, 'mosi': 1}
 
 
