@@ -32,8 +32,9 @@ class LOX:
 
     LightStand = LightStand('LOX')
 
-    # N2Sensor is still unplugged - FIO5 is free if it gets wired back up later.
-    # N2Sensor = ('LOX', 5)
+    # N2Sensor is plugged back into FIO5 (the thermocouple's dummy MOSI pin moved
+    # off FIO5 to EIO3 to make room - see Thermocouple below).
+    N2Sensor = ('LOX', 5)
     # LOXSensor restored onto FIO4, since that pin is free (the UART only claimed
     # FIO6/FIO7, not FIO4/FIO5 - see CryoFlowUART below).
     LOXSensor = ('LOX', 4)
@@ -45,7 +46,7 @@ class LOX:
     # match (labjack_pin duplicated there for the frontend).
     InletPressureSensor = ('LOX', 2)
     # OLD: Sensors = [N2Sensor[1], LOXSensor[1], CryoFlowSensor[1], InletPressureSensor[1]]
-    Sensors = [LOXSensor[1], InletPressureSensor[1]]
+    Sensors = [N2Sensor[1], LOXSensor[1], InletPressureSensor[1]]
 
     # Cryo flow meter — microcontroller reads the PT420 and streams CSV lines
     # (timestamp_ms,freq_Hz,filtered_Hz,L_per_s) over the U3's onboard hardware UART
@@ -57,9 +58,9 @@ class LOX:
     # MAX6675 thermocouple SPI pins: SCK=FIO1, CS=FIO0, SO=FIO3
     # 'mosi' is unused by the MAX6675 (it only transmits on SO, no data in) but the
     # U3's native hardware SPI command still requires a MOSI pin number and briefly
-    # drives it as output during each transfer - FIO5 is used since it's the one
-    # genuinely free pin on this stand (N2Sensor above is commented out/unplugged).
-    Thermocouple = {'sck': 1, 'cs': 0, 'so': 3, 'mosi': 5}
+    # drives it as output during each transfer - EIO3 (11) is used since nothing
+    # else on this stand claims it (FIO5 went back to N2Sensor). Keep EIO3 unwired.
+    Thermocouple = {'sck': 1, 'cs': 0, 'so': 3, 'mosi': 11}
 
 class ETH:
     SerialNumber = 1

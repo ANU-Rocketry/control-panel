@@ -220,9 +220,9 @@ export function formatDataPoint(dict) {
         // Epoch time in fractional seconds
         time: dict.time,
         // Note: these bar max figures are also in the sensors list in control-panel.js
-        // LOX Tank/N2 sensors are currently unplugged (freed for the cryo UART's
-        // pins), so dict.labjacks.LOX.analog may be missing those keys - optional
-        // chaining avoids crashing formatDataPoint on every incoming state message.
+        // LOX Tank (FIO4) and LOX N2 (FIO5) are both plugged in. Optional chaining is
+        // kept so a missing key (e.g. a sensor removed from stands.py again) shows as
+        // a gap instead of crashing formatDataPoint on every incoming state message.
         // LOX Inlet moved from FIO6 to FIO2 (see stands.py) and is still active.
         'LOX Tank': getBar(dict.labjacks.LOX.analog?.["4"], sensorData.lox_tank.barMax, sensorData.lox_tank.minVolts, sensorData.lox_tank.maxVolts),
         'LOX Tank V': dict.labjacks.LOX.analog?.["4"],
