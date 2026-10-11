@@ -240,6 +240,10 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
             {volts !== null && volts !== undefined && unit !== '°C' && (
                 <div className="sensor-voltage-display" style={getTextStyle(true)}>({volts.toFixed(3)}V)</div>
             )}
+            {/* Optional caption under the reading, set per sensor in pins.json */}
+            {props.label && (
+                <div className="sensor-label-display">{props.label}</div>
+            )}
         </div>
     );
 }

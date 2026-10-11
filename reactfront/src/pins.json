@@ -144,14 +144,16 @@
         }, {
             "pin": {
                 "test_stand": "ETH", "labjack_pin": "0", "sensorNumber": 9,
-                "full_name": "Load Cell (Weight)", "abbrev": "eth_load_cell", "name": "ETH Load Cell"
+                "full_name": "Load Cell (Weight)", "abbrev": "eth_load_cell", "name": "ETH Load Cell",
+                "label": "Motor Thrust"
             },
-            "position": { "width": 3.5, "height": 3, "x": 0.5, "y": 13 }
+            "position": { "width": 3.5, "height": 3, "x": 0.5, "y": 14 }
         }, {
             "pin": {
                 "test_stand": "ETH", "labjack_pin": "1", "sensorNumber": 10,
-                "full_name": "LOX Load Cell (Weight)", "abbrev": "lox_load_cell", "name": "LOX Load Cell"
+                "full_name": "LOX Load Cell (Weight)", "abbrev": "lox_load_cell", "name": "LOX Load Cell",
+                "label": "Weighing Sensor"
             },
-            "position": { "width": 3.5, "height": 3, "x": 26.5, "y": 13 }
+            "position": { "width": 3.5, "height": 3, "x": 26.5, "y": 14 }
         }]
 }
