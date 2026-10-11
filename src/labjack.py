@@ -239,9 +239,13 @@ class LabJack(LabJackBase):
 
         hi, lo = result['SPIBytes']
         v = (hi << 8) | lo
-        if v & 0x4:                            # bit 2: open thermocouple fault
+        # MAX6675 16-bit output (datasheet p.6): D15 dummy sign bit (always 0),
+        # D14-D3 12-bit temperature, D2 open-thermocouple flag, D1 device ID, D0 unused
+        if v & 0x4:                            # D2: open thermocouple fault
             return None
-        return (v >> 3) * 0.25                 # bits 14:3 → °C at 0.25°C resolution
+        # 12 bits at 0.25°C per count: 0x000 = 0°C, 0xFFF = 1023.75°C. This is the
+        # temperature shown everywhere - the frontend applies no calibration to it.
+        return ((v >> 3) & 0xFFF) * 0.25
 
     def _thermocouple_worker(self):
         """

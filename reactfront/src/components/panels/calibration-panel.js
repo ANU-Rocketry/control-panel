@@ -5,7 +5,10 @@ import { Button } from '@material-ui/core';
 
 export default function CalibrationPanel({ state, emit }) {
     const [calibration, setCalibration] = useState({ ...sensorData });
-    const [selectedSensor, setSelectedSensor] = useState(() => sessionStorage.getItem('calibrationSelectedSensor') || 'eth_tank');
+    const [selectedSensor, setSelectedSensor] = useState(() => {
+        const saved = sessionStorage.getItem('calibrationSelectedSensor');
+        return saved in sensorData && sensorData[saved].type !== 'temperature' ? saved : 'eth_tank';
+    });
     const selectSensor = (key) => {
         // Remembered because this panel is rebuilt whenever the server sends new
         // calibration (see calibrationVersion in index.js)
@@ -90,9 +93,7 @@ export default function CalibrationPanel({ state, emit }) {
     // Check if we have all required fields
     // OLD: lox_cryo used to require ['minFlow', 'maxFlow', 'minVolts', 'maxVolts'] here
     // when it was analog 4-20mA — no longer applicable now that it streams over UART.
-    const requiredFields = (sensorKey === 'eth_temp' || sensorKey === 'lox_temp')
-        ? ['fullRange', 'readingAt25', 'readingAtFullRange']
-        : (sensorKey === 'eth_load_cell' || sensorKey === 'lox_load_cell')
+    const requiredFields = (sensorKey === 'eth_load_cell' || sensorKey === 'lox_load_cell')
         ? ['fullRange', 'zeroVoltage', 'maxVoltage']
         : ['barMax', 'minVolts', 'maxVolts'];
     
@@ -133,8 +134,6 @@ export default function CalibrationPanel({ state, emit }) {
         { key: 'eth_inlet', name: 'ETH Motor Inlet Pressure' },
         { key: 'lox_inlet', name: 'LOX Motor Inlet Pressure' },
         { key: 'lox_cryo', name: 'LOX Cryo Flow' },
-        { key: 'eth_temp', name: 'ETH Temperature' },
-        { key: 'lox_temp', name: 'LOX Temperature' },
         { key: 'eth_load_cell', name: 'ETH Load Cell' },
         { key: 'lox_load_cell', name: 'LOX Load Cell' },
     ];
@@ -220,61 +219,6 @@ export default function CalibrationPanel({ state, emit }) {
                 </div>
                 <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
                     Sends 't' to toggle the microcontroller's test mode.
-                </div>
-            </div>
-        );
-    };
-
-    const renderTemperatureSensor = (sensorKey) => {
-        const sensor = calibration[sensorKey];
-        const defaultSensor = defaultSensorCalibration[sensorKey];
-
-        return (
-            <div style={{ padding: '10px', border: '1px solid #ccc', marginBottom: '10px' }}>
-                <h3>{getSensorName(sensorKey)}</h3>
-                <p style={{ fontSize: '13px', color: '#555', marginTop: 0 }}>
-                    The MAX6675 outputs temperature directly in °C, but can still be off by a
-                    few degrees. Two-point linear correction, same idea as the pressure/load
-                    cell sensors: read the sensor at room temperature (~25°C, checked against
-                    a known-good thermometer) and record what it reports as "Reading at 25°C",
-                    then do the same at a second, higher known temperature (e.g. a heat gun or
-                    hot water bath) and record that as "Reading at Full Range".
-                </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '180px 150px', gap: '10px' }}>
-                    <label>Full Range (°C):</label>
-                    <input
-                        type="number"
-                        step="0.1"
-                        value={sensor.fullRange}
-                        onChange={(e) => handleUpdate(sensorKey, 'fullRange', e.target.value)}
-                    />
-
-                    <label>Reading at 25°C:</label>
-                    <input
-                        type="number"
-                        step="0.1"
-                        value={sensor.readingAt25}
-                        onChange={(e) => handleUpdate(sensorKey, 'readingAt25', e.target.value)}
-                    />
-
-                    <label>Reading at Full Range:</label>
-                    <input
-                        type="number"
-                        step="0.1"
-                        value={sensor.readingAtFullRange}
-                        onChange={(e) => handleUpdate(sensorKey, 'readingAtFullRange', e.target.value)}
-                    />
-                </div>
-                <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
-                    <Button variant="contained" color="primary" onClick={() => handleSave(sensorKey)}>
-                        Save
-                    </Button>
-                    <Button variant="contained" onClick={() => handleReset(sensorKey)}>
-                        Reset to Default
-                    </Button>
-                </div>
-                <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                    <strong>Default:</strong> fullRange={defaultSensor.fullRange}°C, readingAt25={defaultSensor.readingAt25}°C, readingAtFullRange={defaultSensor.readingAtFullRange}°C
                 </div>
             </div>
         );
@@ -384,8 +328,6 @@ export default function CalibrationPanel({ state, emit }) {
 
                 {selectedSensor === 'lox_cryo'
                     ? renderFlowSensor(selectedSensor)
-                    : (selectedSensor === 'eth_temp' || selectedSensor === 'lox_temp')
-                    ? renderTemperatureSensor(selectedSensor)
                     : (selectedSensor === 'eth_load_cell' || selectedSensor === 'lox_load_cell')
                     ? renderLoadCellSensor(selectedSensor)
                     : renderPressureSensor(selectedSensor)
