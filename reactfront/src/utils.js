@@ -102,6 +102,13 @@ export const defaultSensorCalibration = {
         zeroVoltage: 0.0,   // measured voltage from FIO0 at zero load
         maxVoltage: 5.0,    // measured voltage from FIO0 at the fullRange calibration weight
     },
+    // The LOX load cell is wired into the ETH LabJack (FIO1) - see stands.py
+    lox_load_cell: {
+        type: 'force',
+        fullRange: 100,     // kg at the reference calibration weight - placeholder, needs a real calibration weight to set accurately
+        zeroVoltage: 0.0,   // measured voltage from ETH FIO1 at zero load
+        maxVoltage: 5.0,    // measured voltage from ETH FIO1 at the fullRange calibration weight
+    },
 }
 
 // Calibration is stored on the server (src/calibration.json) and shared by every
@@ -292,6 +299,11 @@ export function formatDataPoint(dict) {
             ? getLoadCellKg(ETH.analog["0"], sensorData.eth_load_cell.fullRange, sensorData.eth_load_cell.zeroVoltage, sensorData.eth_load_cell.maxVoltage)
             : NaN,
         'ETH Load Cell V': ETH.analog?.["0"] ?? NaN,
+        // LOX load cell is read through the ETH LabJack (FIO1), hence ETH.analog
+        'LOX Load Cell': ETH.analog?.["1"] !== undefined
+            ? getLoadCellKg(ETH.analog["1"], sensorData.lox_load_cell.fullRange, sensorData.lox_load_cell.zeroVoltage, sensorData.lox_load_cell.maxVoltage)
+            : NaN,
+        'LOX Load Cell V': ETH.analog?.["1"] ?? NaN,
     }
 }
 
@@ -315,6 +327,8 @@ export const emptyDataPoint = {
     'LOX Temp': NaN,
     'ETH Load Cell': NaN,
     'ETH Load Cell V': NaN,
+    'LOX Load Cell': NaN,
+    'LOX Load Cell V': NaN,
 }
 
 //previous fixed calibration data

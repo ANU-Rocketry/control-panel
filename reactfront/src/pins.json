@@ -147,5 +147,11 @@
                 "full_name": "Load Cell (Weight)", "abbrev": "eth_load_cell", "name": "ETH Load Cell"
             },
             "position": { "width": 3.5, "height": 3, "x": 0.5, "y": 13 }
+        }, {
+            "pin": {
+                "test_stand": "ETH", "labjack_pin": "1", "sensorNumber": 10,
+                "full_name": "LOX Load Cell (Weight)", "abbrev": "lox_load_cell", "name": "LOX Load Cell"
+            },
+            "position": { "width": 3.5, "height": 3, "x": 26.5, "y": 13 }
         }]
 }

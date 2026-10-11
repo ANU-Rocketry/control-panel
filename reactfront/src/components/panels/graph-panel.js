@@ -529,9 +529,11 @@ const ForceDatalogger = Datalogger({
   minYBoundsRef: minForceYBounds,
   series: {
     'ETH Load Cell': { color: '#c0392b' },
+    'LOX Load Cell': { color: '#2471a3' },
   },
   hiddenSeries: {
     'ETH Load Cell V': { color: '#c0392b' },
+    'LOX Load Cell V': { color: '#2471a3' },
   },
 })
 
@@ -561,6 +563,7 @@ const VoltageDatalogger = Datalogger({
     'ETH Inlet V': { color: '#f90' },
     // OLD: 'LOX Flow Raw' was analog voltage for cryo flow, replaced by UART — no raw voltage to show
     'ETH Load Cell V': { color: '#c0392b' },
+    'LOX Load Cell V': { color: '#2471a3' },
   },
 })
 

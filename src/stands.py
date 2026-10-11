@@ -84,13 +84,18 @@ class ETH:
     ETHSensor = ('ETH', 4)
     InletPressureSensor = ('ETH', 6) 
     LoadCell = ('ETH', 0)  # FIO0 - DC voltage from load cell amplifier
-    Sensors = [N2Sensor[1], ETHSensor[1], InletPressureSensor[1], LoadCell[1]]
+    # LOX stand's load cell, wired into this (ETH) LabJack - so its voltage arrives
+    # in the ETH stand's analog readings, not the LOX stand's.
+    LOXLoadCell = ('ETH', 1)  # FIO1 - DC voltage from load cell amplifier
+    Sensors = [N2Sensor[1], ETHSensor[1], InletPressureSensor[1], LoadCell[1], LOXLoadCell[1]]
 
     # MAX6675 thermocouple SPI pins: SCK=FIO3, CS=FIO2, SO=EIO3
     # 'mosi' is unused by the MAX6675 (it only transmits on SO, no data in) but the
     # U3's native hardware SPI command still requires a MOSI pin number and briefly
-    # drives it as output during each transfer - FIO1 is the only FIO pin nothing
-    # else on this stand (valves, sensors, light stand, CS/SCK above) claims.
-    Thermocouple = {'sck': 3, 'cs': 2, 'so': 11, 'mosi': 1}
+    # drives it as output during each transfer - moved from FIO1 to FIO7 when the
+    # LOX load cell took FIO1 (see LOXLoadCell above). FIO7 is the only FIO pin
+    # nothing else on this stand (valves, sensors, light stand, CS/SCK above)
+    # claims. Keep FIO7 unwired.
+    Thermocouple = {'sck': 3, 'cs': 2, 'so': 11, 'mosi': 7}
 
 

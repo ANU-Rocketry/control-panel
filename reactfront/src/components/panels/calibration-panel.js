@@ -92,7 +92,7 @@ export default function CalibrationPanel({ state, emit }) {
     // when it was analog 4-20mA — no longer applicable now that it streams over UART.
     const requiredFields = (sensorKey === 'eth_temp' || sensorKey === 'lox_temp')
         ? ['fullRange', 'readingAt25', 'readingAtFullRange']
-        : sensorKey === 'eth_load_cell'
+        : (sensorKey === 'eth_load_cell' || sensorKey === 'lox_load_cell')
         ? ['fullRange', 'zeroVoltage', 'maxVoltage']
         : ['barMax', 'minVolts', 'maxVolts'];
     
@@ -136,6 +136,7 @@ export default function CalibrationPanel({ state, emit }) {
         { key: 'eth_temp', name: 'ETH Temperature' },
         { key: 'lox_temp', name: 'LOX Temperature' },
         { key: 'eth_load_cell', name: 'ETH Load Cell' },
+        { key: 'lox_load_cell', name: 'LOX Load Cell' },
     ];
 
     const getSensorName = (sensorKey) => {
@@ -282,13 +283,15 @@ export default function CalibrationPanel({ state, emit }) {
     const renderLoadCellSensor = (sensorKey) => {
         const sensor = calibration[sensorKey];
         const defaultSensor = defaultSensorCalibration[sensorKey];
+        // Both load cells are wired into the ETH LabJack (see stands.py)
+        const pin = sensorKey === 'lox_load_cell' ? 'FIO1' : 'FIO0';
 
         return (
             <div style={{ padding: '10px', border: '1px solid #ccc', marginBottom: '10px' }}>
-                <h3>ETH Load Cell</h3>
+                <h3>{getSensorName(sensorKey)}</h3>
                 <p style={{ fontSize: '13px', color: '#555', marginTop: 0 }}>
-                    Voltage is read from FIO0 on the ETH LabJack. Set Zero Voltage to the FIO0
-                    reading with no load applied, and Max Voltage to the FIO0 reading with a
+                    Voltage is read from {pin} on the ETH LabJack. Set Zero Voltage to the {pin}
+                    reading with no load applied, and Max Voltage to the {pin} reading with a
                     known reference weight (Full Range) applied.
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '180px 150px', gap: '10px' }}>
@@ -331,7 +334,7 @@ export default function CalibrationPanel({ state, emit }) {
                 </div>
                 <div style={{ marginTop: '8px', fontSize: '12px', color: '#888' }}>
                     <strong>Formula:</strong> kg per mV = fullRange / (maxVoltage − zeroVoltage)
-                    &nbsp;→&nbsp; weight = (FIO0 − zeroVoltage) × kg per mV
+                    &nbsp;→&nbsp; weight = ({pin} − zeroVoltage) × kg per mV
                 </div>
             </div>
         );
@@ -383,7 +386,7 @@ export default function CalibrationPanel({ state, emit }) {
                     ? renderFlowSensor(selectedSensor)
                     : (selectedSensor === 'eth_temp' || selectedSensor === 'lox_temp')
                     ? renderTemperatureSensor(selectedSensor)
-                    : selectedSensor === 'eth_load_cell'
+                    : (selectedSensor === 'eth_load_cell' || selectedSensor === 'lox_load_cell')
                     ? renderLoadCellSensor(selectedSensor)
                     : renderPressureSensor(selectedSensor)
                 }

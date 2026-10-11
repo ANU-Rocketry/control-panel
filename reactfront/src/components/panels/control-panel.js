@@ -157,7 +157,7 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
             }
             unit = '°C';
         } else if (sensor.type === 'force') {
-            // Load cell — single analog pin FIO0, DC voltage
+            // Load cell — single analog pin, DC voltage (ETH on FIO0, LOX on ETH's FIO1)
             const b = state.data.labjacks[props.test_stand]?.["analog"]?.[props.labjack_pin];
             if (b !== undefined) {
                 volts = b;
