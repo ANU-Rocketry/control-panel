@@ -5,7 +5,7 @@ import { TopBar } from "./components/index"
 import GraphPanel, { newData, newEvent, pinFromID } from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';
 import ControlPanel, { SequenceExecutionList } from './components/panels/control-panel';
-import { formatDataPoint, emptyDataPoint } from './utils';
+import { formatDataPoint, emptyDataPoint, applyServerCalibration } from './utils';
 import { undefOnBadRef } from "./components/graph-utils.js"
 import { Snackbar, Button } from '@material-ui/core'
 import CalibrationPanel from './components/panels/calibration-panel';
@@ -58,6 +58,9 @@ class App extends React.Component {
       // already-executed commands from the display when switching back.
       fullSequence: [],
       fullSequenceName: null,
+      // Bumped every time the server sends the shared calibration, so the
+      // calibration form reloads its fields with the new values
+      calibrationVersion: 0,
     }
     this.emit = this.emit.bind(this)
     this.setActivePanel = this.setActivePanel.bind(this)
@@ -173,6 +176,11 @@ class App extends React.Component {
             this.pushWarning(data.data.latest_warning[0], data.data.latest_warning[1])
           }
           break
+        case 'CALIBRATION':
+          // Shared sensor calibration: sent on connect and whenever anyone changes it
+          applyServerCalibration(data.data)
+          this.setState({ calibrationVersion: this.state.calibrationVersion + 1 })
+          break
         case 'PING':
           this.setState({ ping: new Date().getTime() - data.data })
           break
@@ -227,7 +235,7 @@ class App extends React.Component {
                 </div>
               )}
               {this.state.activePanel === 'sequence' && <Sequences state={this.state} emit={this.emit} />}
-              {this.state.activePanel === 'calibration' && <CalibrationPanel state={this.state} emit={this.emit} />}
+              {this.state.activePanel === 'calibration' && <CalibrationPanel key={this.state.calibrationVersion} state={this.state} emit={this.emit} />}
             </div>
             <GraphPanel state={this.state} emit={this.emit} />
           </div>
