@@ -109,8 +109,8 @@ function controlWidgetStyle({ x, y, width, height, enabled, shape }) {
 }
 
 function ControlSwitch({ state, emit, ...props }) {
-    const value = state.data === null ? false : state.data.labjacks[props.test_stand]["digital"][props.labjack_pin]
-    const setValue = x => state.data.labjacks[props.test_stand]["digital"][props.labjack_pin]
+    const value = state.data === null ? false : !!state.data.labjacks[props.test_stand]?.["digital"]?.[props.labjack_pin]
+    const setValue = x => state.data.labjacks[props.test_stand]?.["digital"]?.[props.labjack_pin]
         ? emit('CLOSE', { name: props.test_stand, pin: parseInt(props.labjack_pin) })
         : emit('OPEN', { name: props.test_stand, pin: parseInt(props.labjack_pin) })
 

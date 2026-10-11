@@ -216,6 +216,12 @@ export function barToVolts(bar, barMax) {
 
 // TODO Refactor this to use pins from json
 export function formatDataPoint(dict) {
+    // A stand whose LabJack has stopped responding is flagged stale by the server
+    // (see LabJackWorker.get_state) and still carries its last known values. Treat
+    // those as missing so the graphs show a gap instead of a flat line of old data.
+    const fresh = stand => (stand && !stand.stale) ? stand : { analog: {} };
+    const LOX = fresh(dict.labjacks.LOX);
+    const ETH = fresh(dict.labjacks.ETH);
     return {
         // Epoch time in fractional seconds
         time: dict.time,
@@ -224,33 +230,33 @@ export function formatDataPoint(dict) {
         // kept so a missing key (e.g. a sensor removed from stands.py again) shows as
         // a gap instead of crashing formatDataPoint on every incoming state message.
         // LOX Inlet moved from FIO6 to FIO2 (see stands.py) and is still active.
-        'LOX Tank': getBar(dict.labjacks.LOX.analog?.["4"], sensorData.lox_tank.barMax, sensorData.lox_tank.minVolts, sensorData.lox_tank.maxVolts),
-        'LOX Tank V': dict.labjacks.LOX.analog?.["4"],
-        'LOX N2': getBar(dict.labjacks.LOX.analog?.["5"], sensorData.lox_n2.barMax, sensorData.lox_n2.minVolts, sensorData.lox_n2.maxVolts),
-        'LOX N2 V': dict.labjacks.LOX.analog?.["5"],
-        'LOX Inlet': getBar(dict.labjacks.LOX.analog?.["2"], sensorData.lox_inlet.barMax, sensorData.lox_inlet.minVolts, sensorData.lox_inlet.maxVolts),
-        'LOX Inlet V': dict.labjacks.LOX.analog?.["2"],
-        'ETH Tank': getBar(dict.labjacks.ETH.analog["4"], sensorData.eth_tank.barMax, sensorData.eth_tank.minVolts, sensorData.eth_tank.maxVolts),
-        'ETH Tank V': dict.labjacks.ETH.analog["4"],
-        'ETH N2': getBar(dict.labjacks.ETH.analog["5"], sensorData.eth_n2.barMax, sensorData.eth_n2.minVolts, sensorData.eth_n2.maxVolts),
-        'ETH N2 V': dict.labjacks.ETH.analog["5"],
-        'ETH Inlet': getBar(dict.labjacks.ETH.analog["6"], sensorData.eth_inlet.barMax, sensorData.eth_inlet.minVolts, sensorData.eth_inlet.maxVolts),
-        'ETH Inlet V': dict.labjacks.ETH.analog["6"],
+        'LOX Tank': getBar(LOX.analog?.["4"], sensorData.lox_tank.barMax, sensorData.lox_tank.minVolts, sensorData.lox_tank.maxVolts),
+        'LOX Tank V': LOX.analog?.["4"],
+        'LOX N2': getBar(LOX.analog?.["5"], sensorData.lox_n2.barMax, sensorData.lox_n2.minVolts, sensorData.lox_n2.maxVolts),
+        'LOX N2 V': LOX.analog?.["5"],
+        'LOX Inlet': getBar(LOX.analog?.["2"], sensorData.lox_inlet.barMax, sensorData.lox_inlet.minVolts, sensorData.lox_inlet.maxVolts),
+        'LOX Inlet V': LOX.analog?.["2"],
+        'ETH Tank': getBar(ETH.analog["4"], sensorData.eth_tank.barMax, sensorData.eth_tank.minVolts, sensorData.eth_tank.maxVolts),
+        'ETH Tank V': ETH.analog["4"],
+        'ETH N2': getBar(ETH.analog["5"], sensorData.eth_n2.barMax, sensorData.eth_n2.minVolts, sensorData.eth_n2.maxVolts),
+        'ETH N2 V': ETH.analog["5"],
+        'ETH Inlet': getBar(ETH.analog["6"], sensorData.eth_inlet.barMax, sensorData.eth_inlet.minVolts, sensorData.eth_inlet.maxVolts),
+        'ETH Inlet V': ETH.analog["6"],
         // OLD: analog 4-20mA cryo flow conversion, replaced by UART below
-        // 'LOX Flow': getLPS(dict.labjacks.LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow, sensorData.lox_cryo.minVolts, sensorData.lox_cryo.maxVolts),
-        // 'LOX Flow Raw': dict.labjacks.LOX.analog["2"],
+        // 'LOX Flow': getLPS(LOX.analog["2"], sensorData.lox_cryo.minFlow, sensorData.lox_cryo.maxFlow, sensorData.lox_cryo.minVolts, sensorData.lox_cryo.maxVolts),
+        // 'LOX Flow Raw': LOX.analog["2"],
         // Cryo flow meter streams pre-computed L/s over UART — no voltage conversion needed
-        'LOX Flow': dict.labjacks.LOX.cryo_flow_lps ?? NaN,
-        'ETH Temp': dict.labjacks.ETH.temperature != null
-            ? getTemperatureC(dict.labjacks.ETH.temperature, sensorData.eth_temp.fullRange, sensorData.eth_temp.readingAt25, sensorData.eth_temp.readingAtFullRange)
+        'LOX Flow': LOX.cryo_flow_lps ?? NaN,
+        'ETH Temp': ETH.temperature != null
+            ? getTemperatureC(ETH.temperature, sensorData.eth_temp.fullRange, sensorData.eth_temp.readingAt25, sensorData.eth_temp.readingAtFullRange)
             : NaN,
-        'LOX Temp': dict.labjacks.LOX.temperature != null
-            ? getTemperatureC(dict.labjacks.LOX.temperature, sensorData.lox_temp.fullRange, sensorData.lox_temp.readingAt25, sensorData.lox_temp.readingAtFullRange)
+        'LOX Temp': LOX.temperature != null
+            ? getTemperatureC(LOX.temperature, sensorData.lox_temp.fullRange, sensorData.lox_temp.readingAt25, sensorData.lox_temp.readingAtFullRange)
             : NaN,
-        'ETH Load Cell': dict.labjacks.ETH.analog?.["0"] !== undefined
-            ? getLoadCellKg(dict.labjacks.ETH.analog["0"], sensorData.eth_load_cell.fullRange, sensorData.eth_load_cell.zeroVoltage, sensorData.eth_load_cell.maxVoltage)
+        'ETH Load Cell': ETH.analog?.["0"] !== undefined
+            ? getLoadCellKg(ETH.analog["0"], sensorData.eth_load_cell.fullRange, sensorData.eth_load_cell.zeroVoltage, sensorData.eth_load_cell.maxVoltage)
             : NaN,
-        'ETH Load Cell V': dict.labjacks.ETH.analog?.["0"] ?? NaN,
+        'ETH Load Cell V': ETH.analog?.["0"] ?? NaN,
     }
 }
 

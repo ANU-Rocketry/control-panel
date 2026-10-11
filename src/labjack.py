@@ -1,10 +1,11 @@
 from abc import ABCMeta, abstractmethod
 from traceback import print_exc, format_exc
-import sys
 import time
 import math
 import random
 import threading
+import queue
+from concurrent.futures import Future
 from stands import LOX, ETH
 
 def get_class(dev: bool) -> type:
@@ -165,14 +166,12 @@ class LabJack(LabJackBase):
             threading.Thread(target=self._thermocouple_worker, daemon=True).start()
 
     def _get_digital_state(self, pin_number: int) -> bool:
-        try:
-            with self._device_lock:
-                return self.device.getDIOState(pin_number)
-        except Exception:
-            print(pin_number)
-            print_exc()
-            print(f"pin: {pin_number}")
-            sys.exit()
+        # Raises on a USB error. This used to sys.exit() the whole server; now the
+        # LabJackWorker that calls it catches the error, marks this stand's data as
+        # stale, warns the operator and retries, so one bad read can't take valve
+        # control (or the other stand) down with it.
+        with self._device_lock:
+            return self.device.getDIOState(pin_number)
 
     def _set_digital_state(self, pin_number: int, state: bool):
         # Set the value in the hardware
@@ -199,14 +198,9 @@ class LabJack(LabJackBase):
         else: return self._get_digital_state(pin_number)
 
     def get_voltage(self, pin_number: int) -> float:
-        try:
-            with self._device_lock:
-                return self.device.getAIN(pin_number)
-        except Exception:
-            print(pin_number)
-            print_exc()
-            print(f"pin {pin_number}")
-            sys.exit()
+        # Raises on a USB error - see _get_digital_state for why this no longer exits.
+        with self._device_lock:
+            return self.device.getAIN(pin_number)
 
     def _read_thermocouple_once(self, sck: int, cs: int, so: int, mosi: int) -> float | None:
         """Single raw read from MAX6675, using the U3's native hardware SPI engine
@@ -420,3 +414,191 @@ class LabJackFake(LabJackBase):
             return False
         self._log(f"[CRYO] {self.config.name}: (fake) would send command {char!r}")
         return True
+
+
+class LabJackWorker:
+    """
+    Owns one LabJack (real or fake) on its own background thread, so that no USB call
+    ever runs on the server's asyncio event loop. Before this, every sensor read and
+    valve write was a blocking call on that loop: one slow or hung USB transaction
+    froze state broadcasts, valve commands, ABORT and new connections for both stands.
+
+    - Polling: the thread reads all valves/sensors about 20 times a second and
+      publishes the result as a snapshot. The server just copies the latest snapshot.
+    - Commands (valve writes, cryo commands) are queued and run on the same thread
+      with priority: the queue is checked before every individual read, so a command
+      waits for at most the one USB call in progress, not a whole poll.
+    - Failures: a read error aborts that poll, is reported once through on_warning,
+      and polling retries. The snapshot is then flagged stale so the operator can see
+      the displayed valve states and readings are out of date.
+
+    Limit: commands and reads for one LabJack share one USB handle. If a USB call on
+    this LabJack hangs, commands for this LabJack wait until it returns. The server
+    and the other LabJack keep running.
+    """
+
+    POLL_PERIOD = 0.05     # seconds between polls (20Hz, same as the state broadcast)
+    STALE_AFTER = 0.5      # snapshot older than this is flagged stale
+    ERROR_BACKOFF = 0.2    # pause before retrying after a failed poll
+    LIGHT_REFRESH = 1.0    # re-send every light output this often, even if unchanged
+
+    def __init__(self, labjack: LabJackBase, on_warning=print):
+        self.lj = labjack
+        self.config = labjack.config
+        self._on_warning = on_warning
+        self._commands = queue.Queue()
+        self._lock = threading.Lock()       # guards the fields below
+        self._snapshot = {}
+        self._snapshot_time = None          # time.monotonic() of the last complete poll
+        self._error = None                  # text of the current poll error, if any
+        self._lights_wanted = {}            # pin -> bool, set by the server
+        self._lights_sent = {}              # pin -> bool, what was last written
+        self._lights_sent_time = 0.0
+        self._started = time.monotonic()
+        self._first_poll_done = threading.Event()
+        threading.Thread(target=self._run, daemon=True, name=f"labjack-{self.config.name}").start()
+
+    # ---- called from the server (event loop thread) - none of these block ----
+
+    def submit(self, fn, *args) -> Future:
+        """Queue fn(*args) to run on the worker thread. Returns a concurrent Future."""
+        future = Future()
+        self._commands.put((future, fn, args))
+        return future
+
+    def set_valve(self, pin_number: int, open: bool) -> Future:
+        return self.submit(self.lj.set_valve_state, pin_number, open)
+
+    def send_cryo_command(self, char: str) -> Future:
+        return self.submit(self.lj.send_cryo_command, char)
+
+    def wait_ready(self, timeout: float) -> bool:
+        """Block until the first complete poll (startup only). False if it didn't happen."""
+        return self._first_poll_done.wait(timeout)
+
+    def set_light(self, pin_number: int, state: bool):
+        """Record the wanted state of a light stand output; applied on the next poll."""
+        with self._lock:
+            self._lights_wanted[pin_number] = bool(state)
+
+    def voltage(self, pin_number: int):
+        """Latest voltage for an analog pin, or None if there is no fresh reading."""
+        with self._lock:
+            if self._is_stale():
+                return None
+            return self._snapshot.get("analog", {}).get(pin_number)
+
+    def get_state(self) -> dict:
+        """
+        Latest snapshot (same shape as LabJackBase.get_state) plus:
+          stale:  True if no complete poll finished in the last STALE_AFTER seconds
+          age_ms: age of the snapshot in milliseconds
+          error:  text of the current read error, or None
+        """
+        with self._lock:
+            state = dict(self._snapshot)
+            state["stale"] = self._is_stale()
+            state["age_ms"] = int(self._age() * 1000)
+            state["error"] = self._error
+        return state
+
+    def _age(self) -> float:
+        since = self._snapshot_time if self._snapshot_time is not None else self._started
+        return time.monotonic() - since
+
+    def _is_stale(self) -> bool:
+        return self._snapshot_time is None or self._age() > self.STALE_AFTER
+
+    # ---- worker thread ----
+
+    def _run_command(self, item):
+        future, fn, args = item
+        if not future.set_running_or_notify_cancel():
+            return  # the server gave up on it (timed out) before it started
+        try:
+            future.set_result(fn(*args))
+        except Exception as e:
+            future.set_exception(e)
+
+    def _drain_commands(self):
+        while True:
+            try:
+                item = self._commands.get_nowait()
+            except queue.Empty:
+                return
+            self._run_command(item)
+
+    def _wait(self, seconds: float):
+        """Sleep, but wake immediately to run any command that arrives."""
+        deadline = time.monotonic() + seconds
+        while (remaining := deadline - time.monotonic()) > 0:
+            try:
+                item = self._commands.get(timeout=remaining)
+            except queue.Empty:
+                return
+            self._run_command(item)
+
+    def _read(self, fn, *args):
+        # Commands go first: checked before every single USB read
+        self._drain_commands()
+        return fn(*args)
+
+    def _poll(self) -> dict:
+        lj = self.lj
+        state = {}
+
+        # Light stand outputs (only written when changed, or once per LIGHT_REFRESH)
+        with self._lock:
+            wanted = dict(self._lights_wanted)
+        if time.monotonic() - self._lights_sent_time > self.LIGHT_REFRESH:
+            self._lights_sent = {}
+            self._lights_sent_time = time.monotonic()
+        for pin, value in wanted.items():
+            if self._lights_sent.get(pin) != value:
+                self._read(lj._set_digital_state, pin, value)
+                self._lights_sent[pin] = value
+
+        if lj.digital_pins:
+            state["digital"] = {}
+            for pin in lj.digital_pins:
+                state["digital"][pin] = self._read(lj.get_valve_state, pin)
+        if lj.analog_inputs:
+            state["analog"] = {}
+            for pin in lj.analog_inputs:
+                state["analog"][pin] = self._read(lj.get_voltage, pin)
+        if lj.light_stand_pins:
+            state["light_stand"] = {}
+            for pin in lj.light_stand_pins:
+                state["light_stand"][pin] = self._read(lj._get_digital_state, pin)
+        if hasattr(self.config, 'Thermocouple'):
+            state["temperature"] = self._read(lj.get_thermocouple_temp)
+        if hasattr(self.config, 'CryoFlowUART'):
+            state["cryo_flow_lps"] = self._read(lj.get_cryo_flow_lps)
+        return state
+
+    def _run(self):
+        while True:
+            started = time.monotonic()
+            try:
+                state = self._poll()
+            except Exception as e:
+                message = f"{type(e).__name__}: {e}"
+                with self._lock:
+                    first = self._error is None
+                    self._error = message
+                if first:
+                    print_exc()
+                    self._on_warning(f"{self.config.name} LabJack read failed ({message}). Retrying - its readings and valve states are out of date.")
+                self._wait(self.ERROR_BACKOFF)
+                continue
+
+            with self._lock:
+                recovered = self._error is not None
+                self._error = None
+                self._snapshot = state
+                self._snapshot_time = time.monotonic()
+            self._first_poll_done.set()
+            if recovered:
+                self._on_warning(f"{self.config.name} LabJack is responding again.")
+            self._wait(self.POLL_PERIOD - (time.monotonic() - started))
+
