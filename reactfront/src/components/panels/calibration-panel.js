@@ -1,11 +1,37 @@
 import React, { useState } from 'react';
 import { Panel } from '../index';
-import { sensorData, updateSensorCalibration, resetSensorCalibration, defaultSensorCalibration } from '../../utils';
+import { sensorData, serverCalibration, legacyLocalCalibration, defaultSensorCalibration } from '../../utils';
 import { Button } from '@material-ui/core';
 
 export default function CalibrationPanel({ state, emit }) {
     const [calibration, setCalibration] = useState({ ...sensorData });
-    const [selectedSensor, setSelectedSensor] = useState('eth_tank');
+    const [selectedSensor, setSelectedSensor] = useState(() => sessionStorage.getItem('calibrationSelectedSensor') || 'eth_tank');
+    const selectSensor = (key) => {
+        // Remembered because this panel is rebuilt whenever the server sends new
+        // calibration (see calibrationVersion in index.js)
+        sessionStorage.setItem('calibrationSelectedSensor', key);
+        setSelectedSensor(key);
+    };
+
+    // Calibration is saved on the server and shared with every connected device, so
+    // nothing can be saved without a live connection
+    const connected = state.socketStatus === WebSocket.OPEN;
+    const requireConnection = () => {
+        if (!connected) alert('Not connected to the server, so the calibration was NOT changed.');
+        return connected;
+    };
+
+    // This browser's calibration from before it moved to the server, offered for
+    // upload only while the server has nothing saved
+    const legacy = legacyLocalCalibration();
+    const offerLegacyUpload = serverCalibration !== null
+        && Object.keys(serverCalibration).length === 0 && Object.keys(legacy).length > 0;
+    const uploadLegacy = () => {
+        if (!requireConnection()) return;
+        const names = Object.keys(legacy).join(', ');
+        if (!window.confirm(`Upload this browser's saved calibration for ${names} to the server? It will apply to every connected device.`)) return;
+        Object.entries(legacy).forEach(([sensor, values]) => emit('SETCALIBRATION', { sensor, values }));
+    };
 
     const handleUpdate = (sensorKey, field, value) => {
     // Allow empty string for editing
@@ -79,24 +105,23 @@ export default function CalibrationPanel({ state, emit }) {
     
     console.log('Cleaned sensor data:', cleanedSensor);
     
-    updateSensorCalibration(sensorKey, cleanedSensor);
-    alert(`Calibration saved for ${sensorKey}`);
-    window.location.reload();
+    if (!requireConnection()) return;
+    // The server saves it and sends it to every connected device, including this one
+    emit('SETCALIBRATION', { sensor: sensorKey, values: cleanedSensor });
+    alert(`Calibration for ${sensorKey} sent to the server. It applies to every connected device.`);
 };
 
     const handleReset = (sensorKey) => {
-        if (window.confirm(`Reset ${sensorKey} to default calibration?`)) {
-            resetSensorCalibration(sensorKey);
-            setCalibration({ ...sensorData });
-            window.location.reload();
+        if (!requireConnection()) return;
+        if (window.confirm(`Reset ${sensorKey} to default calibration on every connected device?`)) {
+            emit('RESETCALIBRATION', sensorKey);
         }
     };
 
     const handleResetAll = () => {
-        if (window.confirm('Reset ALL sensors to default calibration?')) {
-            resetSensorCalibration();
-            setCalibration({ ...sensorData });
-            window.location.reload();
+        if (!requireConnection()) return;
+        if (window.confirm('Reset ALL sensors to default calibration on every connected device?')) {
+            emit('RESETCALIBRATION', null);
         }
     };
 
@@ -315,6 +340,22 @@ export default function CalibrationPanel({ state, emit }) {
     return (
         <Panel title="Sensor Calibration" className='panel calibration'>
             <div style={{ padding: '20px' }}>
+                <p style={{ fontSize: '13px', color: '#555', marginTop: 0 }}>
+                    Calibration is saved on the server and shared: a change made here
+                    applies to every device connected to this server, and is kept when
+                    the server restarts.
+                </p>
+                {offerLegacyUpload && (
+                    <div style={{ padding: '10px', border: '1px solid #e0a800', background: '#fff8e1', marginBottom: '20px' }}>
+                        <div style={{ marginBottom: '8px' }}>
+                            The server has no calibration saved yet, but this browser has
+                            values saved from before ({Object.keys(legacy).join(', ')}).
+                        </div>
+                        <Button variant="contained" onClick={uploadLegacy}>
+                            Upload this browser's calibration to the server
+                        </Button>
+                    </div>
+                )}
                 <div style={{ marginBottom: '20px' }}>
                     <Button 
                         variant="contained" 
@@ -331,7 +372,7 @@ export default function CalibrationPanel({ state, emit }) {
                         <Button
                             key={sensor.key}
                             variant={selectedSensor === sensor.key ? "contained" : "outlined"}
-                            onClick={() => setSelectedSensor(sensor.key)}
+                            onClick={() => selectSensor(sensor.key)}
                         >
                             {sensor.name}
                         </Button>

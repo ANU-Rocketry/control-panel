@@ -104,31 +104,66 @@ export const defaultSensorCalibration = {
     },
 }
 
-// Load calibration from localStorage using a deep merge — each sensor's fields are merged
-// individually so that new default fields (e.g. minVolts/maxVolts replacing zero/span)
-// are always present even when an older localStorage snapshot exists.
-const _stored = JSON.parse(localStorage.getItem('sensorCalibration')) || {};
-export let sensorData = Object.fromEntries(
-    Object.keys(defaultSensorCalibration).map(key => [
-        key,
-        { ...defaultSensorCalibration[key], ...(_stored[key] || {}) }
-    ])
-);
-
-// Function to update and save calibration
-export function updateSensorCalibration(sensorKey, newCalibration) {
-    sensorData[sensorKey] = { ...sensorData[sensorKey], ...newCalibration };
-    localStorage.setItem('sensorCalibration', JSON.stringify(sensorData));
+// Calibration is stored on the server (src/calibration.json) and shared by every
+// browser: the server sends it in a CALIBRATION message when a client connects and
+// again whenever anyone changes it (see applyServerCalibration below). The server
+// only holds the sensors someone has calibrated; everything else uses the defaults
+// above. Each sensor's fields are merged individually so new default fields are
+// always present.
+function mergeWithDefaults(overrides) {
+    return Object.fromEntries(
+        Object.keys(defaultSensorCalibration).map(key => [
+            key,
+            { ...defaultSensorCalibration[key], ...((overrides && overrides[key]) || {}) }
+        ])
+    );
 }
 
-// Function to reset calibration to defaults
-export function resetSensorCalibration(sensorKey = null) {
-    if (sensorKey) {
-        sensorData[sensorKey] = { ...defaultSensorCalibration[sensorKey] };
-    } else {
-        sensorData = { ...defaultSensorCalibration };
+function readStored(key) {
+    try {
+        return JSON.parse(localStorage.getItem(key)) || {};
+    } catch (e) {
+        return {};
     }
-    localStorage.setItem('sensorCalibration', JSON.stringify(sensorData));
+}
+
+// 'sensorCalibrationServerCopy' is this browser's copy of the last calibration the
+// server sent, used only until the server's CALIBRATION message arrives after
+// connecting. 'sensorCalibration' is the old per-browser calibration from before
+// calibration moved to the server; it is left untouched so it can be uploaded once
+// (see legacyLocalCalibration).
+const _cached = localStorage.getItem('sensorCalibrationServerCopy') !== null
+    ? readStored('sensorCalibrationServerCopy')
+    : readStored('sensorCalibration');
+export let sensorData = mergeWithDefaults(_cached);
+
+// What the server last sent ({} = nothing calibrated yet), or null before it arrives
+export let serverCalibration = null;
+
+// Called for every CALIBRATION message from the server
+export function applyServerCalibration(overrides) {
+    serverCalibration = overrides || {};
+    sensorData = mergeWithDefaults(serverCalibration);
+    localStorage.setItem('sensorCalibrationServerCopy', JSON.stringify(serverCalibration));
+}
+
+// Sensors whose old per-browser calibration differs from the defaults, as
+// { sensorKey: values }. Lets the calibration panel offer to upload them to a server
+// that has no calibration saved yet.
+export function legacyLocalCalibration() {
+    const stored = readStored('sensorCalibration');
+    const result = {};
+    for (const key of Object.keys(defaultSensorCalibration)) {
+        const defaults = defaultSensorCalibration[key];
+        const merged = { ...defaults, ...(stored[key] || {}) };
+        const changed = Object.keys(defaults).some(field =>
+            typeof defaults[field] === 'number' && typeof merged[field] === 'number' && merged[field] !== defaults[field]);
+        if (changed) {
+            // Only send the fields this sensor still uses
+            result[key] = Object.fromEntries(Object.keys(defaults).map(field => [field, merged[field]]));
+        }
+    }
+    return result;
 }
 
 // Sensor averaging configuration

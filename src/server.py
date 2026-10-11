@@ -9,6 +9,9 @@ import sys
 from labjack import get_class
 from stands import ETH, LOX
 from pathlib import Path
+import math
+import os
+import re
 import utils
 from commands import Sleep, Open, Close, ServerCommand, ClientCommandString
 
@@ -21,6 +24,9 @@ STATE_BROADCAST_FREQUENCY = 20  # Get the LabJack state and broadcast it to all 
 ABORT_SEQUENCE_TIMEOUT = 900 # Seconds without any active connections before the abort sequence automatically fires
 
 LOG_PATH = Path(__file__).parent / 'logs'
+# Sensor calibration shared by every connected browser (see load_calibration). Not in
+# git, so deploying new code with git pull doesn't overwrite the values set on the Pi.
+CALIBRATION_PATH = Path(__file__).parent / 'calibration.json'
 
 class UPSStatus:
     LINE_POWERED = 'LINE_POWERED'
@@ -123,6 +129,8 @@ class ControlPanelServer:
         self.port = port
         self.clients = set()
 
+        self.calibration = self.load_calibration()
+
         self.refresh_available_sequences()
 
         print(f"Hosting server on {ip} port {port}")
@@ -134,6 +142,61 @@ class ControlPanelServer:
         self.state.available_sequences = sorted(
             f.stem for f in sequence_dir.glob('*.py')
         )
+
+    def load_calibration(self) -> dict:
+        # { sensor_key: { field: value } }, e.g. { "eth_tank": { "barMax": 100, "minVolts": 0.49, "maxVolts": 2.01 } }
+        # Only sensors someone has calibrated are stored; the frontend fills in its
+        # defaults (reactfront/src/utils.js defaultSensorCalibration) for the rest.
+        try:
+            with open(CALIBRATION_PATH) as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return data
+            print(f"Ignoring {CALIBRATION_PATH}: not a JSON object")
+        except FileNotFoundError:
+            pass
+        except Exception:
+            print_exc()
+            print(f"Could not read {CALIBRATION_PATH}, starting with default calibration")
+        return {}
+
+    def save_calibration(self):
+        # Write to a temporary file then rename, so a power cut mid-write can't leave
+        # a half-written calibration file behind
+        tmp = CALIBRATION_PATH.with_suffix('.json.tmp')
+        with open(tmp, 'w') as f:
+            json.dump(self.calibration, f, indent=2, sort_keys=True)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, CALIBRATION_PATH)
+
+    async def set_calibration(self, sensor, values):
+        if not isinstance(sensor, str) or not re.fullmatch(r'[a-z0-9_]+', sensor):
+            raise ValueError(f"Invalid calibration sensor name: {sensor!r}")
+        if not isinstance(values, dict) or not values:
+            raise ValueError(f"Calibration for {sensor} must be a set of named values")
+        cleaned = {}
+        for field, value in values.items():
+            if field == 'type' and isinstance(value, str):
+                cleaned[field] = value
+            elif isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
+                cleaned[field] = value
+            else:
+                raise ValueError(f"Calibration value {sensor}.{field} must be a number, got {value!r}")
+        self.calibration[sensor] = cleaned
+        self.save_calibration()
+        self.log_data({sensor: cleaned}, type="CALIBRATION")
+        await self.broadcast('CALIBRATION', self.calibration)
+
+    async def reset_calibration(self, sensor=None):
+        # sensor=None resets every sensor back to the frontend's defaults
+        if sensor is None:
+            self.calibration = {}
+        else:
+            self.calibration.pop(sensor, None)
+        self.save_calibration()
+        self.log_data({"reset": sensor or "all"}, type="CALIBRATION")
+        await self.broadcast('CALIBRATION', self.calibration)
 
     async def timeout_counter(self):
         # run the abort sequence once when no devices have been connected for `ABORT_SEQUENCE_TIMOUT` seconds
@@ -214,6 +277,8 @@ class ControlPanelServer:
     async def event_handler(self, ws, path="None"):
         self.clients.add(ws)
         try:
+            # Every client gets the shared calibration as soon as it connects
+            await self.emit(ws, 'CALIBRATION', self.calibration)
             async for message in ws:
                 self.inactive_abort_fired = False # reset inactivity measure
                 self.log_data(message, type="REQUEST")
@@ -396,6 +461,8 @@ class ControlPanelServer:
             self.state.data_logging = True
             self.datalog = Datalog(LOG_PATH)
             self.log_data(True, type="DATA_LOGGING")
+            # Record the calibration in force, since STATE rows only hold raw volts
+            self.log_data(self.calibration, type="CALIBRATION")
         else:
             self.log_data(False, type="DATA_LOGGING")
             self.state.data_logging = False
@@ -501,6 +568,16 @@ class ControlPanelServer:
                         self.state.cryo_test_mode[stand_name] = not self.state.cryo_test_mode.get(stand_name, False)
                     elif not success:
                         self.push_warning(f"Failed to send cryo command {char!r} to {stand_name}")
+
+            case ClientCommandString.SETCALIBRATION:
+                # data = {"sensor": "eth_tank", "values": {"barMax": 100, "minVolts": 0.49, "maxVolts": 2.01}}
+                # Saved on the server and sent to every client. Not gated on arming,
+                # same as before when calibration lived in each browser.
+                await self.set_calibration(data.get('sensor'), data.get('values'))
+
+            case ClientCommandString.RESETCALIBRATION:
+                # data = "eth_tank" to reset one sensor, or null to reset all of them
+                await self.reset_calibration(data)
 
             case _:
                 self.push_warning(f"Unknown command: {header}")
