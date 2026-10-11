@@ -40,32 +40,6 @@ function DebugLogPanel({ debugLog }) {
   )
 }
 
-// Red bar under the header whenever what's on screen can't be trusted: no connection,
-// no state messages arriving, or a LabJack that has stopped responding. Valve switches
-// only show what the server last reported, so without this a frozen switch looks the
-// same as a stuck valve.
-function StaleBanner({ connected, silentSeconds, data }) {
-  const problems = []
-  if (!connected) {
-    problems.push('No connection to the server. Valve states and readings shown are not live, and commands are not being sent.')
-  } else if (silentSeconds >= 1) {
-    problems.push(`No data from the server for ${silentSeconds.toFixed(0)}s. Valve states and readings shown are out of date.`)
-  } else if (data) {
-    for (const stand of Object.keys(data.labjacks || {})) {
-      const lj = data.labjacks[stand]
-      if (lj && lj.stale) {
-        problems.push(`${stand} LabJack is not responding (${(lj.age_ms / 1000).toFixed(1)}s). ${stand} valve states and readings are out of date, and ${stand} valve commands may be delayed.`)
-      }
-    }
-  }
-  if (problems.length === 0) return null
-  return (
-    <div className='stale-banner' role='alert'>
-      {problems.map((text, i) => <div key={i}>{text}</div>)}
-    </div>
-  )
-}
-
 class App extends React.Component {
 
   constructor(props) {
@@ -84,8 +58,6 @@ class App extends React.Component {
       // already-executed commands from the display when switching back.
       fullSequence: [],
       fullSequenceName: null,
-      // Whole seconds since the last STATE message arrived (see StaleBanner)
-      silentSeconds: 0,
     }
     this.emit = this.emit.bind(this)
     this.setActivePanel = this.setActivePanel.bind(this)
@@ -97,17 +69,11 @@ class App extends React.Component {
   }
   componentDidMount() {
     this.interval = setInterval(() => this.emit('PING'), 200);
-    this.lastStateAt = Date.now();
-    this.silenceInterval = setInterval(() => {
-      const silentSeconds = Math.floor((Date.now() - this.lastStateAt) / 1000)
-      if (silentSeconds !== this.state.silentSeconds) this.setState({ silentSeconds })
-    }, 250);
     this.mounted = true;
   }
   componentWillUnmount() {
     this.mounted = false;
     clearInterval(this.interval);
-    clearInterval(this.silenceInterval);
   }
   pushWarning(time, message) {
     if (!this.state.mostRecentWarning ||
@@ -124,15 +90,28 @@ class App extends React.Component {
     this.setState(diff)
   }
   connect() {
-    if (this.socket) this.socket.close();
+    // Detach the old socket's handlers before closing it. Its onclose used to fire
+    // after the new socket had been created, set this.socket = null and open a
+    // second connection a second later. That left two live sockets on one page (it
+    // happened every time the Server IP box was edited), so every message was
+    // handled twice: valve events were drawn twice on the graphs and every state
+    // update was processed twice.
+    if (this.socket) {
+      this.socket.onopen = this.socket.onclose = this.socket.onmessage = null
+      this.socket.close()
+      newData(emptyDataPoint)
+    }
+    this.socket = null
     try {
-    this.socket = new WebSocket(`ws://${this.state.wsAddress}:8888`)
+    const socket = new WebSocket(`ws://${this.state.wsAddress}:8888`)
+    this.socket = socket
     this.updateSocketStatus()
-    this.socket.onopen = e => {
+    socket.onopen = e => {
       console.log('websocket connection established')
       this.updateSocketStatus()
     }
-    this.socket.onclose = e => {
+    socket.onclose = e => {
+      if (this.socket !== socket) return // an old socket: a newer one has replaced it
       this.updateSocketStatus()
       this.socket = null
       console.log('websocket connection lost. reconnecting...')
@@ -143,13 +122,12 @@ class App extends React.Component {
         }
       }, 1000)
     }
-    this.socket.onmessage = e => {
-      if (!this.mounted) return
+    socket.onmessage = e => {
+      if (!this.mounted || this.socket !== socket) return
       this.updateSocketStatus()
       const data = JSON.parse(e.data)
       switch (data.type) {
         case 'STATE':
-          this.lastStateAt = Date.now()
           data.data.time = parseInt(data.data.time) / 1000
           // If there's a >1s gap, introduce a segment break
           // This is well behaved with NaNs (if state.data.time is undefined it's false)
@@ -205,6 +183,10 @@ class App extends React.Component {
           const time = data.time / 1000
           const pin = pinFromID(data.data.pin, data.data.stand).pin
           const label = (data.data.header === 'CLOSE' ? 'Closed' : 'Opened') + ' ' + pin.test_stand + ' ' + pin.abbrev
+          // The same command sent again straight away (e.g. a double click before
+          // the switch has updated) changes nothing on the stand: mark it once
+          const previous = this.state.events[this.state.events.length - 1]
+          if (previous && previous.label === label && Math.abs(time - previous.time) < 0.3) break
           newEvent({ time, label })
           this.setState({ events: [...this.state.events, { ...data.data, label, time }] })
           break
@@ -233,8 +215,6 @@ class App extends React.Component {
       <div>
         <TopBar state={this.state} emit={this.emit} sockStatus={this.state.socketStatus} that={this}
           activePanel={this.state.activePanel} setActivePanel={this.setActivePanel} />
-        <StaleBanner connected={this.state.socketStatus === WebSocket.OPEN}
-          silentSeconds={this.state.silentSeconds} data={this.state.data} />
         <div className='panels-root'>
           <div className='main-layout'>
             <div className='left-panel'>

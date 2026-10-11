@@ -395,20 +395,3 @@ input[type='file'] {
   color: #888;
   font-style: italic;
 }
-
-/* Shown under the header when the display can't be trusted (see StaleBanner in index.js) */
-.stale-banner {
-  position: fixed;
-  top: var(--top-bar-height);
-  left: 0;
-  right: 0;
-  z-index: 9000;
-  background: #c62828;
-  color: white;
-  font-family: sans-serif;
-  font-size: 16px;
-  font-weight: bold;
-  text-align: center;
-  padding: 8px 14px;
-  box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.4);
-}
