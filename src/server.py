@@ -6,11 +6,14 @@ import json
 from datalog import Datalog
 from traceback import print_exc
 import sys
-from labjack import get_class
+from labjack import get_class, LabJackWorker
 from stands import ETH, LOX
 from pathlib import Path
+import math
+import os
+import re
 import utils
-from commands import Sleep, Open, Close, ServerCommand, ClientCommandString
+from commands import Sleep, Open, Close, ServerCommand, ClientCommandString, ValveCommandError
 
 # If you run `python3 server.py --dev` you get a simulated LabJack class
 # If you run `python3 server.py` it tries to connect properly
@@ -19,8 +22,12 @@ devMode = '--dev' in sys.argv
 
 STATE_BROADCAST_FREQUENCY = 20  # Get the LabJack state and broadcast it to all connected clients at 20Hz
 ABORT_SEQUENCE_TIMEOUT = 900 # Seconds without any active connections before the abort sequence automatically fires
+VALVE_COMMAND_TIMEOUT = 2.0 # Seconds to wait for a LabJack to confirm a valve write before warning the operator
 
 LOG_PATH = Path(__file__).parent / 'logs'
+# Sensor calibration shared by every connected browser (see load_calibration). Not in
+# git, so deploying new code with git pull doesn't overwrite the values set on the Pi.
+CALIBRATION_PATH = Path(__file__).parent / 'calibration.json'
 
 class UPSStatus:
     LINE_POWERED = 'LINE_POWERED'
@@ -74,6 +81,11 @@ class SystemState:
     # in a live log panel on the frontend for debugging without needing terminal access
     # to the Pi. Capped in ControlPanelServer.log_debug() so this can't grow unbounded.
     debug_log: list[str] = field(default_factory=list)
+    # Best-effort belief about whether each stand's cryo flow sensor is in test mode,
+    # toggled locally whenever a 't' command is sent (see CRYOCOMMAND). The microcontroller
+    # doesn't send an acknowledgement back, so this can desync if a command is ever missed -
+    # it's a UI hint, not a guaranteed reflection of the microcontroller's real state.
+    cryo_test_mode: dict[str, bool] = field(default_factory=dict)
     # LabJack sensor data - state['LOX']['analog'][pin_no] is a voltage for instance
     # Note this is not necessarily up-to-date: it's computed from LabJack.get_state()
     # before sending this entire object as JSON to the client
@@ -101,11 +113,26 @@ class ControlPanelServer:
         self.time_of_last_disconnect = time.time()
         self.inactive_abort_fired = False # so we don't fire the abort sequence repeatedly
 
+        # The asyncio loop, set in start_server. Used to hand warnings/log lines from
+        # the LabJack worker threads back to the loop thread (see _on_loop).
+        self.loop = None
+        # Which stands were flagged stale on the last tick, so we warn once per outage
+        self.stale_stands = set()
+
+        # Each LabJack is owned by a LabJackWorker thread: all USB calls (sensor reads
+        # and valve writes) happen there, never on the asyncio event loop.
         self.labjacks = {}
 
         try:
-            self.labjacks['LOX'] = get_class(devMode)(LOX, log_callback=self.log_debug)
-            self.labjacks['ETH'] = get_class(devMode)(ETH, log_callback=self.log_debug)
+            for stand in (LOX, ETH):
+                self.labjacks[stand.name] = LabJackWorker(
+                    get_class(devMode)(stand, log_callback=self.log_debug),
+                    on_warning=self.push_warning)
+            for name, worker in self.labjacks.items():
+                # Don't start serving until every LabJack has been read once, so the
+                # first state sent to clients is complete
+                if not worker.wait_ready(5):
+                    raise RuntimeError(f"{name} LabJack opened but could not be read")
         except:
             print_exc()
             print('''
@@ -118,6 +145,8 @@ class ControlPanelServer:
         self.port = port
         self.clients = set()
 
+        self.calibration = self.load_calibration()
+
         self.refresh_available_sequences()
 
         print(f"Hosting server on {ip} port {port}")
@@ -129,6 +158,61 @@ class ControlPanelServer:
         self.state.available_sequences = sorted(
             f.stem for f in sequence_dir.glob('*.py')
         )
+
+    def load_calibration(self) -> dict:
+        # { sensor_key: { field: value } }, e.g. { "eth_tank": { "barMax": 100, "minVolts": 0.49, "maxVolts": 2.01 } }
+        # Only sensors someone has calibrated are stored; the frontend fills in its
+        # defaults (reactfront/src/utils.js defaultSensorCalibration) for the rest.
+        try:
+            with open(CALIBRATION_PATH) as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return data
+            print(f"Ignoring {CALIBRATION_PATH}: not a JSON object")
+        except FileNotFoundError:
+            pass
+        except Exception:
+            print_exc()
+            print(f"Could not read {CALIBRATION_PATH}, starting with default calibration")
+        return {}
+
+    def save_calibration(self):
+        # Write to a temporary file then rename, so a power cut mid-write can't leave
+        # a half-written calibration file behind
+        tmp = CALIBRATION_PATH.with_suffix('.json.tmp')
+        with open(tmp, 'w') as f:
+            json.dump(self.calibration, f, indent=2, sort_keys=True)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, CALIBRATION_PATH)
+
+    async def set_calibration(self, sensor, values):
+        if not isinstance(sensor, str) or not re.fullmatch(r'[a-z0-9_]+', sensor):
+            raise ValueError(f"Invalid calibration sensor name: {sensor!r}")
+        if not isinstance(values, dict) or not values:
+            raise ValueError(f"Calibration for {sensor} must be a set of named values")
+        cleaned = {}
+        for field, value in values.items():
+            if field == 'type' and isinstance(value, str):
+                cleaned[field] = value
+            elif isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
+                cleaned[field] = value
+            else:
+                raise ValueError(f"Calibration value {sensor}.{field} must be a number, got {value!r}")
+        self.calibration[sensor] = cleaned
+        self.save_calibration()
+        self.log_data({sensor: cleaned}, type="CALIBRATION")
+        await self.broadcast('CALIBRATION', self.calibration)
+
+    async def reset_calibration(self, sensor=None):
+        # sensor=None resets every sensor back to the frontend's defaults
+        if sensor is None:
+            self.calibration = {}
+        else:
+            self.calibration.pop(sensor, None)
+        self.save_calibration()
+        self.log_data({"reset": sensor or "all"}, type="CALIBRATION")
+        await self.broadcast('CALIBRATION', self.calibration)
 
     async def timeout_counter(self):
         # run the abort sequence once when no devices have been connected for `ABORT_SEQUENCE_TIMOUT` seconds
@@ -149,8 +233,14 @@ class ControlPanelServer:
             if self.state.data_logging and self.datalog:
                 self.log_data(self.state.as_dict(), type="STATE")
             for stand in self.labjacks:
+                # Non-blocking: copies the worker thread's latest snapshot
                 pin_data = self.labjacks[stand].get_state()
                 self.state.labjacks[stand] = pin_data
+                if pin_data["stale"] and stand not in self.stale_stands:
+                    self.stale_stands.add(stand)
+                    self.push_warning(f"{stand} LabJack is not responding - its readings and valve states are out of date.")
+                elif not pin_data["stale"]:
+                    self.stale_stands.discard(stand)
             self.state.time = int(time.time() * 1000)
             # broadcast new state to all clients
             asyncio.ensure_future(self.broadcast('STATE', self.state.as_dict()))
@@ -160,7 +250,21 @@ class ControlPanelServer:
         if self.datalog and self.state.data_logging:
             self.datalog.log_data(data, type)
 
+    def _on_loop(self, fn, *args):
+        # State is only ever changed on the event loop thread. push_warning/log_debug
+        # are also called from LabJack worker threads, so hand those calls over.
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            if self.loop is not None:
+                self.loop.call_soon_threadsafe(fn, *args)
+                return
+        fn(*args)  # on the loop thread already (or the loop hasn't started yet)
+
     def push_warning(self, msg: str):
+        self._on_loop(self._push_warning, msg)
+
+    def _push_warning(self, msg: str):
         self.state.latest_warning = ( utils.time_ms(), msg )
 
     def log_debug(self, msg: str):
@@ -168,10 +272,36 @@ class ControlPanelServer:
         # rolling buffer in state so the frontend can show it live without needing
         # terminal/SSH access to the Pi at all.
         print(msg)
-        timestamp = time.strftime('%H:%M:%S')
-        self.state.debug_log.append(f"[{timestamp}] {msg}")
+        self._on_loop(self._log_debug, f"[{time.strftime('%H:%M:%S')}] {msg}")
+
+    def _log_debug(self, line: str):
+        self.state.debug_log.append(line)
         if len(self.state.debug_log) > 50:
             self.state.debug_log = self.state.debug_log[-50:]
+
+    async def set_valve(self, stand: str, pin: int, open: bool):
+        """
+        Sends a valve write to the stand's LabJack worker and waits for it to confirm.
+        Never blocks the event loop. Raises ValveCommandError if the write failed or
+        wasn't confirmed within VALVE_COMMAND_TIMEOUT.
+        An OPEN that times out is dropped so it can't take effect late, after the
+        operator has been told it failed. A CLOSE that times out stays queued: closing
+        late is safer than never closing.
+        """
+        action = 'Open' if open else 'Close'
+        future = self.labjacks[stand].set_valve(pin, open)
+        confirmed = asyncio.wrap_future(future)
+        done, _ = await asyncio.wait({confirmed}, timeout=VALVE_COMMAND_TIMEOUT)
+        if not done:
+            if not open:
+                raise ValveCommandError(f"{action} {stand} pin {pin} is delayed: the {stand} LabJack is not responding. It stays queued and will be applied when the LabJack recovers.")
+            if future.cancel():
+                raise ValveCommandError(f"{action} {stand} pin {pin} was NOT sent: the {stand} LabJack did not respond within {VALVE_COMMAND_TIMEOUT:g}s. The command was dropped.")
+            raise ValveCommandError(f"{action} {stand} pin {pin} is not confirmed: the {stand} LabJack is not responding. It may still take effect.")
+        try:
+            confirmed.result()
+        except Exception as e:
+            raise ValveCommandError(f"{action} {stand} pin {pin} failed: {type(e).__name__}: {e}")
 
     async def get_UPS_status(self):
         if not devMode:
@@ -209,6 +339,8 @@ class ControlPanelServer:
     async def event_handler(self, ws, path="None"):
         self.clients.add(ws)
         try:
+            # Every client gets the shared calibration as soon as it connects
+            await self.emit(ws, 'CALIBRATION', self.calibration)
             async for message in ws:
                 self.inactive_abort_fired = False # reset inactivity measure
                 self.log_data(message, type="REQUEST")
@@ -391,6 +523,8 @@ class ControlPanelServer:
             self.state.data_logging = True
             self.datalog = Datalog(LOG_PATH)
             self.log_data(True, type="DATA_LOGGING")
+            # Record the calibration in force, since STATE rows only hold raw volts
+            self.log_data(self.calibration, type="CALIBRATION")
         else:
             self.log_data(False, type="DATA_LOGGING")
             self.state.data_logging = False
@@ -480,6 +614,37 @@ class ControlPanelServer:
                 content = await self.get_sequence_content(data)
                 await self.emit(ws, 'SEQUENCE_CONTENT', {'name': data, 'content': content})
 
+            case ClientCommandString.CRYOCOMMAND:
+                # data = {"stand": "LOX", "command": "t"} - sends a single character to
+                # that stand's cryo flow meter microcontroller over the UART TX line (see
+                # LabJack.send_cryo_command). Not gated on arming_switch: this only talks
+                # to a sensor's firmware, it doesn't actuate any valve/igniter.
+                stand_name = data.get('stand')
+                char = data.get('command')
+                lj = self.labjacks.get(stand_name)
+                if not lj or not hasattr(lj.config, 'CryoFlowUART'):
+                    self.push_warning(f"No cryo flow UART configured for stand: {stand_name}")
+                else:
+                    cryo = lj.send_cryo_command(char)  # runs on the LabJack worker thread
+                    sent = asyncio.wrap_future(cryo)
+                    done, _ = await asyncio.wait({sent}, timeout=VALVE_COMMAND_TIMEOUT)
+                    if not done: cryo.cancel()
+                    success = bool(done) and sent.exception() is None and sent.result()
+                    if success and char == 't':
+                        self.state.cryo_test_mode[stand_name] = not self.state.cryo_test_mode.get(stand_name, False)
+                    elif not success:
+                        self.push_warning(f"Failed to send cryo command {char!r} to {stand_name}")
+
+            case ClientCommandString.SETCALIBRATION:
+                # data = {"sensor": "eth_tank", "values": {"barMax": 100, "minVolts": 0.49, "maxVolts": 2.01}}
+                # Saved on the server and sent to every client. Not gated on arming,
+                # same as before when calibration lived in each browser.
+                await self.set_calibration(data.get('sensor'), data.get('values'))
+
+            case ClientCommandString.RESETCALIBRATION:
+                # data = "eth_tank" to reset one sensor, or null to reset all of them
+                await self.reset_calibration(data)
+
             case _:
                 self.push_warning(f"Unknown command: {header}")
                 
@@ -493,51 +658,57 @@ class ControlPanelServer:
         
         # It is the developers responsibility to make sure that the conditions
         # do not effect each other incorrectly. (Later conditions can override earlier ones)
+        # x is a LabJackWorker. Nothing here touches USB: set_light records the wanted
+        # output (the worker thread writes it) and voltage() reads the worker's latest
+        # snapshot, returning None when there is no fresh reading.
+        def tank_volts(x):
+            # Tank pressure sensor that drives the red light: pin 4 on both stands
+            # (LOX.LOXSensor / ETH.ETHSensor). Looked up by name, not list position.
+            sensor = getattr(x.config, 'LOXSensor', None) or getattr(x.config, 'ETHSensor', None)
+            return x.voltage(sensor[1]) if sensor else None
+
         shared = lambda x : [
           {
             'condition': lambda: len(self.clients) == 0,
-            'effect': lambda: x._set_digital_state(lightStand.green[1], cycle),
+            'effect': lambda: x.set_light(lightStand.green[1], cycle),
           },
           {
             'condition': lambda: len(self.clients) > 0,
-            'effect': lambda: x._set_digital_state(lightStand.green[1], True),
+            'effect': lambda: x.set_light(lightStand.green[1], True),
           },
           {
             'condition': lambda: not self.state.arming_switch,
-            'effect': lambda: x._set_digital_state(lightStand.yellow[1], False),
+            'effect': lambda: x.set_light(lightStand.yellow[1], False),
           },
           {
             'condition': lambda: self.state.arming_switch and not self.state.manual_switch,
-            'effect': lambda: x._set_digital_state(lightStand.yellow[1], True),
+            'effect': lambda: x.set_light(lightStand.yellow[1], True),
           },
           {
             'condition': lambda: self.state.manual_switch,
-            'effect': lambda: x._set_digital_state(lightStand.yellow[1], cycle),
+            'effect': lambda: x.set_light(lightStand.yellow[1], cycle),
           },
           {
-            'condition': lambda: x.get_voltage(LOX.Sensors[1]) < 0.52,
-            'effect': lambda: x._set_digital_state(lightStand.red[1], False),
+            # Red warning light from tank pressure. With no fresh reading (None) none
+            # of these three rules fire and the light keeps its last state.
+            'condition': lambda: (v := tank_volts(x)) is not None and v < 0.52,
+            'effect': lambda: x.set_light(lightStand.red[1], False),
           },
           {
-            'condition': lambda: x.get_voltage(LOX.Sensors[1]) > 0.52 and
-                                 x.get_voltage(LOX.Sensors[1]) < 1.47, #0.52v ~= 2atm 
-            'effect': lambda: x._set_digital_state(lightStand.red[1], True),
+            'condition': lambda: (v := tank_volts(x)) is not None and 0.52 < v < 1.47, #0.52v ~= 2atm
+            'effect': lambda: x.set_light(lightStand.red[1], True),
           },
           {
-            'condition': lambda: x.get_voltage(LOX.Sensors[1]) > 1.47, #1.47v ~= 600psi
-            'effect': lambda: x._set_digital_state(lightStand.red[1], cycle),
-          },
-          {
-            'condition': lambda: x.get_voltage(LOX.Sensors[1]) > 1.47, #1.47v ~= 600psi
-            'effect': lambda: x._set_digital_state(lightStand.red[1], cycle),
+            'condition': lambda: (v := tank_volts(x)) is not None and v > 1.47, #1.47v ~= 600psi
+            'effect': lambda: x.set_light(lightStand.red[1], cycle),
           },
           {
             'condition': lambda: self.state.status == SequenceStatus.IDLE,
-            'effect': lambda: x._set_digital_state(lightStand.buzzer[1], False),
+            'effect': lambda: x.set_light(lightStand.buzzer[1], False),
           },
           {
             'condition': lambda: self.state.status != SequenceStatus.IDLE,
-            'effect': lambda: x._set_digital_state(lightStand.buzzer[1], False),
+            'effect': lambda: x.set_light(lightStand.buzzer[1], False),
           }
         ]
           
@@ -555,6 +726,7 @@ class ControlPanelServer:
           await asyncio.sleep(1)
 
     async def start_server(self):
+        self.loop = asyncio.get_running_loop()
         asyncio.ensure_future(self.sync_state())
         asyncio.ensure_future(self.timeout_counter())
         asyncio.ensure_future(self.update_UPS_status())
@@ -573,16 +745,33 @@ class ControlPanelServer:
             self.state.manual_switch = False
 
             # if the status changes to idle, it means we've paused (keep the half completed sleep there and just exit execute_sequence)
-            while len(self.state.current_sequence) != 0 and self.state.status != SequenceStatus.IDLE:
-                self.state.command_in_flight = self.state.current_sequence.pop(0)
-                complete = await self.state.command_in_flight.act(self)
-                if complete: self.state.command_in_flight = None
+            try:
+                while len(self.state.current_sequence) != 0 and self.state.status != SequenceStatus.IDLE:
+                    self.state.command_in_flight = self.state.current_sequence.pop(0)
+                    try:
+                        complete = await self.state.command_in_flight.act(self)
+                    except Exception as e:
+                        # A command failed (e.g. a LabJack didn't confirm a valve write)
+                        print_exc()
+                        complete = True
+                        if self.state.status == SequenceStatus.RUNNING:
+                            # Don't carry on with a sequence whose valves are in an
+                            # unknown state: switch to the abort sequence instead.
+                            self.push_warning(f"Sequence stopped, running abort: {e}")
+                            self.run_abort_sequence()
+                        else:
+                            # Already aborting: keep going so every other valve in
+                            # the abort sequence still gets its command.
+                            self.push_warning(f"Abort step failed, continuing: {e}")
+                    if complete: self.state.command_in_flight = None
 
-                # if the status changes to ABORT_REQUESTED, we change it to ABORTING and discard the command in flight
-                if self.state.status == SequenceStatus.ABORT_REQUESTED:
-                    self.state.status = SequenceStatus.ABORTING
-
-            self.state.status = SequenceStatus.IDLE
+                    # if the status changes to ABORT_REQUESTED, we change it to ABORTING and discard the command in flight
+                    if self.state.status == SequenceStatus.ABORT_REQUESTED:
+                        self.state.status = SequenceStatus.ABORTING
+            finally:
+                # Always return to IDLE, even on an unexpected error, so the arming
+                # and manual switches can't be left locked by a dead sequence task
+                self.state.status = SequenceStatus.IDLE
 
         asyncio.ensure_future(task())
 

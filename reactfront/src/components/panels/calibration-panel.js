@@ -1,11 +1,40 @@
 import React, { useState } from 'react';
 import { Panel } from '../index';
-import { sensorData, updateSensorCalibration, resetSensorCalibration, defaultSensorCalibration } from '../../utils';
+import { sensorData, serverCalibration, legacyLocalCalibration, defaultSensorCalibration } from '../../utils';
 import { Button } from '@material-ui/core';
 
-export default function CalibrationPanel() {
+export default function CalibrationPanel({ state, emit }) {
     const [calibration, setCalibration] = useState({ ...sensorData });
-    const [selectedSensor, setSelectedSensor] = useState('eth_tank');
+    const [selectedSensor, setSelectedSensor] = useState(() => {
+        const saved = sessionStorage.getItem('calibrationSelectedSensor');
+        return saved in sensorData ? saved : 'eth_tank';
+    });
+    const selectSensor = (key) => {
+        // Remembered because this panel is rebuilt whenever the server sends new
+        // calibration (see calibrationVersion in index.js)
+        sessionStorage.setItem('calibrationSelectedSensor', key);
+        setSelectedSensor(key);
+    };
+
+    // Calibration is saved on the server and shared with every connected device, so
+    // nothing can be saved without a live connection
+    const connected = state.socketStatus === WebSocket.OPEN;
+    const requireConnection = () => {
+        if (!connected) alert('Not connected to the server, so the calibration was NOT changed.');
+        return connected;
+    };
+
+    // This browser's calibration from before it moved to the server, offered for
+    // upload only while the server has nothing saved
+    const legacy = legacyLocalCalibration();
+    const offerLegacyUpload = serverCalibration !== null
+        && Object.keys(serverCalibration).length === 0 && Object.keys(legacy).length > 0;
+    const uploadLegacy = () => {
+        if (!requireConnection()) return;
+        const names = Object.keys(legacy).join(', ');
+        if (!window.confirm(`Upload this browser's saved calibration for ${names} to the server? It will apply to every connected device.`)) return;
+        Object.entries(legacy).forEach(([sensor, values]) => emit('SETCALIBRATION', { sensor, values }));
+    };
 
     const handleUpdate = (sensorKey, field, value) => {
     // Allow empty string for editing
@@ -65,9 +94,9 @@ export default function CalibrationPanel() {
     // OLD: lox_cryo used to require ['minFlow', 'maxFlow', 'minVolts', 'maxVolts'] here
     // when it was analog 4-20mA — no longer applicable now that it streams over UART.
     const requiredFields = (sensorKey === 'eth_temp' || sensorKey === 'lox_temp')
-        ? ['offset']
-        : sensorKey === 'eth_load_cell'
-        ? ['supplyVoltage', 'calibrationVoltage']
+        ? ['offset', 'factor']
+        : (sensorKey === 'eth_load_cell' || sensorKey === 'lox_load_cell')
+        ? ['fullRange', 'zeroVoltage', 'maxVoltage']
         : ['barMax', 'minVolts', 'maxVolts'];
     
     const missingFields = requiredFields.filter(field => !(field in cleanedSensor));
@@ -76,27 +105,32 @@ export default function CalibrationPanel() {
         alert(`Missing required fields: ${missingFields.join(', ')}`);
         return;
     }
+
+    // temperature = (raw - offset) / factor, so a zero factor can never be valid
+    if (requiredFields.includes('factor') && cleanedSensor.factor === 0) {
+        alert('Factor cannot be 0.');
+        return;
+    }
     
     console.log('Cleaned sensor data:', cleanedSensor);
     
-    updateSensorCalibration(sensorKey, cleanedSensor);
-    alert(`Calibration saved for ${sensorKey}`);
-    window.location.reload();
+    if (!requireConnection()) return;
+    // The server saves it and sends it to every connected device, including this one
+    emit('SETCALIBRATION', { sensor: sensorKey, values: cleanedSensor });
+    alert(`Calibration for ${sensorKey} sent to the server. It applies to every connected device.`);
 };
 
     const handleReset = (sensorKey) => {
-        if (window.confirm(`Reset ${sensorKey} to default calibration?`)) {
-            resetSensorCalibration(sensorKey);
-            setCalibration({ ...sensorData });
-            window.location.reload();
+        if (!requireConnection()) return;
+        if (window.confirm(`Reset ${sensorKey} to default calibration on every connected device?`)) {
+            emit('RESETCALIBRATION', sensorKey);
         }
     };
 
     const handleResetAll = () => {
-        if (window.confirm('Reset ALL sensors to default calibration?')) {
-            resetSensorCalibration();
-            setCalibration({ ...sensorData });
-            window.location.reload();
+        if (!requireConnection()) return;
+        if (window.confirm('Reset ALL sensors to default calibration on every connected device?')) {
+            emit('RESETCALIBRATION', null);
         }
     };
 
@@ -107,13 +141,11 @@ export default function CalibrationPanel() {
         { key: 'lox_n2', name: 'LOX N2 Pressure' },
         { key: 'eth_inlet', name: 'ETH Motor Inlet Pressure' },
         { key: 'lox_inlet', name: 'LOX Motor Inlet Pressure' },
-        // OLD: lox_cryo used to need voltage calibration here when it was analog 4-20mA.
-        // Now the microcontroller computes L/s and streams it over UART, so there's
-        // nothing left to calibrate on this panel — kept commented out for reference.
-        // { key: 'lox_cryo', name: 'LOX Cryo Flow' },
-        { key: 'eth_temp', name: 'ETH Temperature' },
-        { key: 'lox_temp', name: 'LOX Temperature' },
+        { key: 'lox_cryo', name: 'LOX Cryo Flow' },
+        { key: 'eth_temp', name: 'Motor Thrust' },
+        { key: 'lox_temp', name: 'Weighing Sensor' },
         { key: 'eth_load_cell', name: 'ETH Load Cell' },
+        { key: 'lox_load_cell', name: 'LOX Load Cell' },
     ];
 
     const getSensorName = (sensorKey) => {
@@ -171,56 +203,32 @@ export default function CalibrationPanel() {
     };
 
     const renderFlowSensor = (sensorKey) => {
-        const sensor = calibration[sensorKey];
-        const defaultSensor = defaultSensorCalibration[sensorKey];
-        
+        // The microcontroller computes L/s itself and streams it over UART, so there's
+        // no voltage calibration to do here - this card is remote control instead:
+        // sending single-character commands to the microcontroller over the same UART's
+        // TX line (see LabJack.send_cryo_command / server.py's CRYOCOMMAND handler).
+        const stand = 'LOX';
+        const testModeOn = !!(state?.data?.cryo_test_mode && state.data.cryo_test_mode[stand]);
+
         return (
             <div style={{ padding: '10px', border: '1px solid #ccc', marginBottom: '10px' }}>
                 <h3>{getSensorName(sensorKey)}</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '150px 150px', gap: '10px' }}>
-                    <label>Min Flow (LPS):</label>
-                    <input
-                        type="number"
-                        step="0.001"
-                        value={sensor.minFlow}
-                        onChange={(e) => handleUpdate(sensorKey, 'minFlow', e.target.value)}
-                    />
-                    
-                    <label>Max Flow (LPS):</label>
-                    <input
-                        type="number"
-                        step="0.001"
-                        value={sensor.maxFlow}
-                        onChange={(e) => handleUpdate(sensorKey, 'maxFlow', e.target.value)}
-                    />
-                    
-                    <label>Min Volts:</label>
-                    <input
-                        type="number"
-                        step="0.1"
-                        value={sensor.minVolts}
-                        onChange={(e) => handleUpdate(sensorKey, 'minVolts', e.target.value)}
-                    />
-                    
-                    <label>Max Volts:</label>
-                    <input
-                        type="number"
-                        step="0.1"
-                        value={sensor.maxVolts}
-                        onChange={(e) => handleUpdate(sensorKey, 'maxVolts', e.target.value)}
-                    />
-                </div>
-                <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
-                    <Button variant="contained" color="primary" onClick={() => handleSave(sensorKey)}>
-                        Save
-                    </Button>
-                    <Button variant="contained" onClick={() => handleReset(sensorKey)}>
-                        Reset to Default
+                <p style={{ fontSize: '13px', color: '#555', marginTop: 0 }}>
+                    Reads a pre-computed L/s value streamed over UART by the flow meter's
+                    microcontroller. Sends single-character
+                    commands to that microcontroller over the same UART's TX line.
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Button
+                        variant="contained"
+                        color={testModeOn ? 'secondary' : 'primary'}
+                        onClick={() => emit('CRYOCOMMAND', { stand, command: 't' })}
+                    >
+                        Test Mode: {testModeOn ? 'ON' : 'OFF'}
                     </Button>
                 </div>
                 <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                    <strong>Defaults:</strong> minFlow={defaultSensor.minFlow.toFixed(6)}LPS, 
-                    maxFlow={defaultSensor.maxFlow.toFixed(6)}LPS, 
+                    Sends 't' to toggle the microcontroller's test mode.
                 </div>
             </div>
         );
@@ -228,21 +236,25 @@ export default function CalibrationPanel() {
 
     const renderTemperatureSensor = (sensorKey) => {
         const sensor = calibration[sensorKey];
-        const defaultSensor = defaultSensorCalibration[sensorKey];
 
         return (
             <div style={{ padding: '10px', border: '1px solid #ccc', marginBottom: '10px' }}>
                 <h3>{getSensorName(sensorKey)}</h3>
-                <p style={{ fontSize: '13px', color: '#555', marginTop: 0 }}>
-                    The MAX6675 outputs temperature directly in °C. Use the offset to correct for a known bias (e.g. <code>+2.5</code> adds 2.5°C to every reading).
-                </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '150px 150px', gap: '10px' }}>
-                    <label>Offset (°C):</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '180px 150px', gap: '10px' }}>
+                    <label>Offset:</label>
                     <input
                         type="number"
-                        step="0.1"
+                        step="any"
                         value={sensor.offset}
                         onChange={(e) => handleUpdate(sensorKey, 'offset', e.target.value)}
+                    />
+
+                    <label>Factor:</label>
+                    <input
+                        type="number"
+                        step="any"
+                        value={sensor.factor}
+                        onChange={(e) => handleUpdate(sensorKey, 'factor', e.target.value)}
                     />
                 </div>
                 <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
@@ -252,9 +264,6 @@ export default function CalibrationPanel() {
                     <Button variant="contained" onClick={() => handleReset(sensorKey)}>
                         Reset to Default
                     </Button>
-                </div>
-                <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                    <strong>Default:</strong> offset={defaultSensor.offset}°C
                 </div>
             </div>
         );
@@ -263,30 +272,40 @@ export default function CalibrationPanel() {
     const renderLoadCellSensor = (sensorKey) => {
         const sensor = calibration[sensorKey];
         const defaultSensor = defaultSensorCalibration[sensorKey];
+        // Both load cells are wired into the ETH LabJack (see stands.py)
+        const pin = sensorKey === 'lox_load_cell' ? 'FIO1' : 'FIO0';
 
         return (
             <div style={{ padding: '10px', border: '1px solid #ccc', marginBottom: '10px' }}>
-                <h3>ETH Load Cell</h3>
+                <h3>{getSensorName(sensorKey)}</h3>
                 <p style={{ fontSize: '13px', color: '#555', marginTop: 0 }}>
-                    Voltage is read from FIO0 on the ETH LabJack.
-                    Set Supply V to match your excitation voltage.
-                    Set Cal V to the FIO0 voltage reading with no load applied (zero point).
+                    Voltage is read from {pin} on the ETH LabJack. Set Zero Voltage to the {pin}
+                    reading with no load applied, and Max Voltage to the {pin} reading with a
+                    known reference weight (Full Range) applied.
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '180px 150px', gap: '10px' }}>
-                    <label>Supply Voltage (V):</label>
+                    <label>Full Range (kg):</label>
                     <input
                         type="number"
                         step="0.1"
-                        value={sensor.supplyVoltage}
-                        onChange={(e) => handleUpdate(sensorKey, 'supplyVoltage', e.target.value)}
+                        value={sensor.fullRange}
+                        onChange={(e) => handleUpdate(sensorKey, 'fullRange', e.target.value)}
                     />
 
-                    <label>Calibration Voltage (V):</label>
+                    <label>Zero Voltage (V):</label>
                     <input
                         type="number"
                         step="0.001"
-                        value={sensor.calibrationVoltage}
-                        onChange={(e) => handleUpdate(sensorKey, 'calibrationVoltage', e.target.value)}
+                        value={sensor.zeroVoltage}
+                        onChange={(e) => handleUpdate(sensorKey, 'zeroVoltage', e.target.value)}
+                    />
+
+                    <label>Max Voltage (V):</label>
+                    <input
+                        type="number"
+                        step="0.001"
+                        value={sensor.maxVoltage}
+                        onChange={(e) => handleUpdate(sensorKey, 'maxVoltage', e.target.value)}
                     />
                 </div>
                 <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
@@ -298,12 +317,13 @@ export default function CalibrationPanel() {
                     </Button>
                 </div>
                 <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                    <strong>Defaults:</strong> supplyVoltage={defaultSensor.supplyVoltage}V,
-                    calibrationVoltage={defaultSensor.calibrationVoltage}V
+                    <strong>Defaults:</strong> fullRange={defaultSensor.fullRange}kg,
+                    zeroVoltage={defaultSensor.zeroVoltage}V,
+                    maxVoltage={defaultSensor.maxVoltage}V
                 </div>
                 <div style={{ marginTop: '8px', fontSize: '12px', color: '#888' }}>
-                    <strong>Formula:</strong> sensitivity = (supplyV × 2 × 201) / 1500 mV/kg
-                    &nbsp;→&nbsp; weight = (calV − FIO0) × 1000 / sensitivity
+                    <strong>Formula:</strong> kg per mV = fullRange / (maxVoltage − zeroVoltage)
+                    &nbsp;:&nbsp; weight = ({pin} − zeroVoltage) × kg per mV
                 </div>
             </div>
         );
@@ -312,6 +332,22 @@ export default function CalibrationPanel() {
     return (
         <Panel title="Sensor Calibration" className='panel calibration'>
             <div style={{ padding: '20px' }}>
+                <p style={{ fontSize: '13px', color: '#555', marginTop: 0 }}>
+                    Calibration is saved on the server and shared: a change made here
+                    applies to every device connected to this server, and is kept when
+                    the server restarts.
+                </p>
+                {offerLegacyUpload && (
+                    <div style={{ padding: '10px', border: '1px solid #e0a800', background: '#fff8e1', marginBottom: '20px' }}>
+                        <div style={{ marginBottom: '8px' }}>
+                            The server has no calibration saved yet, but this browser has
+                            values saved from before ({Object.keys(legacy).join(', ')}).
+                        </div>
+                        <Button variant="contained" onClick={uploadLegacy}>
+                            Upload this browser's calibration to the server
+                        </Button>
+                    </div>
+                )}
                 <div style={{ marginBottom: '20px' }}>
                     <Button 
                         variant="contained" 
@@ -328,7 +364,7 @@ export default function CalibrationPanel() {
                         <Button
                             key={sensor.key}
                             variant={selectedSensor === sensor.key ? "contained" : "outlined"}
-                            onClick={() => setSelectedSensor(sensor.key)}
+                            onClick={() => selectSensor(sensor.key)}
                         >
                             {sensor.name}
                         </Button>
@@ -339,7 +375,7 @@ export default function CalibrationPanel() {
                     ? renderFlowSensor(selectedSensor)
                     : (selectedSensor === 'eth_temp' || selectedSensor === 'lox_temp')
                     ? renderTemperatureSensor(selectedSensor)
-                    : selectedSensor === 'eth_load_cell'
+                    : (selectedSensor === 'eth_load_cell' || selectedSensor === 'lox_load_cell')
                     ? renderLoadCellSensor(selectedSensor)
                     : renderPressureSensor(selectedSensor)
                 }

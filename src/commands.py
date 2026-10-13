@@ -4,6 +4,11 @@ from stands import Stand
 import asyncio
 import utils
 
+# Raised by Open/Close when the LabJack did not carry out (or did not confirm) a valve
+# command. The message is written for the operator and is shown as a warning.
+class ValveCommandError(Exception):
+    pass
+
 # Commands that the server executes to control the hardware
 # Changing pins manually will dispatch a client command which creates a server command
 # Creating a sequence creates a list of server commands
@@ -50,8 +55,10 @@ class Open(ServerCommand):
         self.stand = stand
         self.pin = pin
     async def act(self, server):
+        # Raises ValveCommandError if the LabJack doesn't confirm the write in time
+        # (in which case no 'Opened' event is broadcast below)
         if server.sequence_command_allowed():
-            server.labjacks[self.stand].open_valve(self.pin)
+            await server.set_valve(self.stand, self.pin, True)
         asyncio.ensure_future(server.broadcast('VALVE', {
             'time': utils.time_ms(), 'header': 'OPEN', 'pin': self.pin, 'stand': self.stand
         }))
@@ -66,8 +73,9 @@ class Close(ServerCommand):
         self.stand = stand
         self.pin = pin
     async def act(self, server):
+        # Raises ValveCommandError if the LabJack doesn't confirm the write in time
         if server.sequence_command_allowed():
-            server.labjacks[self.stand].close_valve(self.pin)
+            await server.set_valve(self.stand, self.pin, False)
         asyncio.ensure_future(server.broadcast('VALVE', {
             'time': utils.time_ms(), 'header': 'CLOSE', 'pin': self.pin, 'stand': self.stand
         }))
@@ -90,3 +98,6 @@ class ClientCommandString:
     GETSEQUENCE = "GETSEQUENCE"
     SAVESEQUENCE = "SAVESEQUENCE"
     DELETESEQUENCE = "DELETESEQUENCE"
+    CRYOCOMMAND = "CRYOCOMMAND"
+    SETCALIBRATION = "SETCALIBRATION"
+    RESETCALIBRATION = "RESETCALIBRATION"

@@ -32,27 +32,35 @@ class LOX:
 
     LightStand = LightStand('LOX')
 
-    # N2Sensor/LOXSensor were on FIO5/FIO4 - unplugged and freed up so the U3's
-    # onboard hardware UART (see CryoFlowUART below) could take over those two pins,
-    # which it needs as an adjacent TX/RX pair. Not read while the UART owns FIO4/5.
-    # N2Sensor = ('LOX', 5)
-    # LOXSensor = ('LOX', 4)
+    # N2Sensor is plugged back into FIO5 (the thermocouple's dummy MOSI pin moved
+    # off FIO5 to EIO3 to make room - see Thermocouple below).
+    N2Sensor = ('LOX', 5)
+    # LOXSensor restored onto FIO4, since that pin is free (the UART only claimed
+    # FIO6/FIO7, not FIO4/FIO5 - see CryoFlowUART below).
+    LOXSensor = ('LOX', 4)
     # OLD: analog 4-20mA cryo flow sensor, replaced by UART below
     # CryoFlowSensor = ('LOX', 2)  # New cryogenic flow sensor
-    InletPressureSensor = ('LOX', 6)
+    # InletPressureSensor moved from FIO6 to FIO2 (the old, now-unused analog cryo
+    # sensor pin) so the U3's onboard hardware UART could take over FIO6/FIO7 as its
+    # adjacent TX/RX pair. Also update reactfront/src/pins.json's lox_inlet entry to
+    # match (labjack_pin duplicated there for the frontend).
+    InletPressureSensor = ('LOX', 2)
     # OLD: Sensors = [N2Sensor[1], LOXSensor[1], CryoFlowSensor[1], InletPressureSensor[1]]
-    Sensors = [InletPressureSensor[1]]
+    Sensors = [N2Sensor[1], LOXSensor[1], InletPressureSensor[1]]
 
     # Cryo flow meter — microcontroller reads the PT420 and streams CSV lines
     # (timestamp_ms,freq_Hz,filtered_Hz,L_per_s) over the U3's onboard hardware UART
     # (see labjack.py's asynchConfig/get_cryo_flow_lps - not bit-banged GPIO).
-    # TX=FIO4, RX=FIO5 (fixed adjacent pair, the U3's default UART pin offset).
-    # 'rx'/'tx' below are informational only - the real pin routing is controlled by
-    # configIO's TimerCounterPinOffset (defaulted to 4 in asynchConfig), not these keys.
-    CryoFlowUART = {'rx': 5, 'tx': 4, 'baud': 114286}
+    # TX=FIO6, RX=FIO7 (fixed adjacent pair - labjack.py explicitly passes 'tx' below
+    # as the TimerCounterPinOffset, rather than relying on the library's FIO4/5 default).
+    CryoFlowUART = {'rx': 7, 'tx': 6, 'baud': 114286}
 
     # MAX6675 thermocouple SPI pins: SCK=FIO1, CS=FIO0, SO=FIO3
-    Thermocouple = {'sck': 1, 'cs': 0, 'so': 3}
+    # 'mosi' is unused by the MAX6675 (it only transmits on SO, no data in) but the
+    # U3's native hardware SPI command still requires a MOSI pin number and briefly
+    # drives it as output during each transfer - EIO3 (11) is used since nothing
+    # else on this stand claims it (FIO5 went back to N2Sensor). Keep EIO3 unwired.
+    Thermocouple = {'sck': 1, 'cs': 0, 'so': 3, 'mosi': 11}
 
 class ETH:
     SerialNumber = 1
@@ -76,9 +84,18 @@ class ETH:
     ETHSensor = ('ETH', 4)
     InletPressureSensor = ('ETH', 6) 
     LoadCell = ('ETH', 0)  # FIO0 - DC voltage from load cell amplifier
-    Sensors = [N2Sensor[1], ETHSensor[1], InletPressureSensor[1], LoadCell[1]]
+    # LOX stand's load cell, wired into this (ETH) LabJack - so its voltage arrives
+    # in the ETH stand's analog readings, not the LOX stand's.
+    LOXLoadCell = ('ETH', 1)  # FIO1 - DC voltage from load cell amplifier
+    Sensors = [N2Sensor[1], ETHSensor[1], InletPressureSensor[1], LoadCell[1], LOXLoadCell[1]]
 
     # MAX6675 thermocouple SPI pins: SCK=FIO3, CS=FIO2, SO=EIO3
-    Thermocouple = {'sck': 3, 'cs': 2, 'so': 11}
+    # 'mosi' is unused by the MAX6675 (it only transmits on SO, no data in) but the
+    # U3's native hardware SPI command still requires a MOSI pin number and briefly
+    # drives it as output during each transfer - moved from FIO1 to FIO7 when the
+    # LOX load cell took FIO1 (see LOXLoadCell above). FIO7 is the only FIO pin
+    # nothing else on this stand (valves, sensors, light stand, CS/SCK above)
+    # claims. Keep FIO7 unwired.
+    Thermocouple = {'sck': 3, 'cs': 2, 'so': 11, 'mosi': 7}
 
 

@@ -169,7 +169,7 @@ sshpass -p "raspberry" scp -r control-panel.zip pi@192.168.0.5:/home/pi
 sshpass -p "raspberry" ssh pi@192.168.0.5 "unzip control-panel.zip && rm control-panel.zip"
 
 # Restart the server
-sshpass -p "raspberry" ssh pi@192.168.0.5 "pkill python3.10 && cd ~/control-panel/ && chmod 700 startup.sh && sudo sh startup.sh &"
+sshpass -p "raspberry" ssh pi@192.168.0.5 "sudo pkill python3.10 && cd ~/control-panel/ && chmod 700 startup.sh && sudo sh startup.sh &"
 ```
 
 

@@ -356,6 +356,14 @@ input[type='file'] {
   color: #666;
 }
 
+.sensor-label-display {
+  margin-top: 2px;
+  font-size: 0.85em;
+  font-weight: bold;
+  white-space: nowrap;
+  color: #333;
+}
+
 .debug-log-panel {
   position: fixed;
   bottom: 0;

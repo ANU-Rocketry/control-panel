@@ -5,7 +5,7 @@ import { TopBar } from "./components/index"
 import GraphPanel, { newData, newEvent, pinFromID } from './components/panels/graph-panel'
 import Sequences from './components/panels/sequence-panel';
 import ControlPanel, { SequenceExecutionList } from './components/panels/control-panel';
-import { formatDataPoint, emptyDataPoint } from './utils';
+import { formatDataPoint, emptyDataPoint, applyServerCalibration } from './utils';
 import { undefOnBadRef } from "./components/graph-utils.js"
 import { Snackbar, Button } from '@material-ui/core'
 import CalibrationPanel from './components/panels/calibration-panel';
@@ -58,6 +58,9 @@ class App extends React.Component {
       // already-executed commands from the display when switching back.
       fullSequence: [],
       fullSequenceName: null,
+      // Bumped every time the server sends the shared calibration, so the
+      // calibration form reloads its fields with the new values
+      calibrationVersion: 0,
     }
     this.emit = this.emit.bind(this)
     this.setActivePanel = this.setActivePanel.bind(this)
@@ -90,15 +93,28 @@ class App extends React.Component {
     this.setState(diff)
   }
   connect() {
-    if (this.socket) this.socket.close();
+    // Detach the old socket's handlers before closing it. Its onclose used to fire
+    // after the new socket had been created, set this.socket = null and open a
+    // second connection a second later. That left two live sockets on one page (it
+    // happened every time the Server IP box was edited), so every message was
+    // handled twice: valve events were drawn twice on the graphs and every state
+    // update was processed twice.
+    if (this.socket) {
+      this.socket.onopen = this.socket.onclose = this.socket.onmessage = null
+      this.socket.close()
+      newData(emptyDataPoint)
+    }
+    this.socket = null
     try {
-    this.socket = new WebSocket(`ws://${this.state.wsAddress}:8888`)
+    const socket = new WebSocket(`ws://${this.state.wsAddress}:8888`)
+    this.socket = socket
     this.updateSocketStatus()
-    this.socket.onopen = e => {
+    socket.onopen = e => {
       console.log('websocket connection established')
       this.updateSocketStatus()
     }
-    this.socket.onclose = e => {
+    socket.onclose = e => {
+      if (this.socket !== socket) return // an old socket: a newer one has replaced it
       this.updateSocketStatus()
       this.socket = null
       console.log('websocket connection lost. reconnecting...')
@@ -109,8 +125,8 @@ class App extends React.Component {
         }
       }, 1000)
     }
-    this.socket.onmessage = e => {
-      if (!this.mounted) return
+    socket.onmessage = e => {
+      if (!this.mounted || this.socket !== socket) return
       this.updateSocketStatus()
       const data = JSON.parse(e.data)
       switch (data.type) {
@@ -133,6 +149,9 @@ class App extends React.Component {
             if (this.loxFlowBuffer.length > this.LOX_FLOW_BUFFER_SIZE) {
               this.loxFlowBuffer.shift()
             }
+          }
+          if (data.data.labjacks.LOX && data.data.labjacks.LOX.stale) {
+            this.loxFlowBuffer = [] // no fresh LOX data: leave a gap, don't repeat the old mean
           }
           if (this.loxFlowBuffer.length > 0) {
             dataPoint['LOX Flow'] = this.loxFlowBuffer.reduce((a, b) => a + b, 0) / this.loxFlowBuffer.length
@@ -157,6 +176,11 @@ class App extends React.Component {
             this.pushWarning(data.data.latest_warning[0], data.data.latest_warning[1])
           }
           break
+        case 'CALIBRATION':
+          // Shared sensor calibration: sent on connect and whenever anyone changes it
+          applyServerCalibration(data.data)
+          this.setState({ calibrationVersion: this.state.calibrationVersion + 1 })
+          break
         case 'PING':
           this.setState({ ping: new Date().getTime() - data.data })
           break
@@ -167,6 +191,10 @@ class App extends React.Component {
           const time = data.time / 1000
           const pin = pinFromID(data.data.pin, data.data.stand).pin
           const label = (data.data.header === 'CLOSE' ? 'Closed' : 'Opened') + ' ' + pin.test_stand + ' ' + pin.abbrev
+          // The same command sent again straight away (e.g. a double click before
+          // the switch has updated) changes nothing on the stand: mark it once
+          const previous = this.state.events[this.state.events.length - 1]
+          if (previous && previous.label === label && Math.abs(time - previous.time) < 0.3) break
           newEvent({ time, label })
           this.setState({ events: [...this.state.events, { ...data.data, label, time }] })
           break
@@ -207,7 +235,7 @@ class App extends React.Component {
                 </div>
               )}
               {this.state.activePanel === 'sequence' && <Sequences state={this.state} emit={this.emit} />}
-              {this.state.activePanel === 'calibration' && <CalibrationPanel />}
+              {this.state.activePanel === 'calibration' && <CalibrationPanel key={this.state.calibrationVersion} state={this.state} emit={this.emit} />}
             </div>
             <GraphPanel state={this.state} emit={this.emit} />
           </div>
