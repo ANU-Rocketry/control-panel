@@ -1,6 +1,6 @@
 import { Switch } from '@material-ui/core';
 import React, { useState, useEffect, useCallback } from 'react';
-import { getBar, getLoadCellKg, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
+import { getBar, getLoadCellKg, getTemperatureC, sensorData, SENSOR_BATCH_SIZE } from '../../utils';
 // OLD: import { getLPS } from '../../utils'; — used for analog cryo flow voltage conversion, replaced by UART
 import { Panel } from '../index'
 import pins from '../../pins.json'
@@ -152,9 +152,8 @@ function ControlCard({ state, emit, sensorBatches, sensorAverages, updateSensorH
     if (state.data && sensor) {
         if (sensor.type === 'temperature') {
             const raw = state.data.labjacks[props.test_stand]?.["temperature"];
-            // The MAX6675 amplifier reports °C directly - shown as-is
             if (raw != null) {
-                currentValue = raw;
+                currentValue = getTemperatureC(raw, sensor.offset, sensor.factor);
             }
             unit = '°C';
         } else if (sensor.type === 'force') {

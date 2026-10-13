@@ -243,8 +243,8 @@ class LabJack(LabJackBase):
         # D14-D3 12-bit temperature, D2 open-thermocouple flag, D1 device ID, D0 unused
         if v & 0x4:                            # D2: open thermocouple fault
             return None
-        # 12 bits at 0.25°C per count: 0x000 = 0°C, 0xFFF = 1023.75°C. This is the
-        # temperature shown everywhere - the frontend applies no calibration to it.
+        # 12 bits at 0.25°C per count: 0x000 = 0°C, 0xFFF = 1023.75°C. This raw value
+        # is what gets logged; the frontend applies the offset/factor calibration.
         return ((v >> 3) & 0xFFF) * 0.25
 
     def _thermocouple_worker(self):

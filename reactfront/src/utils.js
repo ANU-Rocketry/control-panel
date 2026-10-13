@@ -1,5 +1,5 @@
 export function getBar(volts, barMax, minVolts, maxVolts) {
-    // Linear interpolation: minVolts → 0 bar, maxVolts → barMax bar
+    // Linear interpolation: minVolts -> 0 bar, maxVolts -> barMax bar
     const bar = (volts - minVolts) / (maxVolts - minVolts) * barMax;
     return bar;
 }
@@ -20,6 +20,12 @@ export function getBar(volts, barMax, minVolts, maxVolts) {
 export function getLoadCellKg(volts, fullRange, zeroVoltage, maxVoltage) {
     const kg = (volts - zeroVoltage) / (maxVoltage - zeroVoltage) * fullRange;
     return kg;
+}
+
+// Calibrate the thermocouple amplifier's raw °C reading (MAX6675, decoded from its
+// SPI bits in labjack.py): temperature = (raw - offset) / factor
+export function getTemperatureC(raw, offset, factor) {
+    return (raw - offset) / factor;
 }
 
 // Convert voltage to flow rate in LPS (Litres Per Second) for flow sensors
@@ -73,13 +79,18 @@ export const defaultSensorCalibration = {
         // minVolts: 0.4684,
         // maxVolts: 2.342,
     },
-    // The MAX6675 amplifier sends the temperature in °C itself (decoded from its SPI
-    // bits in labjack.py), so it is shown as-is - no calibration
+    // Thermocouples: temperature = (raw - offset) / factor, where raw is the °C value
+    // the MAX6675 amplifier reports. The raw value is still logged and exported
+    // ('ETH Temp Raw' / 'LOX Temp Raw') so readings can be recalibrated later.
     eth_temp: {
         type: 'temperature',
+        offset: 1192 / 85,   // °C
+        factor: 108 / 85,
     },
     lox_temp: {
         type: 'temperature',
+        offset: 1192 / 85,   // °C
+        factor: 108 / 85,
     },
     eth_load_cell: {
         type: 'force',
@@ -274,9 +285,16 @@ export function formatDataPoint(dict) {
         // 'LOX Flow Raw': LOX.analog["2"],
         // Cryo flow meter streams pre-computed L/s over UART — no voltage conversion needed
         'LOX Flow': LOX.cryo_flow_lps ?? NaN,
-        // Thermocouple amplifier reports °C directly - no conversion needed
-        'ETH Temp': ETH.temperature ?? NaN,
-        'LOX Temp': LOX.temperature ?? NaN,
+        // Thermocouples: the calibrated value is graphed, the amplifier's raw °C value
+        // is kept alongside it for the CSV
+        'ETH Temp': ETH.temperature != null
+            ? getTemperatureC(ETH.temperature, sensorData.eth_temp.offset, sensorData.eth_temp.factor)
+            : NaN,
+        'ETH Temp Raw': ETH.temperature ?? NaN,
+        'LOX Temp': LOX.temperature != null
+            ? getTemperatureC(LOX.temperature, sensorData.lox_temp.offset, sensorData.lox_temp.factor)
+            : NaN,
+        'LOX Temp Raw': LOX.temperature ?? NaN,
         'ETH Load Cell': ETH.analog?.["0"] !== undefined
             ? getLoadCellKg(ETH.analog["0"], sensorData.eth_load_cell.fullRange, sensorData.eth_load_cell.zeroVoltage, sensorData.eth_load_cell.maxVoltage)
             : NaN,
@@ -306,7 +324,9 @@ export const emptyDataPoint = {
     // 'LOX Flow Raw': NaN, // OLD: was raw analog voltage, no longer applicable with UART
     'LOX Flow': NaN,
     'ETH Temp': NaN,
+    'ETH Temp Raw': NaN,
     'LOX Temp': NaN,
+    'LOX Temp Raw': NaN,
     'ETH Load Cell': NaN,
     'ETH Load Cell V': NaN,
     'LOX Load Cell': NaN,

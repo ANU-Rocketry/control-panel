@@ -577,6 +577,11 @@ const TemperatureDatalogger = Datalogger({
     'ETH Temp': { color: '#e67e00' }, // Orange for ETH
     'LOX Temp': { color: '#0077cc' }, // Blue for LOX
   },
+  // Raw amplifier output, before calibration: not drawn, but included in the CSV
+  hiddenSeries: {
+    'ETH Temp Raw': { color: '#e67e00' },
+    'LOX Temp Raw': { color: '#0077cc' },
+  },
 })
 
 export default function GraphPanel({ state }) {
