@@ -142,8 +142,8 @@ export default function CalibrationPanel({ state, emit }) {
         { key: 'eth_inlet', name: 'ETH Motor Inlet Pressure' },
         { key: 'lox_inlet', name: 'LOX Motor Inlet Pressure' },
         { key: 'lox_cryo', name: 'LOX Cryo Flow' },
-        { key: 'eth_temp', name: 'ETH Temperature' },
-        { key: 'lox_temp', name: 'LOX Temperature' },
+        { key: 'eth_temp', name: 'Motor Thrust' },
+        { key: 'lox_temp', name: 'Weighing Sensor' },
         { key: 'eth_load_cell', name: 'ETH Load Cell' },
         { key: 'lox_load_cell', name: 'LOX Load Cell' },
     ];
