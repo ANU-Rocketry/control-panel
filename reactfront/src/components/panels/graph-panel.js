@@ -41,6 +41,99 @@ const minTempYBounds = [-5, 5]  // °C
 
 
 // newData({ time: epoch_secs, series1: value1, ... })
+// Minimal zip writer (uncompressed "stored" entries) so "Download All" can bundle
+// every graph's SVG/CSV without adding a dependency.
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256)
+  for (let n = 0; n < 256; n++) {
+    let c = n
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1
+    table[n] = c >>> 0
+  }
+  return table
+})()
+
+function crc32(bytes) {
+  let crc = 0xFFFFFFFF
+  for (let i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8)
+  return (crc ^ 0xFFFFFFFF) >>> 0
+}
+
+// files: [{ name, content }] where content is a string. Returns a Blob.
+function makeZip(files) {
+  const encoder = new TextEncoder()
+  const now = new Date()
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()
+
+  const parts = []
+  const central = []
+  let offset = 0
+
+  for (const file of files) {
+    const name = encoder.encode(file.name)
+    const data = encoder.encode(file.content)
+    const crc = crc32(data)
+
+    // Local file header
+    const local = new DataView(new ArrayBuffer(30))
+    local.setUint32(0, 0x04034b50, true)
+    local.setUint16(4, 20, true)          // version needed
+    local.setUint16(6, 0x0800, true)      // flags: UTF-8 names
+    local.setUint16(8, 0, true)           // method: stored
+    local.setUint16(10, dosTime, true)
+    local.setUint16(12, dosDate, true)
+    local.setUint32(14, crc, true)
+    local.setUint32(18, data.length, true)
+    local.setUint32(22, data.length, true)
+    local.setUint16(26, name.length, true)
+    local.setUint16(28, 0, true)
+    parts.push(local, name, data)
+
+    // Central directory entry
+    const entry = new DataView(new ArrayBuffer(46))
+    entry.setUint32(0, 0x02014b50, true)
+    entry.setUint16(4, 20, true)          // version made by
+    entry.setUint16(6, 20, true)          // version needed
+    entry.setUint16(8, 0x0800, true)
+    entry.setUint16(10, 0, true)
+    entry.setUint16(12, dosTime, true)
+    entry.setUint16(14, dosDate, true)
+    entry.setUint32(16, crc, true)
+    entry.setUint32(20, data.length, true)
+    entry.setUint32(24, data.length, true)
+    entry.setUint16(28, name.length, true)
+    entry.setUint32(42, offset, true)     // other fields stay 0
+    central.push(entry, name)
+
+    offset += 30 + name.length + data.length
+  }
+
+  const centralSize = central.reduce((sum, p) => sum + p.byteLength, 0)
+  const end = new DataView(new ArrayBuffer(22))
+  end.setUint32(0, 0x06054b50, true)
+  end.setUint16(8, files.length, true)
+  end.setUint16(10, files.length, true)
+  end.setUint32(12, centralSize, true)
+  end.setUint32(16, offset, true)
+
+  return new Blob([...parts, ...central, end], { type: 'application/zip' })
+}
+
+function fileTimestamp() {
+  return new Date().toISOString().replace(/[:.]/g, '-').split('.')[0]
+}
+
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 // You can update the data for any combination of series across any combination of dataloggers
 export const newData = detail => document.dispatchEvent(new CustomEvent('datalogger-new-data', { detail }))
 
@@ -222,18 +315,12 @@ export function Datalogger({
       }
     }
 
-    const downloadSVG = () => {
-      const svg = svgRef.current
-      const svgData = new XMLSerializer().serializeToString(svg)
-      const blob = new Blob([svgData], {type: 'image/svg+xml'})
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `graph-${label || 'data'}.svg`
-      link.click()
-    }
+    const svgFile = () => ({
+      name: `graph-${label || 'data'}.svg`,
+      content: new XMLSerializer().serializeToString(svgRef.current),
+    })
 
-    const downloadCSV = () => {
+    const csvFile = () => {
       // Build CSV content with header (includes hidden series columns)
       let csv = 'Timestamp (s),' + allSeriesKeys.join(',') + ',Valve Events\n'
 
@@ -312,20 +399,16 @@ export function Datalogger({
         csv += [timestamp, ...values, eventsStr].join(',') + '\n'
       })
 
-      // Download CSV file
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0]
-      link.download = `sensor_data_${label || 'data'}_${timestamp}.csv`
-      link.click()
-      URL.revokeObjectURL(url)
+      return { name: `sensor_data_${label || 'data'}_${fileTimestamp()}.csv`, content: csv }
     }
+
+    const downloadSVG = () => { const f = svgFile(); saveBlob(new Blob([f.content], { type: 'image/svg+xml' }), f.name) }
+    const downloadCSV = () => { const f = csvFile(); saveBlob(new Blob([f.content], { type: 'text/csv;charset=utf-8;' }), f.name) }
 
     // Expose download actions to the parent GraphPanel, which drives them from a
     // single shared dropdown + buttons instead of per-graph download buttons.
-    React.useImperativeHandle(downloadRef, () => ({ downloadSVG, downloadCSV }))
+    // svgFile/csvFile are used by "Download All" to bundle every graph into one zip.
+    React.useImperativeHandle(downloadRef, () => ({ downloadSVG, downloadCSV, svgFile, csvFile }))
 
     const verticalLabels = events
       .map(({ time, ...e }) => ({ x: v2x(time - currentSeconds), ...e }))
@@ -603,6 +686,11 @@ export default function GraphPanel({ state }) {
 
   const downloadSVG = () => graphs.find(g => g.id === selectedGraphId)?.ref.current?.downloadSVG()
   const downloadCSV = () => graphs.find(g => g.id === selectedGraphId)?.ref.current?.downloadCSV()
+  // Every graph's SVG and CSV in one zip
+  const downloadAll = () => {
+    const files = graphs.flatMap(g => g.ref.current ? [g.ref.current.svgFile(), g.ref.current.csvFile()] : [])
+    saveBlob(makeZip(files), `all_graphs_${fileTimestamp()}.zip`)
+  }
 
   // Instead of using a cumbersome charting library, we use JSX with SVG to declaratively
   // and efficiently construct highly customisable graphs
@@ -650,6 +738,7 @@ export default function GraphPanel({ state }) {
         </select>
         <button onClick={downloadSVG}>Download SVG</button>
         <button onClick={downloadCSV}>Download CSV</button>
+        <button onClick={downloadAll}>Download All (zip)</button>
       </div>
     </Panel>
   )
