@@ -295,15 +295,15 @@ export function formatDataPoint(dict) {
             ? getTemperatureC(LOX.temperature, sensorData.lox_temp.offset, sensorData.lox_temp.factor)
             : NaN,
         'LOX Temp Raw': LOX.temperature ?? NaN,
-        'ETH Load Cell': ETH.analog?.["0"] !== undefined
+        'Motor Thrust': ETH.analog?.["0"] !== undefined
             ? getLoadCellKg(ETH.analog["0"], sensorData.eth_load_cell.fullRange, sensorData.eth_load_cell.zeroVoltage, sensorData.eth_load_cell.maxVoltage)
             : NaN,
-        'ETH Load Cell V': ETH.analog?.["0"] ?? NaN,
+        'Motor Thrust V': ETH.analog?.["0"] ?? NaN,
         // LOX load cell is read through the ETH LabJack (FIO1), hence ETH.analog
-        'LOX Load Cell': ETH.analog?.["1"] !== undefined
+        'Weighing Sensor': ETH.analog?.["1"] !== undefined
             ? getLoadCellKg(ETH.analog["1"], sensorData.lox_load_cell.fullRange, sensorData.lox_load_cell.zeroVoltage, sensorData.lox_load_cell.maxVoltage)
             : NaN,
-        'LOX Load Cell V': ETH.analog?.["1"] ?? NaN,
+        'Weighing Sensor V': ETH.analog?.["1"] ?? NaN,
     }
 }
 
@@ -327,10 +327,10 @@ export const emptyDataPoint = {
     'ETH Temp Raw': NaN,
     'LOX Temp': NaN,
     'LOX Temp Raw': NaN,
-    'ETH Load Cell': NaN,
-    'ETH Load Cell V': NaN,
-    'LOX Load Cell': NaN,
-    'LOX Load Cell V': NaN,
+    'Motor Thrust': NaN,
+    'Motor Thrust V': NaN,
+    'Weighing Sensor': NaN,
+    'Weighing Sensor V': NaN,
 }
 
 //previous fixed calibration data
